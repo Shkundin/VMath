@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: visualmath-server
+    env: node
+    plan: starter
+    rootDir: .
+    autoDeploy: true
+    buildCommand: corepack enable && pnpm install --frozen-lockfile=false --prod=false && pnpm --filter @vm/shared build && pnpm --filter @vm/server build
+    startCommand: pnpm --filter @vm/server db:migrate && pnpm --filter @vm/server start
+    healthCheckPath: /api/v1/health

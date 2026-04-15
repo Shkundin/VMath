@@ -13,6 +13,9 @@ export interface SubmitQuizRequest {
 }
 
 export interface SubmitQuizResponse {
+  ok: boolean;
+  questionsCount: number;
+  finalized: boolean;
   attemptId: string;
   score: number;
   maxScore: number;
@@ -31,6 +34,33 @@ export class QuizService {
       throw err("VALIDATION", "At least one answer is required");
     }
 
-    return this.http.postJson(`/quiz/submit`, request);
+    const response = await this.http.postJson<{
+      ok: boolean;
+      questionsCount: number;
+      finalized: boolean;
+    }>(
+      `/api/v1/sessions/${request.sessionId}/blocks/${request.blockId}/answers`,
+      {
+        answers: request.answers.map((answer) => ({
+          questionId: answer.questionId,
+          selectedOptionIds:
+            answer.payload.type === "single"
+              ? [answer.payload.optionId]
+              : answer.payload.type === "multi"
+                ? answer.payload.optionIds
+                : [],
+          answerText: answer.payload.type === "short" ? answer.payload.text : undefined
+        })),
+        finalize: true
+      }
+    );
+
+    return {
+      ...response,
+      attemptId: `${request.sessionId}:${request.blockId}`,
+      score: 0,
+      maxScore: response.questionsCount,
+      checkedAt: new Date().toISOString()
+    };
   }
 }

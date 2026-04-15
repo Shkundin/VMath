@@ -6,9 +6,13 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "typecheck": "pnpm -r run typecheck",
-    "build": "pnpm --filter @vm/shared build && pnpm --filter @vm/integration build && pnpm --filter @vm/graphics build && pnpm --filter @vm/server-mock build && pnpm --filter @vm/mobile run typecheck",
+    "build": "pnpm --filter @vm/shared build && pnpm --filter @vm/integration build && pnpm --filter @vm/graphics build && pnpm --filter @vm/server build && pnpm --filter @vm/server-mock build && pnpm --filter @vm/mobile run typecheck",
+    "build:backend": "pnpm --filter @vm/shared build && pnpm --filter @vm/server build",
     "dev:mobile": "pnpm --filter @vm/mobile start",
-    "dev:server": "pnpm --filter @vm/server-mock dev"
+    "dev:server": "pnpm --filter @vm/server-mock dev",
+    "dev:server:mock": "pnpm --filter @vm/server-mock dev",
+    "dev:backend": "pnpm --filter @vm/server dev",
+    "test:backend": "pnpm --filter @vm/server test"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

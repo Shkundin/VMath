@@ -65,7 +65,8 @@ const wsClient = new WsClient(
   {
     url: WS_BASE_URL,
     maxRetries: 8,
-    pingIntervalMs: 25000
+    pingIntervalMs: 25000,
+    getToken: () => tokenProvider.getAccessToken()
   },
   () => {
   },

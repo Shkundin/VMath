@@ -1,0 +1,37 @@
+{
+  "name": "@vm/server",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node --enable-source-maps dist/main.js",
+    "db:migrate": "tsx src/database/migrate.ts",
+    "db:seed": "tsx src/database/seed.ts",
+    "db:prepare": "pnpm db:migrate && pnpm db:seed",
+    "test": "tsc -p tsconfig.tests.json && node .test-dist/apps/server/test/run-all.js"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.8",
+    "@nestjs/core": "^11.1.8",
+    "@nestjs/platform-express": "^11.1.8",
+    "@nestjs/platform-ws": "^11.1.8",
+    "@nestjs/swagger": "^11.2.1",
+    "@nestjs/websockets": "^11.1.8",
+    "@supabase/supabase-js": "^2.57.2",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
+    "pg": "^8.16.3",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.5",
+    "@types/ws": "^8.18.1",
+    "@nestjs/testing": "^11.1.8",
+    "pg-mem": "^3.0.5",
+    "tsx": "^4.20.6"
+  }
+}

@@ -1,4 +1,4 @@
-import { err } from "@vm/shared";
+import { err, type UserProfile } from "@vm/shared";
 import { HttpClient } from "../http/httpClient";
 import type { TokenPair, TokenStorage } from "./tokenStorage";
 
@@ -19,7 +19,7 @@ export class AuthService {
       throw err("VALIDATION", "Login and password are required");
     }
 
-    const response = await this.http.postJson<LoginResponse>("/auth/login", {
+    const response = await this.http.postJson<LoginResponse>("/api/v1/auth/login", {
       login,
       password
     });
@@ -34,6 +34,16 @@ export class AuthService {
   }
 
   async logout(): Promise<void> {
+    const tokens = await this.storage.get();
+
+    if (tokens?.refreshToken) {
+      try {
+        await this.http.postJson("/api/v1/auth/logout", {
+          refreshToken: tokens.refreshToken
+        });
+      } catch {}
+    }
+
     await this.storage.set(null);
   }
 
@@ -56,7 +66,7 @@ export class AuthService {
       throw err("AUTH", "Missing refresh token");
     }
 
-    const response = await this.http.postJson<LoginResponse>("/auth/refresh", {
+    const response = await this.http.postJson<LoginResponse>("/api/v1/auth/refresh", {
       refreshToken: tokens.refreshToken
     });
 
@@ -67,5 +77,9 @@ export class AuthService {
     };
 
     await this.storage.set(nextTokens);
+  }
+
+  async me(): Promise<UserProfile> {
+    return this.http.getJson<UserProfile>("/api/v1/auth/me");
   }
 }

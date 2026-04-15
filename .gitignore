@@ -2,9 +2,11 @@ node_modules
 .pnpm-store
 .expo
 dist
+.test-dist
 coverage
 .env
 .env.*
+!.env.example
 .DS_Store
 Thumbs.db
 .vscode

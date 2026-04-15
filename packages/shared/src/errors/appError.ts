@@ -4,7 +4,12 @@ export type ErrorCode =
   | "AUTH"
   | "WS"
   | "VALIDATION"
+  | "FORBIDDEN"
+  | "NOT_FOUND"
+  | "CONFLICT"
+  | "RATE_LIMIT"
   | "GRAPHICS"
+  | "DATABASE"
   | "UNKNOWN";
 
 export interface AppError {

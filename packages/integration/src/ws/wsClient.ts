@@ -6,6 +6,7 @@ export interface WsClientOptions {
   url: string;
   maxRetries?: number;
   pingIntervalMs?: number;
+  getToken?: () => Promise<string | null>;
 }
 
 export class WsClient {
@@ -28,20 +29,32 @@ export class WsClient {
   }
 
   connect() {
+    void this.connectInternal();
+  }
+
+  private async connectInternal() {
     if (this.state === "connecting" || this.state === "connected") {
       return;
     }
 
     this.state = "connecting";
-    this.ws = new WebSocket(this.opts.url);
+    const token = (await this.opts.getToken?.()) ?? null;
+    const wsUrl = token
+      ? `${this.opts.url}${this.opts.url.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`
+      : this.opts.url;
+    this.ws = new WebSocket(wsUrl);
 
     this.ws.onopen = () => {
       this.retries = 0;
       this.state = "connected";
       this.startPing();
+      const now = new Date().toISOString();
       this.onEvent({
         type: "HELLO",
-        payload: { ts: new Date().toISOString() }
+        payload: {
+          ts: now,
+          serverTime: now
+        }
       });
     };
 

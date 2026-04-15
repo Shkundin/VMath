@@ -18,11 +18,11 @@ function getDefaultBaseUrl(): string {
       return "http://127.0.0.1:8787";
     }
 
-    return `${origin}/api`;
+    return origin;
   }
 
   return "http://127.0.0.1:8787";
 }
 
-export const API_BASE_URL = getDefaultBaseUrl();
-export const WS_BASE_URL = API_BASE_URL.replace(/^http/i, "ws");
+export const API_BASE_URL = getDefaultBaseUrl().replace(/\/+$/, "");
+export const WS_BASE_URL = `${API_BASE_URL.replace(/^http/i, "ws")}/ws`;

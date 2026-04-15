@@ -12,13 +12,31 @@ export class SessionService {
   ) {}
 
   async createSession(lectureId: string): Promise<{ sessionId: string }> {
-    return this.http.postJson("/sessions", { lectureId });
+    return this.http.postJson("/api/v1/sessions", { lectureId });
   }
 
   async getSession(sessionId: string): Promise<SessionState> {
-    const state = await this.http.getJson<SessionState>(`/sessions/${sessionId}`);
+    const state = await this.http.getJson<SessionState>(`/api/v1/sessions/${sessionId}`);
     this.currentState = state;
     return state;
+  }
+
+  async listActiveSessions() {
+    return this.http.getJson("/api/v1/sessions/active");
+  }
+
+  async joinSession(input: { sessionId?: string; sessionCode?: string }) {
+    const state = await this.http.postJson<SessionState>("/api/v1/sessions/join", input);
+    this.currentState = state;
+    return state;
+  }
+
+  async startSession(sessionId: string) {
+    return this.http.postJson<SessionState>(`/api/v1/sessions/${sessionId}/start`, {});
+  }
+
+  async stopSession(sessionId: string) {
+    return this.http.postJson<SessionState>(`/api/v1/sessions/${sessionId}/stop`, {});
   }
 
   joinWs(sessionId: string) {
@@ -64,8 +82,53 @@ export class SessionService {
   }
 
   async setActiveBlock(sessionId: string, blockId: string): Promise<void> {
-    await this.http.postJson(`/sessions/${sessionId}/activeBlock`, { blockId });
+    await this.http.patchJson(`/api/v1/sessions/${sessionId}/current-block`, { blockId });
     this.ws.send({ type: "SET_ACTIVE_BLOCK", payload: { sessionId, blockId } });
+  }
+
+  async getParticipants(sessionId: string) {
+    return this.http.getJson(`/api/v1/sessions/${sessionId}/participants`);
+  }
+
+  async updateVisualState(input: {
+    sessionId: string;
+    blockId: string;
+    schemaVersion: number;
+    state: Record<string, unknown>;
+  }) {
+    return this.http.patchJson(`/api/v1/sessions/${input.sessionId}/visual-state`, {
+      blockId: input.blockId,
+      schemaVersion: input.schemaVersion,
+      state: input.state
+    });
+  }
+
+  async startCheckingBlock(input: {
+    sessionId: string;
+    blockId: string;
+    timeLimitSec?: number;
+  }) {
+    return this.http.postJson(
+      `/api/v1/sessions/${input.sessionId}/blocks/${input.blockId}/checking/start`,
+      {
+        timeLimitSec: input.timeLimitSec
+      }
+    );
+  }
+
+  async finishCheckingBlock(input: { sessionId: string; blockId: string }) {
+    return this.http.postJson(
+      `/api/v1/sessions/${input.sessionId}/blocks/${input.blockId}/checking/finish`,
+      {}
+    );
+  }
+
+  async getResults(sessionId: string) {
+    return this.http.getJson(`/api/v1/sessions/${sessionId}/results`);
+  }
+
+  async getStats(sessionId: string) {
+    return this.http.getJson(`/api/v1/sessions/${sessionId}/stats`);
   }
 
   getLocalState(): SessionState | null {
