@@ -528,16 +528,22 @@ function createStyles(theme: AppTheme, width: number) {
     },
     actionRow: {
       flexDirection: isPhone ? "column" : "row",
-      alignItems: "stretch"
+      alignItems: "stretch",
+      marginBottom: theme.spacing.xs
     },
     actionHint: {
+      width: "100%",
+      flexShrink: 1,
       fontSize: theme.typography.caption,
       lineHeight: 20,
-      color: theme.colors.textSecondary
+      color: theme.colors.textSecondary,
+      marginTop: theme.spacing.xs,
+      marginBottom: theme.spacing.sm
     },
     logoutWrap: {
       flexDirection: "row",
-      flexWrap: "wrap"
+      flexWrap: "wrap",
+      paddingBottom: theme.spacing.xs
     },
     logoutButton: {
       marginTop: theme.spacing.xs

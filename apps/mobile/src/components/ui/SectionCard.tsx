@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
     borderWidth: 1,
     marginBottom: 16,
-    overflow: "hidden"
+    overflow: "visible"
   },
   title: {
     fontWeight: "900",

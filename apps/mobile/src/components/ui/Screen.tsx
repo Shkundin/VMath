@@ -34,7 +34,7 @@ export function Screen({ theme, children }: ScreenProps) {
           {
             paddingHorizontal: isPhone ? theme.spacing.sm : theme.spacing.md,
             paddingTop: isPhone ? theme.spacing.sm : theme.spacing.md,
-            paddingBottom: isPhone ? theme.spacing.xxl : theme.spacing.xl * 2
+            paddingBottom: isPhone ? theme.spacing.xl * 4 : theme.spacing.xl * 2
           }
         ]}
         keyboardShouldPersistTaps="handled"
