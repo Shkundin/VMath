@@ -207,10 +207,6 @@ export function ProfileScreen({
               style={styles.actionButton}
             />
           </View>
-
-          <Text style={styles.actionHint}>
-            Меняй режимы без лишних экранов и сразу проверяй мобильный интерфейс.
-          </Text>
         </SectionCard>
       </View>
 
@@ -530,15 +526,6 @@ function createStyles(theme: AppTheme, width: number) {
       flexDirection: isPhone ? "column" : "row",
       alignItems: "stretch",
       marginBottom: theme.spacing.xs
-    },
-    actionHint: {
-      width: "100%",
-      flexShrink: 1,
-      fontSize: theme.typography.caption,
-      lineHeight: 20,
-      color: theme.colors.textSecondary,
-      marginTop: theme.spacing.xs,
-      marginBottom: theme.spacing.sm
     },
     logoutWrap: {
       flexDirection: "row",
