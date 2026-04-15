@@ -41,7 +41,11 @@ function formatDate(value: string): string {
   }
 }
 
-function buildLatexHtml(latexDocument: LatexDocumentState, printMode = false): string {
+function buildLatexHtml(
+  latexDocument: LatexDocumentState,
+  printMode = false,
+  autoPrint = false
+): string {
   const escapedTitle = escapeHtml(latexDocument.title || "LaTeX-конспект");
   const escapedAuthor = escapeHtml(latexDocument.authorName || "VisualMath");
   const escapedUpdatedAt = escapeHtml(formatDate(latexDocument.updatedAt));
@@ -50,10 +54,25 @@ function buildLatexHtml(latexDocument: LatexDocumentState, printMode = false): s
   const helperBlock = printMode
     ? `
       <div class="print-helper">
-        Это версия для сохранения в PDF. Нажми <strong>Ctrl+P</strong> и выбери
-        <strong>«Сохранить как PDF»</strong>.
+        PDF откроется в режиме печати. Выбери <strong>«Сохранить как PDF»</strong>
+        и скачай чистую версию конспекта.
       </div>
     `
+    : "";
+
+  const autoPrintScript = autoPrint
+    ? `
+        setTimeout(function () {
+          window.focus();
+          window.print();
+        }, 700);
+
+        window.addEventListener("afterprint", function () {
+          setTimeout(function () {
+            window.close();
+          }, 150);
+        });
+      `
     : "";
 
   return `
@@ -167,6 +186,8 @@ function buildLatexHtml(latexDocument: LatexDocumentState, printMode = false): s
               throwOnError: false,
               strict: false
             });
+
+            ${autoPrintScript}
           });
         </script>
       </body>
@@ -206,14 +227,14 @@ export function LatexWorkspaceScreen({
       return;
     }
 
-    const html = buildLatexHtml(latexDocument, true);
+    const html = buildLatexHtml(latexDocument, true, true);
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
 
     const opened = globalThis.open?.(url, "_blank");
 
     if (!opened) {
-      alert("Браузер заблокировал новое окно. Разреши pop-up для localhost и попробуй снова.");
+      alert("Браузер заблокировал окно экспорта. Разреши pop-up и попробуй снова.");
       URL.revokeObjectURL(url);
       return;
     }
@@ -292,11 +313,11 @@ export function LatexWorkspaceScreen({
 
         <SectionCard
           title={isTeacher ? "Экспорт и шаблон" : "PDF"}
-          subtitle={isTeacher ? "Можно открыть чистую версию для PDF или сбросить пример." : "Откроется отдельная страница для сохранения в PDF."}
+          subtitle={isTeacher ? "Можно сразу скачать PDF-конспект или сбросить пример." : "Откроется системное окно сохранения PDF."}
           theme={theme}
         >
           <AppButton
-            label="Открыть PDF-версию"
+            label="Скачать PDF"
             onPress={handleOpenPdfVersion}
             theme={theme}
             style={styles.buttonSpacing}
@@ -312,7 +333,7 @@ export function LatexWorkspaceScreen({
           ) : null}
 
           <Text style={styles.helpText}>
-            В новой вкладке нажми Ctrl+P и выбери «Сохранить как PDF».
+            PDF формируется из аккуратной печатной версии конспекта.
           </Text>
         </SectionCard>
       </ScrollView>

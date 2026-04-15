@@ -63,7 +63,7 @@ import {
   writeThemeMode
 } from "../storage/mobileCache";
 import { createAppTheme, type AppTheme, type ThemeMode } from "../theme";
-import { readLatexDocument, writeLatexDocument, type LatexDocumentState } from "../storage/latexStorage";
+import { createDefaultLatexDocument, readLatexDocument, writeLatexDocument, type LatexDocumentState } from "../storage/latexStorage";
 import { readMeetings, writeMeetings, type MeetingItem } from "../storage/meetingsStorage";
 import {
   readHomeworks,
@@ -74,6 +74,8 @@ import {
   type HomeworkSubmissionItem
 } from "../storage/homeworkStorage";
 import {
+  createTeacherJoinCode,
+  normalizeTeacherJoinCode,
   readTeacherBranches,
   readSelectedTeacherLogin,
   writeTeacherBranches,
@@ -793,7 +795,10 @@ export function AppNavigation() {
   const [homeworkSubmissions, setHomeworkSubmissions] = useState<HomeworkSubmissionItem[]>([]);
   const [teacherBranches, setTeacherBranches] = useState<TeacherBranch[]>([]);
   const [selectedTeacherLogin, setSelectedTeacherLogin] = useState<string | null>(null);
-  const [latexDocument, setLatexDocument] = useState<LatexDocumentState>(readLatexDocument());
+  const [latexDocument, setLatexDocument] = useState<LatexDocumentState>(
+    createDefaultLatexDocument()
+  );
+  const [latexScopeLogin, setLatexScopeLogin] = useState<string | null>(null);
   const [testingResults, setTestingResults] = useState<TestingRunResult[]>([]);
   const [activeTestingSession, setActiveTestingSession] = useState<ActiveTestingSession | null>(null);
   const [testingSubmissions, setTestingSubmissions] = useState<TestingSubmission[]>([]);
@@ -819,6 +824,10 @@ export function AppNavigation() {
   const selectedTeacherBranch = useMemo(
     () => teacherBranches.find((branch) => branch.teacherLogin === selectedTeacherLogin) ?? null,
     [teacherBranches, selectedTeacherLogin]
+  );
+  const ownTeacherBranch = useMemo(
+    () => teacherBranches.find((branch) => branch.teacherLogin === user.login) ?? null,
+    [teacherBranches, user.login]
   );
   const displayRoleBadgeLabel = fixText(
     isTeacher ? "Преподаватель" : selectedTeacherBranch?.teacherName || "Ветка"
@@ -1233,6 +1242,23 @@ export function AppNavigation() {
       return;
     }
 
+    setLatexDocument(readLatexDocument(scopedTeacherLogin));
+    setLatexScopeLogin(scopedTeacherLogin);
+  }, [isHydrating, scopedTeacherLogin]);
+
+  useEffect(() => {
+    if (isHydrating || !scopedTeacherLogin || latexScopeLogin !== scopedTeacherLogin) {
+      return;
+    }
+
+    void writeLatexDocument(latexDocument, scopedTeacherLogin);
+  }, [isHydrating, latexDocument, latexScopeLogin, scopedTeacherLogin]);
+
+  useEffect(() => {
+    if (isHydrating) {
+      return;
+    }
+
     void writeActiveTestingSession(activeTestingSession);
   }, [activeTestingSession, isHydrating]);
 
@@ -1284,6 +1310,7 @@ export function AppNavigation() {
         teacherLogin: nextTeacherLogin,
         teacherName: nextTeacherName,
         title: nextTeacherName,
+        joinCode: createTeacherJoinCode(nextTeacherLogin),
         description: `Материалы преподавателя ${nextTeacherName}`,
         createdAt:
           existingIndex === -1
@@ -1299,6 +1326,7 @@ export function AppNavigation() {
       next[existingIndex] = {
         ...next[existingIndex],
         teacherName: nextTeacherName,
+        joinCode: next[existingIndex].joinCode || baseBranch.joinCode,
         title: next[existingIndex].title || baseBranch.title,
         description: next[existingIndex].description || baseBranch.description
       };
@@ -1321,6 +1349,28 @@ export function AppNavigation() {
     resetStudentFlow();
     resetTeacherFlow();
     setActiveScreen("catalog");
+  }
+
+  function handleJoinTeacherBranch(
+    joinCode: string
+  ): { ok: true; branch: TeacherBranch } | { ok: false; error: string } {
+    const normalizedCode = normalizeTeacherJoinCode(joinCode);
+
+    if (!normalizedCode) {
+      return { ok: false, error: "Введите код преподавателя." };
+    }
+
+    const matchedBranch =
+      teacherBranches.find(
+        (branch) => normalizeTeacherJoinCode(branch.joinCode) === normalizedCode
+      ) ?? null;
+
+    if (!matchedBranch) {
+      return { ok: false, error: "Курс с таким кодом не найден. Проверь код и попробуй снова." };
+    }
+
+    handleSelectTeacherBranch(matchedBranch.teacherLogin);
+    return { ok: true, branch: matchedBranch };
   }
 
   async function refreshCatalogFromApi(nextTeacherLogin?: string) {
@@ -2630,12 +2680,7 @@ export function AppNavigation() {
             theme={theme}
             branches={teacherBranches}
             selectedTeacherLogin={selectedTeacherLogin}
-            onSelectTeacher={handleSelectTeacherBranch}
-            onContinue={() => {
-              if (selectedTeacherLogin) {
-                handleSelectTeacherBranch(selectedTeacherLogin);
-              }
-            }}
+            onJoinByCode={handleJoinTeacherBranch}
           />
         ) : null}
 
@@ -2697,6 +2742,7 @@ export function AppNavigation() {
           <TeacherHomeScreen
             theme={theme}
             user={user}
+            teacherJoinCode={ownTeacherBranch?.joinCode ?? createTeacherJoinCode(user.login)}
             lectures={visibleLectures}
             lectureDetailsById={lectureDetailsById}
             onOpenManageSession={(lecture) => void handleOpenManageTeacherSession(lecture)}

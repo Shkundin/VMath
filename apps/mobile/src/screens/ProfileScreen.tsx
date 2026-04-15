@@ -186,25 +186,31 @@ export function ProfileScreen({
 
         <SectionCard
           theme={theme}
-          title="Режим проверки"
-          subtitle="Быстрая смена состояний для проверки экранов."
+          title="Проверка экранов"
+          subtitle="Быстрое переключение учебных состояний."
           style={styles.cardNarrow}
         >
-          <AppButton
-            label="Состояние курсов"
-            onPress={onCycleCatalogMode}
-            theme={theme}
-            variant="secondary"
-            style={styles.actionButton}
-          />
+          <View style={styles.actionRow}>
+            <AppButton
+              label="Курсы"
+              onPress={onCycleCatalogMode}
+              theme={theme}
+              variant="secondary"
+              style={styles.actionButton}
+            />
 
-          <AppButton
-            label="Состояние занятия"
-            onPress={onCycleSessionMode}
-            theme={theme}
-            variant="secondary"
-            style={styles.actionButton}
-          />
+            <AppButton
+              label="Занятие"
+              onPress={onCycleSessionMode}
+              theme={theme}
+              variant="secondary"
+              style={styles.actionButton}
+            />
+          </View>
+
+          <Text style={styles.actionHint}>
+            Меняй режимы без лишних экранов и сразу проверяй мобильный интерфейс.
+          </Text>
         </SectionCard>
       </View>
 
@@ -515,7 +521,19 @@ function createStyles(theme: AppTheme, width: number) {
       marginVertical: theme.spacing.lg
     },
     actionButton: {
+      flex: 1,
+      minWidth: isPhone ? "100%" : 0,
+      marginRight: isPhone ? 0 : theme.spacing.sm,
       marginBottom: theme.spacing.sm
+    },
+    actionRow: {
+      flexDirection: isPhone ? "column" : "row",
+      alignItems: "stretch"
+    },
+    actionHint: {
+      fontSize: theme.typography.caption,
+      lineHeight: 20,
+      color: theme.colors.textSecondary
     },
     logoutWrap: {
       flexDirection: "row",

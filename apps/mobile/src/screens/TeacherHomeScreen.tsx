@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import type { LectureDetails, QuizQuestion } from "@vm/shared";
 
@@ -42,6 +42,7 @@ export type DraftQuestionInput = {
 type TeacherHomeScreenProps = {
   theme: AppTheme;
   user: UserProfile;
+  teacherJoinCode: string;
   lectures: LectureItem[];
   lectureDetailsById: Record<string, LectureDetails>;
   onOpenManageSession: (lecture: LectureItem) => void;
@@ -56,6 +57,7 @@ type TeacherHomeScreenProps = {
 export function TeacherHomeScreen({
   theme,
   user,
+  teacherJoinCode,
   lectures,
   lectureDetailsById,
   onOpenManageSession,
@@ -73,9 +75,9 @@ export function TeacherHomeScreen({
   const [description, setDescription] = useState("");
   const [theory, setTheory] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
-  const [subject, setSubject] = useState("Математический анализ");
-  const [semester, setSemester] = useState("1 семестр");
-  const [level, setLevel] = useState("Базовый");
+  const [subject, setSubject] = useState("РњР°С‚РµРјР°С‚РёС‡РµСЃРєРёР№ Р°РЅР°Р»РёР·");
+  const [semester, setSemester] = useState("1 СЃРµРјРµСЃС‚СЂ");
+  const [level, setLevel] = useState("Р‘Р°Р·РѕРІС‹Р№");
   const [createError, setCreateError] = useState("");
   const [createSuccess, setCreateSuccess] = useState("");
 
@@ -123,9 +125,9 @@ export function TeacherHomeScreen({
   );
 
   const normalizedTeacherName = fixText(user.fullName || "");
-  const teacherDisplayName = /[А-Яа-яЁёA-Za-z]/.test(normalizedTeacherName)
+  const teacherDisplayName = normalizedTeacherName.trim().length > 0
     ? normalizedTeacherName
-    : "Преподаватель VisualMath";
+    : "РџСЂРµРїРѕРґР°РІР°С‚РµР»СЊ VisualMath";
 
   const teacherVideoUrl =
     expandedLecture ? ((expandedLecture as LectureItem & { videoUrl?: string }).videoUrl ?? "") : "";
@@ -167,25 +169,25 @@ export function TeacherHomeScreen({
 
     if (!nextTitle) {
       setCreateSuccess("");
-      setCreateError("Введите название лекции.");
+      setCreateError("Р’РІРµРґРёС‚Рµ РЅР°Р·РІР°РЅРёРµ Р»РµРєС†РёРё.");
       return;
     }
 
     if (!nextDescription) {
       setCreateSuccess("");
-      setCreateError("Введите краткое описание.");
+      setCreateError("Р’РІРµРґРёС‚Рµ РєСЂР°С‚РєРѕРµ РѕРїРёСЃР°РЅРёРµ.");
       return;
     }
 
     if (!nextTheory) {
       setCreateSuccess("");
-      setCreateError("Введите теоретический материал.");
+      setCreateError("Р’РІРµРґРёС‚Рµ С‚РµРѕСЂРµС‚РёС‡РµСЃРєРёР№ РјР°С‚РµСЂРёР°Р».");
       return;
     }
 
     if (!nextSubject || !nextSemester || !nextLevel) {
       setCreateSuccess("");
-      setCreateError("Заполни предмет, семестр и уровень.");
+      setCreateError("Р—Р°РїРѕР»РЅРё РїСЂРµРґРјРµС‚, СЃРµРјРµСЃС‚СЂ Рё СѓСЂРѕРІРµРЅСЊ.");
       return;
     }
 
@@ -201,7 +203,7 @@ export function TeacherHomeScreen({
 
     if (!createdLectureId) {
       setCreateSuccess("");
-      setCreateError("Не удалось создать лекцию.");
+      setCreateError("РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ Р»РµРєС†РёСЋ.");
       return;
     }
 
@@ -209,11 +211,11 @@ export function TeacherHomeScreen({
     setDescription("");
     setTheory("");
     setVideoUrl("");
-    setSubject("Математический анализ");
-    setSemester("1 семестр");
-    setLevel("Базовый");
+    setSubject("РњР°С‚РµРјР°С‚РёС‡РµСЃРєРёР№ Р°РЅР°Р»РёР·");
+    setSemester("1 СЃРµРјРµСЃС‚СЂ");
+    setLevel("Р‘Р°Р·РѕРІС‹Р№");
     setCreateError("");
-    setCreateSuccess("Лекция создана. Теперь можно открыть редактор и добавить вопросы.");
+    setCreateSuccess("Р›РµРєС†РёСЏ СЃРѕР·РґР°РЅР°. РўРµРїРµСЂСЊ РјРѕР¶РЅРѕ РѕС‚РєСЂС‹С‚СЊ СЂРµРґР°РєС‚РѕСЂ Рё РґРѕР±Р°РІРёС‚СЊ РІРѕРїСЂРѕСЃС‹.");
     setExpandedLectureId(createdLectureId);
     resetQuestionForm();
   }
@@ -253,7 +255,7 @@ export function TeacherHomeScreen({
       videoUrl: metaVideoUrl.trim()
     });
 
-    setMetaSuccess("Параметры лекции обновлены.");
+    setMetaSuccess("РџР°СЂР°РјРµС‚СЂС‹ Р»РµРєС†РёРё РѕР±РЅРѕРІР»РµРЅС‹.");
   }
 
   function handleAddQuestion() {
@@ -263,13 +265,13 @@ export function TeacherHomeScreen({
 
     if (!questionText.trim()) {
       setQuestionSuccess("");
-      setQuestionError("Введите текст вопроса.");
+      setQuestionError("Р’РІРµРґРёС‚Рµ С‚РµРєСЃС‚ РІРѕРїСЂРѕСЃР°.");
       return;
     }
 
     if (!optionA.trim() || !optionB.trim() || !optionC.trim() || !optionD.trim()) {
       setQuestionSuccess("");
-      setQuestionError("Заполни все четыре варианта ответа.");
+      setQuestionError("Р—Р°РїРѕР»РЅРё РІСЃРµ С‡РµС‚С‹СЂРµ РІР°СЂРёР°РЅС‚Р° РѕС‚РІРµС‚Р°.");
       return;
     }
 
@@ -284,33 +286,34 @@ export function TeacherHomeScreen({
     });
 
     resetQuestionForm();
-    setQuestionSuccess("Вопрос добавлен.");
+    setQuestionSuccess("Р’РѕРїСЂРѕСЃ РґРѕР±Р°РІР»РµРЅ.");
   }
 
   return (
     <Screen theme={theme}>
       <ScreenHeader
         theme={theme}
-        title="Кабинет преподавателя"
-        subtitle="Создавай лекции, управляй материалами, проверочными блоками и быстрыми сессиями."
+        title="РљР°Р±РёРЅРµС‚ РїСЂРµРїРѕРґР°РІР°С‚РµР»СЏ"
+        subtitle="РЎРѕР·РґР°РІР°Р№ Р»РµРєС†РёРё, СѓРїСЂР°РІР»СЏР№ РјР°С‚РµСЂРёР°Р»Р°РјРё, РїСЂРѕРІРµСЂРѕС‡РЅС‹РјРё Р±Р»РѕРєР°РјРё Рё Р±С‹СЃС‚СЂС‹РјРё СЃРµСЃСЃРёСЏРјРё."
       />
 
       <View style={styles.heroCard}>
         <View style={styles.heroMain}>
-          <Text style={styles.heroEyebrow}>Рабочее пространство</Text>
+          <Text style={styles.heroEyebrow}>Р Р°Р±РѕС‡РµРµ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІРѕ</Text>
           <Text style={styles.heroTitle}>{teacherDisplayName}</Text>
           <Text style={styles.heroSubtitle}>
-            Всё важное в одном месте: создание лекций, редактор вопросов, запуск тестов и проверка результатов.
+            Р’СЃС‘ РІР°Р¶РЅРѕРµ РІ РѕРґРЅРѕРј РјРµСЃС‚Рµ: СЃРѕР·РґР°РЅРёРµ Р»РµРєС†РёР№, СЂРµРґР°РєС‚РѕСЂ РІРѕРїСЂРѕСЃРѕРІ, Р·Р°РїСѓСЃРє С‚РµСЃС‚РѕРІ Рё РїСЂРѕРІРµСЂРєР° СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ.
           </Text>
 
           <View style={styles.infoRow}>
-            <InfoBadge theme={theme} label={fixText(`Логин: ${user.login}`)} />
-            <InfoBadge theme={theme} label={fixText(`Группа: ${user.group}`)} />
+            <InfoBadge theme={theme} label={fixText(`Р›РѕРіРёРЅ: ${user.login}`)} />
+            <InfoBadge theme={theme} label={fixText(`Р“СЂСѓРїРїР°: ${user.group}`)} />
+            <InfoBadge theme={theme} label={fixText(`РљРѕРґ РєСѓСЂСЃР°: ${teacherJoinCode}`)} />
           </View>
 
           <View style={styles.heroActionRow}>
             <AppButton
-              label="Выйти из аккаунта"
+              label="Р’С‹Р№С‚Рё РёР· Р°РєРєР°СѓРЅС‚Р°"
               onPress={onLogout}
               theme={theme}
               variant="secondary"
@@ -321,44 +324,44 @@ export function TeacherHomeScreen({
         </View>
 
         <View style={styles.heroStats}>
-          <StatTile theme={theme} value={String(lectures.length)} label="Лекций" />
-          <StatTile theme={theme} value={String(totalDraftLectures)} label="Черновиков" />
-          <StatTile theme={theme} value={String(totalQuestions)} label="Вопросов" />
+          <StatTile theme={theme} value={String(lectures.length)} label="Р›РµРєС†РёР№" />
+          <StatTile theme={theme} value={String(totalDraftLectures)} label="Р§РµСЂРЅРѕРІРёРєРѕРІ" />
+          <StatTile theme={theme} value={String(totalQuestions)} label="Р’РѕРїСЂРѕСЃРѕРІ" />
         </View>
       </View>
 
       <View style={styles.dashboardRow}>
         <SectionCard
           theme={theme}
-          title="Создать новую лекцию"
-          subtitle="Сначала создаём основу, потом открываем редактор и наполняем вопросами."
+          title="РЎРѕР·РґР°С‚СЊ РЅРѕРІСѓСЋ Р»РµРєС†РёСЋ"
+          subtitle="РЎРЅР°С‡Р°Р»Р° СЃРѕР·РґР°С‘Рј РѕСЃРЅРѕРІСѓ, РїРѕС‚РѕРј РѕС‚РєСЂС‹РІР°РµРј СЂРµРґР°РєС‚РѕСЂ Рё РЅР°РїРѕР»РЅСЏРµРј РІРѕРїСЂРѕСЃР°РјРё."
           style={styles.dashboardWide}
         >
           <AppInput
-            label="Название лекции"
+            label="РќР°Р·РІР°РЅРёРµ Р»РµРєС†РёРё"
             theme={theme}
             value={title}
             onChangeText={setTitle}
-            placeholder="Например: Производная и касательная"
+            placeholder="РќР°РїСЂРёРјРµСЂ: РџСЂРѕРёР·РІРѕРґРЅР°СЏ Рё РєР°СЃР°С‚РµР»СЊРЅР°СЏ"
             autoCorrect={false}
           />
 
           <AppInput
-            label="Краткое описание"
+            label="РљСЂР°С‚РєРѕРµ РѕРїРёСЃР°РЅРёРµ"
             theme={theme}
             value={description}
             onChangeText={setDescription}
-            placeholder="О чём эта лекция"
+            placeholder="Рћ С‡С‘Рј СЌС‚Р° Р»РµРєС†РёСЏ"
             multiline
             numberOfLines={3}
           />
 
           <AppInput
-            label="Теоретический материал"
+            label="РўРµРѕСЂРµС‚РёС‡РµСЃРєРёР№ РјР°С‚РµСЂРёР°Р»"
             theme={theme}
             value={theory}
             onChangeText={setTheory}
-            placeholder="Вставь основной текст лекции"
+            placeholder="Р’СЃС‚Р°РІСЊ РѕСЃРЅРѕРІРЅРѕР№ С‚РµРєСЃС‚ Р»РµРєС†РёРё"
             multiline
             numberOfLines={8}
           />
@@ -366,37 +369,37 @@ export function TeacherHomeScreen({
           <View style={styles.formRow}>
             <View style={styles.formCol}>
               <AppInput
-                label="Предмет"
+                label="РџСЂРµРґРјРµС‚"
                 theme={theme}
                 value={subject}
                 onChangeText={setSubject}
-                placeholder="Математический анализ"
+                placeholder="РњР°С‚РµРјР°С‚РёС‡РµСЃРєРёР№ Р°РЅР°Р»РёР·"
               />
             </View>
 
             <View style={styles.formCol}>
               <AppInput
-                label="Семестр"
+                label="РЎРµРјРµСЃС‚СЂ"
                 theme={theme}
                 value={semester}
                 onChangeText={setSemester}
-                placeholder="1 семестр"
+                placeholder="1 СЃРµРјРµСЃС‚СЂ"
               />
             </View>
 
             <View style={styles.formCol}>
               <AppInput
-                label="Уровень"
+                label="РЈСЂРѕРІРµРЅСЊ"
                 theme={theme}
                 value={level}
                 onChangeText={setLevel}
-                placeholder="Базовый"
+                placeholder="Р‘Р°Р·РѕРІС‹Р№"
               />
             </View>
           </View>
 
           <AppInput
-            label="Ссылка на видеоматериал"
+            label="РЎСЃС‹Р»РєР° РЅР° РІРёРґРµРѕРјР°С‚РµСЂРёР°Р»"
             theme={theme}
             value={videoUrl}
             onChangeText={setVideoUrl}
@@ -409,7 +412,7 @@ export function TeacherHomeScreen({
           {createSuccess ? <Text style={styles.successText}>{createSuccess}</Text> : null}
 
           <AppButton
-            label="Создать лекцию"
+            label="РЎРѕР·РґР°С‚СЊ Р»РµРєС†РёСЋ"
             onPress={handleCreateLecture}
             theme={theme}
             style={styles.actionTop}
@@ -418,40 +421,40 @@ export function TeacherHomeScreen({
 
         <SectionCard
           theme={theme}
-          title="Фокус дня"
-          subtitle="Быстрый доступ к главным действиям преподавателя."
+          title="Р¤РѕРєСѓСЃ РґРЅСЏ"
+          subtitle="Р‘С‹СЃС‚СЂС‹Р№ РґРѕСЃС‚СѓРї Рє РіР»Р°РІРЅС‹Рј РґРµР№СЃС‚РІРёСЏРј РїСЂРµРїРѕРґР°РІР°С‚РµР»СЏ."
           style={styles.dashboardNarrow}
         >
           <ActionMiniCard
             theme={theme}
-            title="Лекции"
-            subtitle="Открывай редактор и дополняй структуру курса."
+            title="Р›РµРєС†РёРё"
+            subtitle="РћС‚РєСЂС‹РІР°Р№ СЂРµРґР°РєС‚РѕСЂ Рё РґРѕРїРѕР»РЅСЏР№ СЃС‚СЂСѓРєС‚СѓСЂСѓ РєСѓСЂСЃР°."
           />
           <ActionMiniCard
             theme={theme}
-            title="Сессии"
-            subtitle="Запускай занятие и переключай учебные блоки."
+            title="РЎРµСЃСЃРёРё"
+            subtitle="Р—Р°РїСѓСЃРєР°Р№ Р·Р°РЅСЏС‚РёРµ Рё РїРµСЂРµРєР»СЋС‡Р°Р№ СѓС‡РµР±РЅС‹Рµ Р±Р»РѕРєРё."
           />
           <ActionMiniCard
             theme={theme}
-            title="Тестирование"
-            subtitle="Делай быстрые проверочные тесты прямо на занятии."
+            title="РўРµСЃС‚РёСЂРѕРІР°РЅРёРµ"
+            subtitle="Р”РµР»Р°Р№ Р±С‹СЃС‚СЂС‹Рµ РїСЂРѕРІРµСЂРѕС‡РЅС‹Рµ С‚РµСЃС‚С‹ РїСЂСЏРјРѕ РЅР° Р·Р°РЅСЏС‚РёРё."
           />
           <ActionMiniCard
             theme={theme}
-            title="Итоги"
-            subtitle="Смотри, кто уже сдал задания и как прошли проверки."
+            title="РС‚РѕРіРё"
+            subtitle="РЎРјРѕС‚СЂРё, РєС‚Рѕ СѓР¶Рµ СЃРґР°Р» Р·Р°РґР°РЅРёСЏ Рё РєР°Рє РїСЂРѕС€Р»Рё РїСЂРѕРІРµСЂРєРё."
           />
         </SectionCard>
       </View>
 
       <SectionCard
         theme={theme}
-        title="Лекции преподавателя"
-        subtitle="Запуск сессии, редактор и управление вопросами — прямо из карточки лекции."
+        title="Р›РµРєС†РёРё РїСЂРµРїРѕРґР°РІР°С‚РµР»СЏ"
+        subtitle="Р—Р°РїСѓСЃРє СЃРµСЃСЃРёРё, СЂРµРґР°РєС‚РѕСЂ Рё СѓРїСЂР°РІР»РµРЅРёРµ РІРѕРїСЂРѕСЃР°РјРё вЂ” РїСЂСЏРјРѕ РёР· РєР°СЂС‚РѕС‡РєРё Р»РµРєС†РёРё."
       >
         {lectures.length === 0 ? (
-          <Text style={styles.emptyText}>Пока нет лекций. Создай первую лекцию выше.</Text>
+          <Text style={styles.emptyText}>РџРѕРєР° РЅРµС‚ Р»РµРєС†РёР№. РЎРѕР·РґР°Р№ РїРµСЂРІСѓСЋ Р»РµРєС†РёСЋ РІС‹С€Рµ.</Text>
         ) : (
           lectures.map((lecture) => {
             const isExpanded = expandedLectureId === lecture.id;
@@ -466,38 +469,38 @@ export function TeacherHomeScreen({
                       <TinyPill theme={theme} label={fixText(lecture.subject)} tone="primary" />
                       <TinyPill theme={theme} label={fixText(lecture.level)} tone="neutral" />
                       {lecture.id.startsWith("draft-lecture-") ? (
-                        <TinyPill theme={theme} label="Черновик" tone="success" />
+                        <TinyPill theme={theme} label="Р§РµСЂРЅРѕРІРёРє" tone="success" />
                       ) : null}
                     </View>
 
                     <Text style={styles.lectureTitle}>{fixText(lecture.title)}</Text>
                     <Text style={styles.lectureMeta}>
-                      {fixText(`${lecture.subject} • ${lecture.semester} • ${lecture.level}`)}
+                      {fixText(`${lecture.subject} вЂў ${lecture.semester} вЂў ${lecture.level}`)}
                     </Text>
                     <Text style={styles.lectureDescription}>{fixText(lecture.description)}</Text>
                   </View>
                 </View>
 
                 <View style={styles.metaPanel}>
-                  <MetaItem theme={theme} label="Блоков" value={String(lecture.blocks.length)} />
-                  <MetaItem theme={theme} label="Вопросов" value={String(questions.length)} />
-                  <MetaItem theme={theme} label="Длительность" value={fixText(lecture.estimatedDuration)} />
+                  <MetaItem theme={theme} label="Р‘Р»РѕРєРѕРІ" value={String(lecture.blocks.length)} />
+                  <MetaItem theme={theme} label="Р’РѕРїСЂРѕСЃРѕРІ" value={String(questions.length)} />
+                  <MetaItem theme={theme} label="Р”Р»РёС‚РµР»СЊРЅРѕСЃС‚СЊ" value={fixText(lecture.estimatedDuration)} />
                 </View>
 
                 {videoValue ? (
-                  <Text style={styles.videoHint}>{fixText(`Видео: ${videoValue}`)}</Text>
+                  <Text style={styles.videoHint}>{fixText(`Р’РёРґРµРѕ: ${videoValue}`)}</Text>
                 ) : null}
 
                 <View style={styles.actionsRow}>
                   <AppButton
-                    label="Запустить сессию"
+                    label="Р—Р°РїСѓСЃС‚РёС‚СЊ СЃРµСЃСЃРёСЋ"
                     onPress={() => onOpenManageSession(lecture)}
                     theme={theme}
                     fullWidth={false}
                     style={styles.inlineButton}
                   />
                   <AppButton
-                    label={isExpanded ? "Скрыть редактор" : "Открыть редактор"}
+                    label={isExpanded ? "РЎРєСЂС‹С‚СЊ СЂРµРґР°РєС‚РѕСЂ" : "РћС‚РєСЂС‹С‚СЊ СЂРµРґР°РєС‚РѕСЂ"}
                     onPress={() => handleToggleEditor(lecture.id)}
                     theme={theme}
                     variant="secondary"
@@ -505,7 +508,7 @@ export function TeacherHomeScreen({
                     style={styles.inlineButton}
                   />
                   <AppButton
-                    label="Удалить лекцию"
+                    label="РЈРґР°Р»РёС‚СЊ Р»РµРєС†РёСЋ"
                     onPress={() => onDeleteLecture(lecture.id)}
                     theme={theme}
                     variant="ghost"
@@ -519,36 +522,36 @@ export function TeacherHomeScreen({
                     <View style={styles.editorRow}>
                       <SectionCard
                         theme={theme}
-                        title="Параметры лекции"
-                        subtitle="Предмет, семестр, уровень и видеоматериал."
+                        title="РџР°СЂР°РјРµС‚СЂС‹ Р»РµРєС†РёРё"
+                        subtitle="РџСЂРµРґРјРµС‚, СЃРµРјРµСЃС‚СЂ, СѓСЂРѕРІРµРЅСЊ Рё РІРёРґРµРѕРјР°С‚РµСЂРёР°Р»."
                         style={styles.editorCard}
                       >
                         <AppInput
-                          label="Предмет"
+                          label="РџСЂРµРґРјРµС‚"
                           theme={theme}
                           value={metaSubject}
                           onChangeText={setMetaSubject}
-                          placeholder="Предмет"
+                          placeholder="РџСЂРµРґРјРµС‚"
                         />
 
                         <AppInput
-                          label="Семестр"
+                          label="РЎРµРјРµСЃС‚СЂ"
                           theme={theme}
                           value={metaSemester}
                           onChangeText={setMetaSemester}
-                          placeholder="Семестр"
+                          placeholder="РЎРµРјРµСЃС‚СЂ"
                         />
 
                         <AppInput
-                          label="Уровень"
+                          label="РЈСЂРѕРІРµРЅСЊ"
                           theme={theme}
                           value={metaLevel}
                           onChangeText={setMetaLevel}
-                          placeholder="Уровень"
+                          placeholder="РЈСЂРѕРІРµРЅСЊ"
                         />
 
                         <AppInput
-                          label="Ссылка на видео"
+                          label="РЎСЃС‹Р»РєР° РЅР° РІРёРґРµРѕ"
                           theme={theme}
                           value={metaVideoUrl}
                           onChangeText={setMetaVideoUrl}
@@ -560,7 +563,7 @@ export function TeacherHomeScreen({
                         {metaSuccess ? <Text style={styles.successText}>{metaSuccess}</Text> : null}
 
                         <AppButton
-                          label="Сохранить параметры"
+                          label="РЎРѕС…СЂР°РЅРёС‚СЊ РїР°СЂР°РјРµС‚СЂС‹"
                           onPress={handleSaveMeta}
                           theme={theme}
                           style={styles.actionTop}
@@ -569,12 +572,12 @@ export function TeacherHomeScreen({
 
                       <SectionCard
                         theme={theme}
-                        title="Теория лекции"
-                        subtitle="Предпросмотр основного материала."
+                        title="РўРµРѕСЂРёСЏ Р»РµРєС†РёРё"
+                        subtitle="РџСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ РѕСЃРЅРѕРІРЅРѕРіРѕ РјР°С‚РµСЂРёР°Р»Р°."
                         style={styles.editorCard}
                       >
                         <Text style={styles.theoryPreview}>
-                          {fixText(expandedTheory || "Теория пока не добавлена.")}
+                          {fixText(expandedTheory || "РўРµРѕСЂРёСЏ РїРѕРєР° РЅРµ РґРѕР±Р°РІР»РµРЅР°.")}
                         </Text>
                       </SectionCard>
                     </View>
@@ -582,16 +585,16 @@ export function TeacherHomeScreen({
                     <View style={styles.editorRow}>
                       <SectionCard
                         theme={theme}
-                        title="Добавить вопрос"
-                        subtitle="Собери новый вопрос для проверочного блока."
+                        title="Р”РѕР±Р°РІРёС‚СЊ РІРѕРїСЂРѕСЃ"
+                        subtitle="РЎРѕР±РµСЂРё РЅРѕРІС‹Р№ РІРѕРїСЂРѕСЃ РґР»СЏ РїСЂРѕРІРµСЂРѕС‡РЅРѕРіРѕ Р±Р»РѕРєР°."
                         style={styles.editorCard}
                       >
                         <AppInput
-                          label="Текст вопроса"
+                          label="РўРµРєСЃС‚ РІРѕРїСЂРѕСЃР°"
                           theme={theme}
                           value={questionText}
                           onChangeText={setQuestionText}
-                          placeholder="Введите вопрос"
+                          placeholder="Р’РІРµРґРёС‚Рµ РІРѕРїСЂРѕСЃ"
                           multiline
                           numberOfLines={3}
                         />
@@ -599,20 +602,20 @@ export function TeacherHomeScreen({
                         <View style={styles.formRow}>
                           <View style={styles.halfCol}>
                             <AppInput
-                              label="Вариант A"
+                              label="Р’Р°СЂРёР°РЅС‚ A"
                               theme={theme}
                               value={optionA}
                               onChangeText={setOptionA}
-                              placeholder="Первый вариант"
+                              placeholder="РџРµСЂРІС‹Р№ РІР°СЂРёР°РЅС‚"
                             />
                           </View>
                           <View style={styles.halfCol}>
                             <AppInput
-                              label="Вариант B"
+                              label="Р’Р°СЂРёР°РЅС‚ B"
                               theme={theme}
                               value={optionB}
                               onChangeText={setOptionB}
-                              placeholder="Второй вариант"
+                              placeholder="Р’С‚РѕСЂРѕР№ РІР°СЂРёР°РЅС‚"
                             />
                           </View>
                         </View>
@@ -620,25 +623,25 @@ export function TeacherHomeScreen({
                         <View style={styles.formRow}>
                           <View style={styles.halfCol}>
                             <AppInput
-                              label="Вариант C"
+                              label="Р’Р°СЂРёР°РЅС‚ C"
                               theme={theme}
                               value={optionC}
                               onChangeText={setOptionC}
-                              placeholder="Третий вариант"
+                              placeholder="РўСЂРµС‚РёР№ РІР°СЂРёР°РЅС‚"
                             />
                           </View>
                           <View style={styles.halfCol}>
                             <AppInput
-                              label="Вариант D"
+                              label="Р’Р°СЂРёР°РЅС‚ D"
                               theme={theme}
                               value={optionD}
                               onChangeText={setOptionD}
-                              placeholder="Четвёртый вариант"
+                              placeholder="Р§РµС‚РІС‘СЂС‚С‹Р№ РІР°СЂРёР°РЅС‚"
                             />
                           </View>
                         </View>
 
-                        <Text style={styles.sectionLabel}>Правильный ответ</Text>
+                        <Text style={styles.sectionLabel}>РџСЂР°РІРёР»СЊРЅС‹Р№ РѕС‚РІРµС‚</Text>
                         <View style={styles.answerRow}>
                           {(["A", "B", "C", "D"] as const).map((key) => {
                             const isActive = correctOptionKey === key;
@@ -669,11 +672,11 @@ export function TeacherHomeScreen({
                         </View>
 
                         <AppInput
-                          label="Пояснение"
+                          label="РџРѕСЏСЃРЅРµРЅРёРµ"
                           theme={theme}
                           value={questionExplanation}
                           onChangeText={setQuestionExplanation}
-                          placeholder="Короткое пояснение к правильному ответу"
+                          placeholder="РљРѕСЂРѕС‚РєРѕРµ РїРѕСЏСЃРЅРµРЅРёРµ Рє РїСЂР°РІРёР»СЊРЅРѕРјСѓ РѕС‚РІРµС‚Сѓ"
                           multiline
                           numberOfLines={3}
                         />
@@ -682,7 +685,7 @@ export function TeacherHomeScreen({
                         {questionSuccess ? <Text style={styles.successText}>{questionSuccess}</Text> : null}
 
                         <AppButton
-                          label="Добавить вопрос"
+                          label="Р”РѕР±Р°РІРёС‚СЊ РІРѕРїСЂРѕСЃ"
                           onPress={handleAddQuestion}
                           theme={theme}
                           style={styles.actionTop}
@@ -691,12 +694,12 @@ export function TeacherHomeScreen({
 
                       <SectionCard
                         theme={theme}
-                        title="Текущие вопросы"
-                        subtitle="Вопросы для этой лекции."
+                        title="РўРµРєСѓС‰РёРµ РІРѕРїСЂРѕСЃС‹"
+                        subtitle="Р’РѕРїСЂРѕСЃС‹ РґР»СЏ СЌС‚РѕР№ Р»РµРєС†РёРё."
                         style={styles.editorCard}
                       >
                         {expandedQuestions.length === 0 ? (
-                          <Text style={styles.emptyText}>Пока нет вопросов.</Text>
+                          <Text style={styles.emptyText}>РџРѕРєР° РЅРµС‚ РІРѕРїСЂРѕСЃРѕРІ.</Text>
                         ) : (
                           expandedQuestions.map((question, index) => (
                             <View key={question.id} style={styles.questionCard}>
@@ -715,7 +718,7 @@ export function TeacherHomeScreen({
                               ) : null}
 
                               <AppButton
-                                label="Удалить вопрос"
+                                label="РЈРґР°Р»РёС‚СЊ РІРѕРїСЂРѕСЃ"
                                 onPress={() => onDeleteDraftQuestion(lecture.id, question.id)}
                                 theme={theme}
                                 variant="secondary"
@@ -1208,3 +1211,4 @@ function createStyles(theme: AppTheme, width: number) {
     }
   });
 }
+

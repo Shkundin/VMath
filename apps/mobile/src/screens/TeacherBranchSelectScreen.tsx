@@ -8,6 +8,7 @@ import {
 } from "react-native";
 
 import { AppButton } from "../components/ui/AppButton";
+import { AppInput } from "../components/ui/AppInput";
 import { Screen } from "../components/ui/Screen";
 import { ScreenHeader } from "../components/ui/ScreenHeader";
 import { SectionCard } from "../components/ui/SectionCard";
@@ -19,56 +20,110 @@ type TeacherBranchSelectScreenProps = {
   theme: AppTheme;
   branches: TeacherBranch[];
   selectedTeacherLogin: string | null;
-  onSelectTeacher: (teacherLogin: string) => void;
-  onContinue: () => void;
+  onJoinByCode: (
+    joinCode: string
+  ) => { ok: true; branch: TeacherBranch } | { ok: false; error: string };
 };
 
 export function TeacherBranchSelectScreen({
   theme,
   branches,
   selectedTeacherLogin,
-  onSelectTeacher,
-  onContinue
+  onJoinByCode
 }: TeacherBranchSelectScreenProps) {
   const { width } = useWindowDimensions();
   const styles = createStyles(theme, width);
+  const [joinCode, setJoinCode] = React.useState("");
+  const [joinError, setJoinError] = React.useState("");
+  const [joinSuccess, setJoinSuccess] = React.useState("");
 
   const sortedBranches = [...branches].sort((left, right) =>
     left.teacherName.localeCompare(right.teacherName, "ru")
   );
+  const selectedBranch =
+    sortedBranches.find((branch) => branch.teacherLogin === selectedTeacherLogin) ?? null;
+
+  function handleConnect(nextCode?: string) {
+    const result = onJoinByCode(nextCode ?? joinCode);
+
+    if (!result.ok) {
+      setJoinSuccess("");
+      setJoinError(result.error);
+      return;
+    }
+
+    setJoinCode(result.branch.joinCode);
+    setJoinError("");
+    setJoinSuccess(`Подключено: ${result.branch.teacherName}`);
+  }
 
   return (
     <Screen theme={theme}>
       <ScreenHeader
         theme={theme}
-        title="Выбор преподавателя"
-        subtitle="Выбери преподавателя и открой его курс, материалы, встречи и домашние задания."
+        title="Подключение к курсу"
+        subtitle="Введи код преподавателя и открой его лекции, материалы, задания и встречи."
         rightSlot={
           <View style={styles.headerChip}>
-            <Text style={styles.headerChipText}>{sortedBranches.length} веток</Text>
+            <Text style={styles.headerChipText}>{sortedBranches.length} курсов</Text>
           </View>
         }
       />
 
       <View style={styles.heroCard}>
         <Text style={styles.heroEyebrow}>Classroom</Text>
-        <Text style={styles.heroTitle}>Подключись к нужному преподавателю</Text>
+        <Text style={styles.heroTitle}>Подключись по коду преподавателя</Text>
         <Text style={styles.heroSubtitle}>
-          После выбора откроется учебная ветка преподавателя с персональным каталогом лекций и материалов.
+          Как в Google Classroom: преподаватель делится кодом, а студент по нему открывает свою учебную ветку.
         </Text>
       </View>
 
       <SectionCard
         theme={theme}
-        title="Доступные преподаватели"
+        title="Код курса"
+        subtitle={
+          selectedBranch
+            ? `Сейчас открыт курс преподавателя ${fixText(selectedBranch.teacherName)}.`
+            : "Введи код и подключись к нужному преподавателю."
+        }
+      >
+        <AppInput
+          label="Код преподавателя"
+          theme={theme}
+          value={joinCode}
+          onChangeText={(value) => {
+            setJoinCode(value.toUpperCase());
+            setJoinError("");
+            setJoinSuccess("");
+          }}
+          placeholder="Например: TEAC-H3R9"
+          autoCapitalize="characters"
+          autoCorrect={false}
+          error={joinError || undefined}
+        />
+
+        {joinSuccess ? <Text style={styles.successText}>{fixText(joinSuccess)}</Text> : null}
+
+        <View style={styles.connectButtonWrap}>
+          <AppButton
+            label="Подключиться"
+            onPress={() => handleConnect()}
+            theme={theme}
+          />
+        </View>
+      </SectionCard>
+
+      <SectionCard
+        theme={theme}
+        title="Доступные курсы"
         subtitle={
           sortedBranches.length > 0
-            ? "Нажми на карточку и продолжи."
-            : "Пока нет доступных преподавательских веток."
+            ? "Для быстрого теста можно нажать на карточку и подключиться по готовому коду."
+            : "Пока ни один преподаватель не создал свою учебную ветку."
         }
       >
         {sortedBranches.length === 0 ? (
-          <Text style={styles.emptyText}>Пока ни один преподаватель не создал свою ветку.</Text>
+          <Text style={styles.emptyText}>Пока нет доступных курсов преподавателей.</Text>
         ) : (
           <View style={styles.branchList}>
             {sortedBranches.map((branch) => {
@@ -77,7 +132,7 @@ export function TeacherBranchSelectScreen({
               return (
                 <Pressable
                   key={branch.teacherLogin}
-                  onPress={() => onSelectTeacher(branch.teacherLogin)}
+                  onPress={() => handleConnect(branch.joinCode)}
                   style={[
                     styles.branchCard,
                     isActive ? styles.branchCardActive : null
@@ -93,12 +148,12 @@ export function TeacherBranchSelectScreen({
                     <View style={styles.branchTextWrap}>
                       <Text style={styles.branchTitle}>{fixText(branch.title)}</Text>
                       <Text style={styles.branchMeta}>{fixText(branch.teacherName)}</Text>
-                      <Text style={styles.branchMeta}>Логин: {fixText(branch.teacherLogin)}</Text>
+                      <Text style={styles.branchCode}>Код: {fixText(branch.joinCode)}</Text>
                     </View>
 
                     <View style={isActive ? styles.statusActive : styles.statusIdle}>
                       <Text style={isActive ? styles.statusActiveText : styles.statusIdleText}>
-                        {isActive ? "Выбрано" : "Выбрать"}
+                        {isActive ? "Открыт" : "Войти"}
                       </Text>
                     </View>
                   </View>
@@ -109,15 +164,6 @@ export function TeacherBranchSelectScreen({
             })}
           </View>
         )}
-
-        <View style={styles.actionTop}>
-          <AppButton
-            label="Открыть ветку преподавателя"
-            onPress={onContinue}
-            theme={theme}
-            disabled={!selectedTeacherLogin}
-          />
-        </View>
       </SectionCard>
     </Screen>
   );
@@ -238,6 +284,12 @@ function createStyles(theme: AppTheme, width: number) {
       color: theme.colors.textSecondary,
       marginBottom: 2
     },
+    branchCode: {
+      fontSize: theme.typography.caption,
+      fontWeight: "800",
+      color: theme.colors.primary,
+      marginTop: theme.spacing.xs
+    },
     statusActive: {
       minHeight: 30,
       paddingHorizontal: theme.spacing.sm,
@@ -271,8 +323,14 @@ function createStyles(theme: AppTheme, width: number) {
       lineHeight: 22,
       color: theme.colors.textSecondary
     },
-    actionTop: {
+    connectButtonWrap: {
       marginTop: theme.spacing.sm
+    },
+    successText: {
+      color: theme.colors.success,
+      fontSize: theme.typography.caption,
+      fontWeight: "700",
+      marginTop: -theme.spacing.xs
     }
   });
 }

@@ -6,6 +6,7 @@ export type TeacherBranch = {
   title: string;
   description: string;
   createdAt: string;
+  joinCode: string;
 };
 
 const STORAGE_KEYS = {
@@ -31,12 +32,52 @@ async function writeJson<T>(key: string, value: T): Promise<void> {
   await AsyncStorage.setItem(key, JSON.stringify(value));
 }
 
+export function normalizeTeacherJoinCode(value: string): string {
+  return value
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
+
+function formatTeacherJoinCode(value: string): string {
+  const parts = value.match(/.{1,4}/g) ?? [value];
+  return parts.join("-");
+}
+
+export function createTeacherJoinCode(teacherLogin: string): string {
+  const normalizedLogin = teacherLogin.trim().toLowerCase();
+  const cleanedLogin = normalizeTeacherJoinCode(normalizedLogin) || "VMCLASS";
+  let hash = 0;
+
+  for (const symbol of normalizedLogin) {
+    hash = (hash * 31 + symbol.charCodeAt(0)) % 1679616;
+  }
+
+  const suffix = hash.toString(36).toUpperCase().padStart(4, "0");
+  const rawCode = `${cleanedLogin}${suffix}`.slice(0, 8);
+
+  return formatTeacherJoinCode(rawCode);
+}
+
+function normalizeBranch(branch: TeacherBranch): TeacherBranch {
+  return {
+    ...branch,
+    joinCode: branch.joinCode || createTeacherJoinCode(branch.teacherLogin)
+  };
+}
+
 export async function readTeacherBranches(): Promise<TeacherBranch[] | null> {
-  return readJson<TeacherBranch[]>(STORAGE_KEYS.branches);
+  const branches = await readJson<TeacherBranch[]>(STORAGE_KEYS.branches);
+
+  if (!Array.isArray(branches)) {
+    return null;
+  }
+
+  return branches.map(normalizeBranch);
 }
 
 export async function writeTeacherBranches(branches: TeacherBranch[]): Promise<void> {
-  await writeJson(STORAGE_KEYS.branches, branches);
+  await writeJson(STORAGE_KEYS.branches, branches.map(normalizeBranch));
 }
 
 export async function readSelectedTeacherLogin(): Promise<string | null> {
