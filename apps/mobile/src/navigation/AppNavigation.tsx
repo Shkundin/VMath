@@ -712,6 +712,9 @@ export function AppNavigation() {
     () => teacherBranches.find((branch) => branch.teacherLogin === selectedTeacherLogin) ?? null,
     [teacherBranches, selectedTeacherLogin]
   );
+  const displayRoleBadgeLabel = fixText(
+    isTeacher ? "Преподаватель" : selectedTeacherBranch?.teacherName || "Ветка"
+  );
 
   const roleBadgeLabel = isTeacher
     ? "Преподаватель"
@@ -2331,7 +2334,7 @@ export function AppNavigation() {
                   color: theme.colors.text
                 }}
               >
-                {roleBadgeLabel}
+                {displayRoleBadgeLabel}
               </Text>
             </View>
           ) : null}
@@ -2412,17 +2415,21 @@ export function AppNavigation() {
             bounces={false}
           >
           {[
-            { key: "catalog", label: "Каталог" },
-            { key: "profile", label: "Профиль" },
             { key: "videoLessons", label: "Видеоуроки" },
-            { key: "photoMaterials", label: "Фото" },
-            { key: "meetings", label: "Миты" },
-            { key: "homework", label: "ДЗ" },
+            { key: "meetings", label: "Встречи" },
+            { key: "homework", label: "Домашние" },
             { key: "grades", label: "Итоги" },
-            { key: "testing", label: "Тестирование" },
+            { key: "catalog", label: "Каталог" },
             { key: "latex", label: "LaTeX" },
-            { key: "solver", label: "Уравнения" }
-          ].map((item) => {
+            { key: "profile", label: "Профиль" },
+            { key: "solver", label: "Решатель" },
+            { key: "testing", label: "Тестирование" },
+            { key: "photoMaterials", label: "Фотоматериалы" }
+          ]
+            .sort((left, right) =>
+              fixText(left.label).localeCompare(fixText(right.label), "ru", { sensitivity: "base" })
+            )
+            .map((item) => {
             const isCatalogActive =
               item.key === "catalog" &&
               (activeScreen === "catalog" ||
@@ -2460,7 +2467,7 @@ export function AppNavigation() {
                     color: isActive ? theme.colors.primary : theme.colors.text
                   }}
                 >
-                  {item.label}
+                  {fixText(item.label)}
                 </Text>
               </Pressable>
             );

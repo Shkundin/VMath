@@ -14,6 +14,7 @@ import type { AppTheme } from "../theme";
 
 export type LoginRole = "student" | "teacher";
 export type AuthMode = "login" | "register";
+type LoginStage = "intro" | "auth";
 
 export type GoogleLoginPayload = {
   mode: AuthMode;
@@ -52,6 +53,7 @@ export function LoginScreen({
   const { width } = useWindowDimensions();
   const styles = createStyles(theme, width);
 
+  const [stage, setStage] = useState<LoginStage>("intro");
   const [role, setRole] = useState<LoginRole>("student");
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [fullName, setFullName] = useState("");
@@ -198,13 +200,77 @@ export function LoginScreen({
     }
   }
 
+  if (stage === "intro") {
+    return (
+      <Screen theme={theme}>
+        <View style={styles.page}>
+          <View style={styles.introShell}>
+            <View style={styles.introGlowPrimary} />
+            <View style={styles.introGlowSecondary} />
+
+            <Pressable onPress={() => setStage("auth")} style={styles.introBrandButton}>
+              <BrandMark theme={theme} />
+              <Text style={styles.introTitle}>VisualMath</Text>
+              <Text style={styles.introSubtitle}>
+                Нажми на эмблему и открой вход в учебное пространство для студента или преподавателя.
+              </Text>
+            </Pressable>
+
+            <View style={styles.introFeatureGrid}>
+              <FeatureTile
+                theme={theme}
+                code="01"
+                title="Курсы"
+                subtitle="Лекции, видео и материалы в одном месте."
+              />
+              <FeatureTile
+                theme={theme}
+                code="02"
+                title="Решатель"
+                subtitle="Быстрые вычисления и пошаговые объяснения."
+              />
+              <FeatureTile
+                theme={theme}
+                code="03"
+                title="Контроль"
+                subtitle="Домашние задания, тестирование и итоги."
+              />
+            </View>
+
+            <AppButton
+              label="Открыть вход"
+              onPress={() => setStage("auth")}
+              theme={theme}
+              fullWidth={width < 640}
+              style={styles.introButton}
+            />
+          </View>
+        </View>
+      </Screen>
+    );
+  }
+
   return (
     <Screen theme={theme}>
       <View style={styles.page}>
+        <View style={styles.authTopRow}>
+          <Pressable onPress={() => setStage("intro")} style={styles.backChip}>
+            <Text style={styles.backChipText}>Эмблема</Text>
+          </Pressable>
+
+          <View style={styles.authBrandRow}>
+            <BrandMark theme={theme} compact />
+            <View style={styles.authBrandTextWrap}>
+              <Text style={styles.authBrandTitle}>VisualMath</Text>
+              <Text style={styles.authBrandSubtitle}>Вход в учебный кабинет</Text>
+            </View>
+          </View>
+        </View>
+
         <View style={styles.layout}>
           <View style={styles.heroPanel}>
             <View style={styles.heroBadge}>
-              <Text style={styles.heroBadgeText}>VisualMath Classroom</Text>
+              <Text style={styles.heroBadgeText}>VisualMath Mobile</Text>
             </View>
 
             <Text style={styles.heroTitle}>Математика в одном учебном пространстве</Text>
@@ -352,6 +418,154 @@ type RoleCardProps = {
   fullWidth: boolean;
 };
 
+type BrandMarkProps = {
+  theme: AppTheme;
+  compact?: boolean;
+};
+
+function BrandMark({ theme, compact = false }: BrandMarkProps) {
+  const styles = createBrandMarkStyles(theme, compact);
+
+  return (
+    <View style={styles.shell}>
+      <View style={styles.core}>
+        <View style={styles.ring} />
+        <View style={styles.dotPrimary} />
+        <View style={styles.dotSecondary} />
+        <View style={styles.gridLineHorizontal} />
+        <View style={styles.gridLineVertical} />
+        <Text style={styles.symbol}>VM</Text>
+      </View>
+    </View>
+  );
+}
+
+function createBrandMarkStyles(theme: AppTheme, compact: boolean) {
+  const size = compact ? 54 : 136;
+  const innerSize = compact ? 42 : 104;
+
+  return StyleSheet.create({
+    shell: {
+      width: size,
+      height: size,
+      borderRadius: size / 2,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: compact ? "#EFF6FF" : "#E8F0FE",
+      borderWidth: 1,
+      borderColor: "#C9DBFF"
+    },
+    core: {
+      width: innerSize,
+      height: innerSize,
+      borderRadius: innerSize / 2,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.colors.primary,
+      position: "relative",
+      overflow: "hidden"
+    },
+    ring: {
+      position: "absolute",
+      width: compact ? 28 : 74,
+      height: compact ? 28 : 74,
+      borderRadius: compact ? 14 : 37,
+      borderWidth: compact ? 3 : 6,
+      borderColor: "rgba(255, 255, 255, 0.28)"
+    },
+    dotPrimary: {
+      position: "absolute",
+      top: compact ? 8 : 18,
+      right: compact ? 10 : 24,
+      width: compact ? 6 : 12,
+      height: compact ? 6 : 12,
+      borderRadius: compact ? 3 : 6,
+      backgroundColor: "#FFFFFF"
+    },
+    dotSecondary: {
+      position: "absolute",
+      bottom: compact ? 10 : 24,
+      left: compact ? 8 : 18,
+      width: compact ? 5 : 10,
+      height: compact ? 5 : 10,
+      borderRadius: compact ? 2.5 : 5,
+      backgroundColor: "#F9AB00"
+    },
+    gridLineHorizontal: {
+      position: "absolute",
+      left: compact ? 8 : 14,
+      right: compact ? 8 : 14,
+      height: 1,
+      backgroundColor: "rgba(255, 255, 255, 0.2)"
+    },
+    gridLineVertical: {
+      position: "absolute",
+      top: compact ? 8 : 14,
+      bottom: compact ? 8 : 14,
+      width: 1,
+      backgroundColor: "rgba(255, 255, 255, 0.2)"
+    },
+    symbol: {
+      color: "#FFFFFF",
+      fontSize: compact ? 16 : 34,
+      fontWeight: "900",
+      letterSpacing: compact ? 0.8 : 1.2
+    }
+  });
+}
+
+type FeatureTileProps = {
+  theme: AppTheme;
+  code: string;
+  title: string;
+  subtitle: string;
+};
+
+function FeatureTile({ theme, code, title, subtitle }: FeatureTileProps) {
+  const styles = createFeatureTileStyles(theme);
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.code}>{code}</Text>
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.subtitle}>{subtitle}</Text>
+    </View>
+  );
+}
+
+function createFeatureTileStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    card: {
+      flexBasis: 180,
+      flexGrow: 1,
+      minHeight: 116,
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.lg,
+      backgroundColor: "rgba(255, 255, 255, 0.88)",
+      borderWidth: 1,
+      borderColor: "#D6E3FF"
+    },
+    code: {
+      fontSize: theme.typography.helper,
+      fontWeight: "800",
+      color: theme.colors.primary,
+      marginBottom: theme.spacing.sm,
+      letterSpacing: 0.6
+    },
+    title: {
+      fontSize: theme.typography.body,
+      fontWeight: "800",
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs
+    },
+    subtitle: {
+      fontSize: theme.typography.caption,
+      lineHeight: 18,
+      color: theme.colors.textSecondary
+    }
+  });
+}
+
 function RoleCard({
   theme,
   title,
@@ -379,17 +593,22 @@ function createRoleCardStyles(theme: AppTheme, isActive: boolean, fullWidth: boo
     card: {
       flexBasis: fullWidth ? "100%" : undefined,
       flex: fullWidth ? undefined : 1,
-      minHeight: 120,
+      minHeight: 132,
       borderRadius: theme.radius.lg,
       padding: theme.spacing.lg,
       borderWidth: 1,
       borderColor: isActive ? theme.colors.primary : theme.colors.border,
-      backgroundColor: isActive ? theme.colors.primarySoft : theme.colors.surface
+      backgroundColor: isActive ? "#EEF5FF" : theme.colors.surface,
+      shadowColor: theme.colors.shadow,
+      shadowOpacity: isActive ? 0.1 : 0.04,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: isActive ? 4 : 1
     },
     icon: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: isActive ? theme.colors.primary : theme.colors.surfaceMuted,
@@ -402,7 +621,7 @@ function createRoleCardStyles(theme: AppTheme, isActive: boolean, fullWidth: boo
     },
     title: {
       fontSize: theme.typography.sectionTitle,
-      fontWeight: "700",
+      fontWeight: "800",
       color: theme.colors.text,
       marginBottom: theme.spacing.xs
     },
@@ -435,8 +654,8 @@ function createModeChipStyles(theme: AppTheme, isActive: boolean) {
   return StyleSheet.create({
     chip: {
       flex: 1,
-      minHeight: 42,
-      borderRadius: theme.radius.md,
+      minHeight: 44,
+      borderRadius: theme.radius.pill,
       borderWidth: 1,
       borderColor: isActive ? theme.colors.primary : theme.colors.border,
       backgroundColor: isActive ? theme.colors.primarySoft : theme.colors.surface,
@@ -445,7 +664,7 @@ function createModeChipStyles(theme: AppTheme, isActive: boolean) {
     },
     label: {
       fontSize: theme.typography.body,
-      fontWeight: "700",
+      fontWeight: "800",
       color: isActive ? theme.colors.primary : theme.colors.text
     }
   });
@@ -461,6 +680,103 @@ function createStyles(theme: AppTheme, width: number) {
       maxWidth: 1160,
       alignSelf: "center"
     },
+    introShell: {
+      position: "relative",
+      overflow: "hidden",
+      borderRadius: theme.radius.xl,
+      padding: isPhone ? theme.spacing.lg : theme.spacing.xxl,
+      backgroundColor: "#F7FAFF",
+      borderWidth: 1,
+      borderColor: "#D7E4FF",
+      minHeight: isPhone ? 620 : 680,
+      alignItems: "center",
+      justifyContent: "space-between"
+    },
+    introGlowPrimary: {
+      position: "absolute",
+      top: -60,
+      left: -40,
+      width: isPhone ? 180 : 260,
+      height: isPhone ? 180 : 260,
+      borderRadius: 999,
+      backgroundColor: "rgba(26, 115, 232, 0.12)"
+    },
+    introGlowSecondary: {
+      position: "absolute",
+      right: -50,
+      bottom: -70,
+      width: isPhone ? 200 : 280,
+      height: isPhone ? 200 : 280,
+      borderRadius: 999,
+      backgroundColor: "rgba(249, 171, 0, 0.14)"
+    },
+    introBrandButton: {
+      width: "100%",
+      alignItems: "center",
+      paddingTop: isPhone ? theme.spacing.lg : theme.spacing.xxl
+    },
+    introTitle: {
+      marginTop: theme.spacing.lg,
+      fontSize: isPhone ? 30 : 44,
+      lineHeight: isPhone ? 36 : 50,
+      fontWeight: "900",
+      color: theme.colors.text
+    },
+    introSubtitle: {
+      marginTop: theme.spacing.sm,
+      fontSize: isPhone ? theme.typography.body : theme.typography.sectionTitle,
+      lineHeight: isPhone ? 22 : 28,
+      color: theme.colors.textSecondary,
+      textAlign: "center",
+      maxWidth: 620
+    },
+    introFeatureGrid: {
+      width: "100%",
+      flexDirection: isPhone ? "column" : "row",
+      gap: theme.spacing.md
+    },
+    introButton: {
+      marginTop: theme.spacing.xl
+    },
+    authTopRow: {
+      flexDirection: isPhone ? "column" : "row",
+      alignItems: isPhone ? "stretch" : "center",
+      justifyContent: "space-between",
+      marginBottom: theme.spacing.lg
+    },
+    backChip: {
+      alignSelf: isPhone ? "flex-start" : "auto",
+      minHeight: 36,
+      paddingHorizontal: theme.spacing.md,
+      borderRadius: theme.radius.pill,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: isPhone ? theme.spacing.md : 0
+    },
+    backChipText: {
+      fontSize: theme.typography.caption,
+      fontWeight: "700",
+      color: theme.colors.text
+    },
+    authBrandRow: {
+      flexDirection: "row",
+      alignItems: "center"
+    },
+    authBrandTextWrap: {
+      marginLeft: theme.spacing.sm
+    },
+    authBrandTitle: {
+      fontSize: theme.typography.body,
+      fontWeight: "800",
+      color: theme.colors.text
+    },
+    authBrandSubtitle: {
+      fontSize: theme.typography.caption,
+      color: theme.colors.textSecondary
+    },
     layout: {
       flexDirection: isStacked ? "column" : "row",
       alignItems: "stretch"
@@ -469,9 +785,9 @@ function createStyles(theme: AppTheme, width: number) {
       flex: 1.1,
       borderRadius: theme.radius.xl,
       padding: isPhone ? theme.spacing.lg : theme.spacing.xxl,
-      backgroundColor: theme.colors.surface,
+      backgroundColor: "#F7FAFF",
       borderWidth: 1,
-      borderColor: theme.colors.border,
+      borderColor: "#D7E4FF",
       marginBottom: isStacked ? theme.spacing.lg : 0,
       marginRight: isStacked ? 0 : theme.spacing.lg
     },
@@ -481,7 +797,12 @@ function createStyles(theme: AppTheme, width: number) {
       padding: isPhone ? theme.spacing.lg : theme.spacing.xxl,
       backgroundColor: theme.colors.surface,
       borderWidth: 1,
-      borderColor: theme.colors.border
+      borderColor: theme.colors.border,
+      shadowColor: theme.colors.shadow,
+      shadowOpacity: 0.08,
+      shadowRadius: 18,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 4
     },
     heroBadge: {
       alignSelf: "flex-start",
@@ -500,7 +821,7 @@ function createStyles(theme: AppTheme, width: number) {
     heroTitle: {
       fontSize: isPhone ? 24 : theme.typography.hero,
       lineHeight: isPhone ? 30 : theme.typography.hero + 6,
-      fontWeight: "700",
+      fontWeight: "900",
       color: theme.colors.text,
       marginBottom: theme.spacing.sm
     },

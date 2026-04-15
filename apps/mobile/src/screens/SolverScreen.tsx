@@ -37,12 +37,61 @@ function toNumber(value: string): number {
   return Number(normalized);
 }
 
+function parseRightSide(value: string): number {
+  if (!value.trim()) {
+    return 0;
+  }
+
+  return toNumber(value);
+}
+
 function formatNumber(value: number): string {
   if (Number.isInteger(value)) {
     return String(value);
   }
 
   return String(Number(value.toFixed(4)));
+}
+
+function formatSigned(value: number): string {
+  if (value < 0) {
+    return `- ${formatNumber(Math.abs(value))}`;
+  }
+
+  return `+ ${formatNumber(value)}`;
+}
+
+function buildLinearExpression(aValue: number, bValue: number, rightValue: number): string {
+  return `${formatNumber(aValue)}x ${formatSigned(bValue)} = ${formatNumber(rightValue)}`;
+}
+
+function buildQuadraticExpression(
+  aValue: number,
+  bValue: number,
+  cValue: number,
+  rightValue: number
+): string {
+  return `${formatNumber(aValue)}x² ${formatSigned(bValue)}x ${formatSigned(cValue)} = ${formatNumber(rightValue)}`;
+}
+
+function buildSystemExpression(
+  aValue: number,
+  bValue: number,
+  cValue: number,
+  dValue: number,
+  eValue: number,
+  fValue: number
+): string {
+  return `${formatNumber(aValue)}x ${formatSigned(bValue)}y = ${formatNumber(cValue)}; ${formatNumber(dValue)}x ${formatSigned(eValue)}y = ${formatNumber(fValue)}`;
+}
+
+function buildInequalityExpression(
+  aValue: number,
+  bValue: number,
+  operator: InequalityOperator,
+  rightValue: number
+): string {
+  return `${formatNumber(aValue)}x ${formatSigned(bValue)} ${operator} ${formatNumber(rightValue)}`;
 }
 
 function invertOperator(operator: InequalityOperator): InequalityOperator {
@@ -61,20 +110,50 @@ function invertOperator(operator: InequalityOperator): InequalityOperator {
   return ">=";
 }
 
-function checkConstantInequality(value: number, operator: InequalityOperator): boolean {
+function compareValues(left: number, right: number, operator: InequalityOperator): boolean {
   if (operator === ">") {
-    return value > 0;
+    return left > right;
   }
 
   if (operator === ">=") {
-    return value >= 0;
+    return left >= right;
   }
 
   if (operator === "<") {
-    return value < 0;
+    return left < right;
   }
 
-  return value <= 0;
+  return left <= right;
+}
+
+function buildDraftExpression(
+  mode: SolverMode,
+  values: {
+    a: string;
+    b: string;
+    c: string;
+    d: string;
+    e: string;
+    f: string;
+    rightSide: string;
+    operator: InequalityOperator;
+  }
+): string {
+  const display = (value: string, placeholder: string) => value.trim() || placeholder;
+
+  if (mode === "linear") {
+    return `${display(values.a, "a")}x + ${display(values.b, "b")} = ${display(values.rightSide, "r")}`;
+  }
+
+  if (mode === "quadratic") {
+    return `${display(values.a, "a")}x² + ${display(values.b, "b")}x + ${display(values.c, "c")} = ${display(values.rightSide, "r")}`;
+  }
+
+  if (mode === "system") {
+    return `${display(values.a, "a")}x + ${display(values.b, "b")}y = ${display(values.c, "c")}\n${display(values.d, "d")}x + ${display(values.e, "e")}y = ${display(values.f, "f")}`;
+  }
+
+  return `${display(values.a, "a")}x + ${display(values.b, "b")} ${values.operator} ${display(values.rightSide, "r")}`;
 }
 
 function readSolverHistory(): SolverHistoryItem[] {
@@ -123,6 +202,7 @@ export function SolverScreen({ theme, onBack }: SolverScreenProps) {
   const [d, setD] = useState("");
   const [e, setE] = useState("");
   const [f, setF] = useState("");
+  const [rightSide, setRightSide] = useState("0");
 
   const [resultTitle, setResultTitle] = useState("Результат появится после нажатия на кнопку.");
   const [steps, setSteps] = useState<string[]>([]);
@@ -150,35 +230,50 @@ export function SolverScreen({ theme, onBack }: SolverScreenProps) {
 
   const modeFormula = useMemo(() => {
     if (mode === "linear") {
-      return "ax + b = 0";
+      return "ax + b = r";
     }
 
     if (mode === "quadratic") {
-      return "ax² + bx + c = 0";
+      return "ax² + bx + c = r";
     }
 
     if (mode === "system") {
       return "ax + by = c,  dx + ey = f";
     }
 
-    return `ax + b ${inequalityOperator} 0`;
+    return `ax + b ${inequalityOperator} r`;
   }, [mode, inequalityOperator]);
 
   const modeExample = useMemo(() => {
     if (mode === "linear") {
-      return "Пример: 2x + 6 = 0";
+      return "Пример: 2x + 6 = 10";
     }
 
     if (mode === "quadratic") {
-      return "Пример: x² - 5x + 6 = 0";
+      return "Пример: x² - 5x + 6 = 2";
     }
 
     if (mode === "system") {
       return "Пример: 2x + y = 5, x - y = 1";
     }
 
-    return "Пример: 2x - 4 > 0";
+    return "Пример: 2x - 4 > 8";
   }, [mode]);
+
+  const draftExpression = useMemo(
+    () =>
+      buildDraftExpression(mode, {
+        a,
+        b,
+        c,
+        d,
+        e,
+        f,
+        rightSide,
+        operator: inequalityOperator
+      }),
+    [a, b, c, d, e, f, inequalityOperator, mode, rightSide]
+  );
 
   function resetFields() {
     setA("");
@@ -187,6 +282,7 @@ export function SolverScreen({ theme, onBack }: SolverScreenProps) {
     setD("");
     setE("");
     setF("");
+    setRightSide("0");
     setResultTitle("Результат появится после нажатия на кнопку.");
     setSteps([]);
   }
@@ -221,6 +317,13 @@ export function SolverScreen({ theme, onBack }: SolverScreenProps) {
       setA(numbers[0] ?? "");
       setB(numbers[1] ?? "");
       setC(item.mode === "quadratic" ? numbers[2] ?? "" : "");
+      setRightSide(
+        item.mode === "linear"
+          ? numbers[2] ?? "0"
+          : item.mode === "quadratic"
+            ? numbers[3] ?? "0"
+            : numbers[2] ?? "0"
+      );
       setD("");
       setE("");
       setF("");
@@ -260,6 +363,7 @@ export function SolverScreen({ theme, onBack }: SolverScreenProps) {
     if (mode === "linear") {
       setA("2");
       setB("6");
+      setRightSide("10");
       return;
     }
 
@@ -267,6 +371,7 @@ export function SolverScreen({ theme, onBack }: SolverScreenProps) {
       setA("1");
       setB("-5");
       setC("6");
+      setRightSide("2");
       return;
     }
 
@@ -282,83 +387,99 @@ export function SolverScreen({ theme, onBack }: SolverScreenProps) {
 
     setA("2");
     setB("-4");
+    setRightSide("8");
     setInequalityOperator(">");
   }
 
   function solveLinear() {
     const av = toNumber(a);
     const bv = toNumber(b);
+    const rv = parseRightSide(rightSide);
 
-    if (Number.isNaN(av) || Number.isNaN(bv)) {
-      setResultTitle("Введите корректные коэффициенты a и b.");
+    if (Number.isNaN(av) || Number.isNaN(bv) || Number.isNaN(rv)) {
+      setResultTitle("Введите корректные коэффициенты a, b и правую часть.");
       setSteps([]);
       return;
     }
 
+    const expression = buildLinearExpression(av, bv, rv);
+
     if (av === 0) {
-      if (bv === 0) {
+      if (bv === rv) {
         const result = "Бесконечно много решений.";
         setResultTitle(result);
-        setSteps(["0x + 0 = 0", "Любое число подходит."]);
-        saveHistoryItem(`${formatNumber(av)}x + ${formatNumber(bv)} = 0`, result, "linear");
+        setSteps([
+          expression,
+          `${formatNumber(bv)} = ${formatNumber(rv)}`,
+          "Левая и правая части совпадают, значит подходит любое x."
+        ]);
+        saveHistoryItem(expression, result, "linear");
         return;
       }
 
       const result = "Решений нет.";
       setResultTitle(result);
       setSteps([
-        `0x + ${formatNumber(bv)} = 0`,
-        "Нельзя получить ноль из ненулевой константы."
+        expression,
+        `${formatNumber(bv)} ≠ ${formatNumber(rv)}`,
+        "Коэффициент при x равен нулю, а равенство не выполняется."
       ]);
-      saveHistoryItem(`${formatNumber(av)}x + ${formatNumber(bv)} = 0`, result, "linear");
+      saveHistoryItem(expression, result, "linear");
       return;
     }
 
-    const x = -bv / av;
+    const numerator = rv - bv;
+    const x = numerator / av;
     const result = `x = ${formatNumber(x)}`;
 
     setResultTitle(result);
     setSteps([
-      `${formatNumber(av)}x + ${formatNumber(bv)} = 0`,
-      `${formatNumber(av)}x = ${formatNumber(-bv)}`,
-      `x = ${formatNumber(-bv)} / ${formatNumber(av)}`,
-      `x = ${formatNumber(x)}`
+      expression,
+      `${formatNumber(av)}x = ${formatNumber(rv)} - ${formatNumber(bv)}`,
+      `${formatNumber(av)}x = ${formatNumber(numerator)}`,
+      `x = ${formatNumber(numerator)} / ${formatNumber(av)}`,
+      result
     ]);
-    saveHistoryItem(`${formatNumber(av)}x + ${formatNumber(bv)} = 0`, result, "linear");
+    saveHistoryItem(expression, result, "linear");
   }
 
   function solveQuadratic() {
     const av = toNumber(a);
     const bv = toNumber(b);
     const cv = toNumber(c);
+    const rv = parseRightSide(rightSide);
 
-    if (Number.isNaN(av) || Number.isNaN(bv) || Number.isNaN(cv)) {
-      setResultTitle("Введите корректные коэффициенты a, b и c.");
+    if (Number.isNaN(av) || Number.isNaN(bv) || Number.isNaN(cv) || Number.isNaN(rv)) {
+      setResultTitle("Введите корректные коэффициенты a, b, c и правую часть.");
       setSteps([]);
       return;
     }
 
     if (av === 0) {
       setResultTitle("Для квадратного уравнения коэффициент a не должен быть равен 0.");
-      setSteps([]);
+      setSteps([
+        buildQuadraticExpression(av, bv, cv, rv),
+        "Если a = 0, переключись на линейный режим."
+      ]);
       return;
     }
 
-    const discriminant = bv * bv - 4 * av * cv;
+    const expression = buildQuadraticExpression(av, bv, cv, rv);
+    const shiftedC = cv - rv;
+    const shiftedExpression = buildQuadraticExpression(av, bv, shiftedC, 0);
+    const discriminant = bv * bv - 4 * av * shiftedC;
 
     if (discriminant < 0) {
       const result = "Действительных корней нет.";
       setResultTitle(result);
       setSteps([
-        `D = b² - 4ac = ${formatNumber(bv)}² - 4·${formatNumber(av)}·${formatNumber(cv)}`,
+        expression,
+        `Переносим правую часть влево: ${shiftedExpression}`,
+        `D = b² - 4ac = ${formatNumber(bv)}² - 4·${formatNumber(av)}·${formatNumber(shiftedC)}`,
         `D = ${formatNumber(discriminant)}`,
         "Так как D < 0, действительных корней нет."
       ]);
-      saveHistoryItem(
-        `${formatNumber(av)}x² + ${formatNumber(bv)}x + ${formatNumber(cv)} = 0`,
-        result,
-        "quadratic"
-      );
+      saveHistoryItem(expression, result, "quadratic");
       return;
     }
 
@@ -368,15 +489,13 @@ export function SolverScreen({ theme, onBack }: SolverScreenProps) {
 
       setResultTitle(result);
       setSteps([
+        expression,
+        `Переносим правую часть влево: ${shiftedExpression}`,
         `D = ${formatNumber(discriminant)}`,
         `x = -b / 2a = ${formatNumber(-bv)} / ${formatNumber(2 * av)}`,
-        `x = ${formatNumber(x)}`
+        result
       ]);
-      saveHistoryItem(
-        `${formatNumber(av)}x² + ${formatNumber(bv)}x + ${formatNumber(cv)} = 0`,
-        result,
-        "quadratic"
-      );
+      saveHistoryItem(expression, result, "quadratic");
       return;
     }
 
@@ -387,6 +506,8 @@ export function SolverScreen({ theme, onBack }: SolverScreenProps) {
 
     setResultTitle(result);
     setSteps([
+      expression,
+      `Переносим правую часть влево: ${shiftedExpression}`,
       `D = ${formatNumber(discriminant)}`,
       `√D = ${formatNumber(sqrtD)}`,
       `x₁ = (-b + √D) / 2a = (${formatNumber(-bv)} + ${formatNumber(sqrtD)}) / ${formatNumber(2 * av)}`,
@@ -394,11 +515,7 @@ export function SolverScreen({ theme, onBack }: SolverScreenProps) {
       `x₂ = (-b - √D) / 2a = (${formatNumber(-bv)} - ${formatNumber(sqrtD)}) / ${formatNumber(2 * av)}`,
       `x₂ = ${formatNumber(x2)}`
     ]);
-    saveHistoryItem(
-      `${formatNumber(av)}x² + ${formatNumber(bv)}x + ${formatNumber(cv)} = 0`,
-      result,
-      "quadratic"
-    );
+    saveHistoryItem(expression, result, "quadratic");
   }
 
   function solveSystem() {
@@ -415,21 +532,19 @@ export function SolverScreen({ theme, onBack }: SolverScreenProps) {
       return;
     }
 
+    const expression = buildSystemExpression(av, bv, cv, dv, ev, fv);
     const determinant = av * ev - bv * dv;
 
     if (determinant === 0) {
       const result = "Система не имеет единственного решения.";
       setResultTitle(result);
       setSteps([
+        expression,
         `Δ = ae - bd = ${formatNumber(av)}·${formatNumber(ev)} - ${formatNumber(bv)}·${formatNumber(dv)}`,
         `Δ = ${formatNumber(determinant)}`,
         "Так как Δ = 0, метод Крамера не даёт единственного решения."
       ]);
-      saveHistoryItem(
-        `${formatNumber(av)}x + ${formatNumber(bv)}y = ${formatNumber(cv)}; ${formatNumber(dv)}x + ${formatNumber(ev)}y = ${formatNumber(fv)}`,
-        result,
-        "system"
-      );
+      saveHistoryItem(expression, result, "system");
       return;
     }
 
@@ -441,79 +556,71 @@ export function SolverScreen({ theme, onBack }: SolverScreenProps) {
 
     setResultTitle(result);
     setSteps([
+      expression,
       `Δ = ${formatNumber(determinant)}`,
       `Δx = ce - bf = ${formatNumber(dx)}`,
       `Δy = af - cd = ${formatNumber(dy)}`,
       `x = Δx / Δ = ${formatNumber(dx)} / ${formatNumber(determinant)} = ${formatNumber(x)}`,
       `y = Δy / Δ = ${formatNumber(dy)} / ${formatNumber(determinant)} = ${formatNumber(y)}`
     ]);
-    saveHistoryItem(
-      `${formatNumber(av)}x + ${formatNumber(bv)}y = ${formatNumber(cv)}; ${formatNumber(dv)}x + ${formatNumber(ev)}y = ${formatNumber(fv)}`,
-      result,
-      "system"
-    );
+    saveHistoryItem(expression, result, "system");
   }
 
   function solveInequality() {
     const av = toNumber(a);
     const bv = toNumber(b);
+    const rv = parseRightSide(rightSide);
 
-    if (Number.isNaN(av) || Number.isNaN(bv)) {
-      setResultTitle("Введите корректные коэффициенты a и b.");
+    if (Number.isNaN(av) || Number.isNaN(bv) || Number.isNaN(rv)) {
+      setResultTitle("Введите корректные коэффициенты a, b и правую часть.");
       setSteps([]);
       return;
     }
 
+    const expression = buildInequalityExpression(av, bv, inequalityOperator, rv);
+
     if (av === 0) {
-      const isTrue = checkConstantInequality(bv, inequalityOperator);
+      const isTrue = compareValues(bv, rv, inequalityOperator);
 
       if (isTrue) {
         const result = "Подходит любое число x.";
         setResultTitle(result);
         setSteps([
-          `${formatNumber(bv)} ${inequalityOperator} 0`,
+          expression,
+          `${formatNumber(bv)} ${inequalityOperator} ${formatNumber(rv)}`,
           "Неравенство истинно при любом x."
         ]);
-        saveHistoryItem(
-          `${formatNumber(av)}x + ${formatNumber(bv)} ${inequalityOperator} 0`,
-          result,
-          "inequality"
-        );
+        saveHistoryItem(expression, result, "inequality");
         return;
       }
 
       const result = "Решений нет.";
       setResultTitle(result);
       setSteps([
-        `${formatNumber(bv)} ${inequalityOperator} 0`,
+        expression,
+        `${formatNumber(bv)} ${inequalityOperator} ${formatNumber(rv)}`,
         "Неравенство ложно при любом x."
       ]);
-      saveHistoryItem(
-        `${formatNumber(av)}x + ${formatNumber(bv)} ${inequalityOperator} 0`,
-        result,
-        "inequality"
-      );
+      saveHistoryItem(expression, result, "inequality");
       return;
     }
 
-    const border = -bv / av;
+    const numerator = rv - bv;
     const finalOperator = av > 0 ? inequalityOperator : invertOperator(inequalityOperator);
+    const border = numerator / av;
     const result = `x ${finalOperator} ${formatNumber(border)}`;
 
     setResultTitle(result);
     setSteps([
-      `${formatNumber(av)}x + ${formatNumber(bv)} ${inequalityOperator} 0`,
-      `${formatNumber(av)}x ${inequalityOperator} ${formatNumber(-bv)}`,
+      expression,
+      `${formatNumber(av)}x ${inequalityOperator} ${formatNumber(rv)} - ${formatNumber(bv)}`,
+      `${formatNumber(av)}x ${inequalityOperator} ${formatNumber(numerator)}`,
       av > 0
         ? `Делим обе части на положительное число ${formatNumber(av)}. Знак не меняется.`
         : `Делим обе части на отрицательное число ${formatNumber(av)}. Знак меняется на противоположный.`,
-      `x ${finalOperator} ${formatNumber(border)}`
+      result
     ]);
-    saveHistoryItem(
-      `${formatNumber(av)}x + ${formatNumber(bv)} ${inequalityOperator} 0`,
-      result,
-      "inequality"
-    );
+    saveHistoryItem(expression, result, "inequality");
   }
 
   function handleSolve() {
@@ -542,7 +649,7 @@ export function SolverScreen({ theme, onBack }: SolverScreenProps) {
       <ScreenHeader
         theme={theme}
         title="Решатель"
-        subtitle="Компактный математический помощник с пошаговым объяснением. На Android минус теперь вводится обычной клавиатурой."
+        subtitle="Компактный математический помощник с пошаговым объяснением и настраиваемой правой частью уравнения."
       />
 
       <View style={styles.heroCard}>
@@ -611,14 +718,29 @@ export function SolverScreen({ theme, onBack }: SolverScreenProps) {
 
       <SectionCard
         title="Коэффициенты"
-        subtitle="Можно вводить отрицательные числа, например -5 или -1.5."
+        subtitle="Можно вводить отрицательные числа, десятичные значения и свою правую часть."
         theme={theme}
       >
+        <View style={styles.previewCard}>
+          <Text style={styles.previewLabel}>Текущая запись</Text>
+          <Text style={styles.previewExpression}>{draftExpression}</Text>
+        </View>
+
         <View style={styles.inputGrid}>
           <CoefficientInput theme={theme} label="a" value={a} onChangeText={setA} keyboardType={allowMinusKeyboard} />
           <CoefficientInput theme={theme} label="b" value={b} onChangeText={setB} keyboardType={allowMinusKeyboard} />
           {(mode === "quadratic" || mode === "system") ? (
             <CoefficientInput theme={theme} label="c" value={c} onChangeText={setC} keyboardType={allowMinusKeyboard} />
+          ) : null}
+          {mode !== "system" ? (
+            <CoefficientInput
+              theme={theme}
+              label="r"
+              value={rightSide}
+              onChangeText={setRightSide}
+              keyboardType={allowMinusKeyboard}
+              placeholder="Например: 0"
+            />
           ) : null}
           {mode === "system" ? (
             <>
@@ -699,16 +821,16 @@ function createModeChipStyles(theme: AppTheme, isActive: boolean) {
     chip: {
       flexBasis: 140,
       flexGrow: 1,
-      minHeight: 44,
+      minHeight: 52,
       paddingHorizontal: theme.spacing.md,
-      borderRadius: theme.radius.md,
+      borderRadius: theme.radius.lg,
       borderWidth: 1,
       borderColor: isActive ? theme.colors.primary : theme.colors.border,
-      backgroundColor: isActive ? theme.colors.surfaceMuted : theme.colors.surface,
+      backgroundColor: isActive ? theme.colors.primarySoft : theme.colors.surface,
       alignItems: "center",
       justifyContent: "center",
-      marginRight: theme.spacing.xs,
-      marginBottom: theme.spacing.xs
+      marginRight: 0,
+      marginBottom: 0
     },
     label: {
       fontSize: theme.typography.body,
@@ -724,6 +846,7 @@ type CoefficientInputProps = {
   value: string;
   onChangeText: (value: string) => void;
   keyboardType: "default" | "numbers-and-punctuation";
+  placeholder?: string;
 };
 
 function CoefficientInput({
@@ -731,7 +854,8 @@ function CoefficientInput({
   label,
   value,
   onChangeText,
-  keyboardType
+  keyboardType,
+  placeholder
 }: CoefficientInputProps) {
   const styles = createInputStyles(theme);
 
@@ -742,7 +866,7 @@ function CoefficientInput({
         value={value}
         onChangeText={onChangeText}
         style={styles.input}
-        placeholder={`Например: -2`}
+        placeholder={placeholder ?? "Например: -2"}
         placeholderTextColor={theme.colors.textSecondary}
         keyboardType={keyboardType}
         autoCorrect={false}
@@ -757,7 +881,6 @@ function createInputStyles(theme: AppTheme) {
     wrapper: {
       flexBasis: 130,
       flexGrow: 1,
-      marginRight: theme.spacing.xs,
       marginBottom: theme.spacing.sm
     },
     label: {
@@ -822,15 +945,39 @@ function createStyles(theme: AppTheme, width: number) {
       flexDirection: "row",
       flexWrap: "wrap"
     },
+    previewCard: {
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.lg,
+      backgroundColor: theme.colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      marginBottom: theme.spacing.md
+    },
+    previewLabel: {
+      fontSize: theme.typography.caption,
+      fontWeight: "700",
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.xs,
+      textTransform: "uppercase",
+      letterSpacing: 0.3
+    },
+    previewExpression: {
+      fontSize: isPhone ? theme.typography.body : theme.typography.sectionTitle,
+      lineHeight: isPhone ? 24 : 28,
+      fontWeight: "800",
+      color: theme.colors.text
+    },
     modeGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginRight: -theme.spacing.xs
+      marginRight: 0,
+      gap: theme.spacing.sm
     },
     inputGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginRight: -theme.spacing.xs
+      marginRight: 0,
+      gap: theme.spacing.sm
     },
     solveButtonWrap: {
       marginTop: theme.spacing.sm
