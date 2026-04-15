@@ -2245,8 +2245,8 @@ export function AppNavigation() {
           alignItems: "center",
           justifyContent: "space-between",
           paddingHorizontal: topBarPaddingX,
-          paddingTop: topBarPaddingTop,
-          paddingBottom: isPhoneLayout ? theme.spacing.sm : theme.spacing.md,
+          paddingTop: isPhoneLayout ? 18 : topBarPaddingTop,
+          paddingBottom: isPhoneLayout ? 14 : theme.spacing.md,
           backgroundColor: theme.colors.surface,
           borderBottomWidth: 1,
           borderBottomColor: theme.colors.border
@@ -2282,7 +2282,7 @@ export function AppNavigation() {
               numberOfLines={1}
               style={{
                 flexShrink: 1,
-                fontSize: headerTitleSize,
+                fontSize: isPhoneLayout ? 28 : headerTitleSize,
                 fontWeight: "700",
                 color: theme.colors.text
               }}
@@ -2353,13 +2353,13 @@ export function AppNavigation() {
         <View
           style={{
             position: "absolute",
-            top: isPhoneLayout ? 62 : 76,
+            top: isPhoneLayout ? 74 : 76,
             left: menuPanelLeft,
             right: isPhoneLayout ? theme.spacing.sm : undefined,
             zIndex: 50,
             width: isPhoneLayout ? undefined : 248,
             maxWidth: isPhoneLayout ? undefined : 248,
-            maxHeight: isPhoneLayout ? 620 : undefined,
+            maxHeight: isPhoneLayout ? 560 : undefined,
             borderRadius: 22,
             borderWidth: 1,
             borderColor: theme.colors.border,
@@ -2800,3 +2800,4 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   }
 });
+
