@@ -1,63 +1,89 @@
-import React from "react";
-import { StyleSheet, Text, View, type ViewStyle } from "react-native";
+﻿import React from "react";
+import { StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 
-import { fixText } from "../../utils/fixText";
 import type { AppTheme } from "../../theme";
 
 type SectionCardProps = {
+  theme: AppTheme;
   title?: string;
   subtitle?: string;
-  theme: AppTheme;
-  children?: React.ReactNode;
-  style?: ViewStyle;
+  children: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
 };
 
 export function SectionCard({
+  theme,
   title,
   subtitle,
-  theme,
   children,
   style
 }: SectionCardProps) {
-  const styles = createStyles(theme);
-
   return (
-    <View style={[styles.card, style]}>
-      {title || subtitle ? (
-        <View style={styles.header}>
-          {title ? <Text style={styles.title}>{fixText(title)}</Text> : null}
-          {subtitle ? <Text style={styles.subtitle}>{fixText(subtitle)}</Text> : null}
-        </View>
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: theme.colors.surface,
+          borderColor: theme.colors.border,
+          borderRadius: theme.radius.xl,
+          padding: theme.spacing.lg
+        },
+        style
+      ]}
+    >
+      {title ? (
+        <Text
+          style={[
+            styles.title,
+            {
+              color: theme.colors.text,
+              fontSize: theme.typography.sectionTitle
+            }
+          ]}
+        >
+          {title}
+        </Text>
       ) : null}
 
-      <View>{children}</View>
+      {subtitle ? (
+        <Text
+          style={[
+            styles.subtitle,
+            {
+              color: theme.colors.textSecondary,
+              fontSize: theme.typography.body
+            }
+          ]}
+        >
+          {subtitle}
+        </Text>
+      ) : null}
+
+      <View style={styles.body}>
+        {children}
+      </View>
     </View>
   );
 }
 
-function createStyles(theme: AppTheme) {
-  return StyleSheet.create({
-    card: {
-      backgroundColor: theme.colors.surface,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      borderRadius: theme.radius.lg,
-      padding: theme.spacing.lg,
-      marginBottom: theme.spacing.md
-    },
-    header: {
-      marginBottom: theme.spacing.md
-    },
-    title: {
-      fontSize: theme.typography.sectionTitle,
-      fontWeight: "700",
-      color: theme.colors.text,
-      marginBottom: theme.spacing.xs
-    },
-    subtitle: {
-      fontSize: theme.typography.caption,
-      color: theme.colors.textSecondary,
-      lineHeight: 18
-    }
-  });
-}
+const styles = StyleSheet.create({
+  card: {
+    width: "100%",
+    minWidth: 0,
+    borderWidth: 1,
+    marginBottom: 16,
+    overflow: "hidden"
+  },
+  title: {
+    fontWeight: "900",
+    marginBottom: 8
+  },
+  subtitle: {
+    lineHeight: 24,
+    marginBottom: 16
+  },
+  body: {
+    width: "100%",
+    minWidth: 0
+  }
+});

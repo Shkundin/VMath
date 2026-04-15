@@ -17,17 +17,29 @@ type ScreenProps = {
 export function Screen({ theme, children }: ScreenProps) {
   return (
     <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: theme.colors.background }]}
+      style={[
+        styles.root,
+        { backgroundColor: theme.colors.background }
+      ]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
-        style={styles.root}
-        contentContainerStyle={styles.content}
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingHorizontal: theme.spacing.md,
+            paddingTop: theme.spacing.md,
+            paddingBottom: theme.spacing.xl * 2
+          }
+        ]}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator
         bounces
       >
-        <View style={styles.inner}>{children}</View>
+        <View style={styles.inner}>
+          {children}
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -35,13 +47,19 @@ export function Screen({ theme, children }: ScreenProps) {
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1
+    flex: 1,
+    minWidth: 0
+  },
+  scroll: {
+    flex: 1,
+    minWidth: 0
   },
   content: {
-    flexGrow: 1,
-    paddingBottom: 32
+    flexGrow: 1
   },
   inner: {
-    flex: 1
+    width: "100%",
+    minWidth: 0,
+    alignSelf: "stretch"
   }
 });
