@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -357,6 +357,7 @@ function createStyles(theme: AppTheme, width: number) {
     },
     heroMain: {
       flex: 1,
+      minWidth: 0,
       paddingRight: isCompact ? 0 : theme.spacing.lg,
       marginBottom: isCompact ? theme.spacing.md : 0
     },
@@ -499,12 +500,12 @@ function createStyles(theme: AppTheme, width: number) {
     grid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginHorizontal: -theme.spacing.xs
+      marginHorizontal: 0
     },
     cardPressable: {
-      flexBasis: width < 900 ? 320 : 360,
+      flexBasis: isPhone ? "100%" : width < 900 ? 320 : 360,
       flexGrow: 1,
-      paddingHorizontal: theme.spacing.xs,
+      paddingHorizontal: 0,
       marginBottom: theme.spacing.md
     },
     lectureCard: {
@@ -601,14 +602,14 @@ function createStyles(theme: AppTheme, width: number) {
     footerInfoGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginHorizontal: -theme.spacing.xs,
+      marginHorizontal: 0,
       marginBottom: theme.spacing.md
     },
     footerTile: {
       flexBasis: 140,
       flexGrow: 1,
       padding: theme.spacing.md,
-      marginHorizontal: theme.spacing.xs,
+      marginHorizontal: 0,
       marginBottom: theme.spacing.sm,
       borderRadius: theme.radius.md,
       backgroundColor: theme.colors.surfaceMuted,
@@ -633,7 +634,7 @@ function createStyles(theme: AppTheme, width: number) {
       alignSelf: "flex-start"
     },
     skeletonCard: {
-      flexBasis: width < 900 ? 320 : 360,
+      flexBasis: isPhone ? "100%" : width < 900 ? 320 : 360,
       flexGrow: 1,
       minHeight: 280,
       borderRadius: theme.radius.xl,
@@ -641,7 +642,7 @@ function createStyles(theme: AppTheme, width: number) {
       backgroundColor: theme.colors.surface,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      marginHorizontal: theme.spacing.xs,
+      marginHorizontal: 0,
       marginBottom: theme.spacing.md
     },
     skeletonTitle: {

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -2188,19 +2189,22 @@ export function AppNavigation() {
     handleBackToCatalog();
   }
 
-  function handleBottomTabChange(
-    screen: "catalog" | "solver" | "videoLessons" | "profile"
-  ) {
+  function handleBottomTabChange(screen: "catalog" | "teacher" | "profile") {
     if (screen === "profile") {
       resetTeacherFlow();
       setActiveScreen("profile");
       return;
     }
 
-    if (screen === "solver") {
+    if (screen === "teacher") {
       resetStudentFlow();
       resetTeacherFlow();
-      setActiveScreen("solver");
+      if (isTeacher) {
+        setActiveScreen("teacherHome");
+        return;
+      }
+
+      handleBackToCatalog();
       return;
     }
 
@@ -2282,7 +2286,7 @@ export function AppNavigation() {
               numberOfLines={1}
               style={{
                 flexShrink: 1,
-                fontSize: isPhoneLayout ? 28 : headerTitleSize,
+                fontSize: isPhoneLayout ? 24 : headerTitleSize,
                 fontWeight: "700",
                 color: theme.colors.text
               }}
@@ -2403,6 +2407,10 @@ export function AppNavigation() {
             </Text>
           </View>
 
+          <ScrollView
+            showsVerticalScrollIndicator={isPhoneLayout}
+            bounces={false}
+          >
           {[
             { key: "catalog", label: "Каталог" },
             { key: "profile", label: "Профиль" },
@@ -2457,6 +2465,7 @@ export function AppNavigation() {
               </Pressable>
             );
           })}
+          </ScrollView>
         </View>
         </>
       ) : null}
@@ -2684,6 +2693,15 @@ export function AppNavigation() {
           />
         ) : null}
       </View>
+
+      {isPhoneLayout ? (
+        <BottomTabs
+          theme={theme}
+          isTeacher={isTeacher}
+          activeScreen={activeBottomTab}
+          onChange={handleBottomTabChange}
+        />
+      ) : null}
     </View>
   );
 }

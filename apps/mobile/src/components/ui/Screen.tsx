@@ -4,7 +4,8 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  View
+  View,
+  useWindowDimensions
 } from "react-native";
 
 import type { AppTheme } from "../../theme";
@@ -15,6 +16,9 @@ type ScreenProps = {
 };
 
 export function Screen({ theme, children }: ScreenProps) {
+  const { width } = useWindowDimensions();
+  const isPhone = width < 560;
+
   return (
     <KeyboardAvoidingView
       style={[
@@ -28,9 +32,9 @@ export function Screen({ theme, children }: ScreenProps) {
         contentContainerStyle={[
           styles.content,
           {
-            paddingHorizontal: theme.spacing.md,
-            paddingTop: theme.spacing.md,
-            paddingBottom: theme.spacing.xl * 2
+            paddingHorizontal: isPhone ? theme.spacing.sm : theme.spacing.md,
+            paddingTop: isPhone ? theme.spacing.sm : theme.spacing.md,
+            paddingBottom: isPhone ? theme.spacing.xxl : theme.spacing.xl * 2
           }
         ]}
         keyboardShouldPersistTaps="handled"

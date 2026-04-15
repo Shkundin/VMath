@@ -4,7 +4,8 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  View
+  View,
+  useWindowDimensions
 } from "react-native";
 
 import { AppButton } from "../components/ui/AppButton";
@@ -51,7 +52,8 @@ export function MeetingsScreen({
   onCreateMeeting,
   onDeleteMeeting
 }: MeetingsScreenProps) {
-  const styles = createStyles(theme);
+  const { width } = useWindowDimensions();
+  const styles = createStyles(theme, width);
 
   const [title, setTitle] = useState("");
   const [platform, setPlatform] = useState<string>("Яндекс Телемост");
@@ -441,7 +443,7 @@ type MiniStatCardProps = {
 };
 
 function MiniStatCard({ theme, value, label }: MiniStatCardProps) {
-  const styles = createStyles(theme);
+  const styles = createStyles(theme, 1200);
 
   return (
     <View style={styles.miniStatCard}>
@@ -458,7 +460,7 @@ type InfoTileProps = {
 };
 
 function InfoTile({ theme, label, value }: InfoTileProps) {
-  const styles = createStyles(theme);
+  const styles = createStyles(theme, 1200);
 
   return (
     <View style={styles.infoTile}>
@@ -546,7 +548,10 @@ function formatMeetingDate(value: string): string {
   });
 }
 
-function createStyles(theme: AppTheme) {
+function createStyles(theme: AppTheme, width: number) {
+  const isPhone = width < 560;
+  const isCompact = width < 980;
+
   return StyleSheet.create({
     headerChip: {
       minHeight: 42,
@@ -564,10 +569,9 @@ function createStyles(theme: AppTheme) {
       color: theme.colors.text
     },
     heroCard: {
-      flexDirection: "row",
-      flexWrap: "wrap",
+      flexDirection: isCompact ? "column" : "row",
       borderRadius: theme.radius.lg,
-      padding: theme.spacing.xl,
+      padding: isPhone ? theme.spacing.lg : theme.spacing.xl,
       backgroundColor: theme.colors.surface,
       borderWidth: 1,
       borderColor: theme.colors.border,
@@ -575,8 +579,9 @@ function createStyles(theme: AppTheme) {
     },
     heroLeft: {
       flex: 1,
-      minWidth: 320,
-      paddingRight: theme.spacing.lg
+      minWidth: 0,
+      paddingRight: isCompact ? 0 : theme.spacing.lg,
+      marginBottom: isCompact ? theme.spacing.md : 0
     },
     heroEyebrow: {
       fontSize: theme.typography.caption,
@@ -587,15 +592,15 @@ function createStyles(theme: AppTheme) {
       letterSpacing: 0.4
     },
     heroTitle: {
-      fontSize: theme.typography.title,
-      lineHeight: theme.typography.title + 6,
+      fontSize: isPhone ? 24 : theme.typography.title,
+      lineHeight: isPhone ? 30 : theme.typography.title + 6,
       fontWeight: "900",
       color: theme.colors.text,
       marginBottom: theme.spacing.sm
     },
     heroSubtitle: {
       fontSize: theme.typography.body,
-      lineHeight: 26,
+      lineHeight: 22,
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.md,
       maxWidth: 760
@@ -610,8 +615,8 @@ function createStyles(theme: AppTheme) {
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.textSecondary,
-      marginLeft: theme.spacing.sm,
-      marginTop: 2
+      marginLeft: isPhone ? 0 : theme.spacing.sm,
+      marginTop: isPhone ? theme.spacing.xs : 2
     },
     heroActions: {
       flexDirection: "row",
@@ -622,8 +627,7 @@ function createStyles(theme: AppTheme) {
       marginBottom: theme.spacing.sm
     },
     heroStats: {
-      width: 260,
-      minWidth: 220,
+      width: isCompact ? "100%" : 260,
       justifyContent: "space-between"
     },
     miniStatCard: {
@@ -691,12 +695,12 @@ function createStyles(theme: AppTheme) {
     inputGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginHorizontal: -theme.spacing.xs
+      marginHorizontal: 0
     },
     inputCol: {
-      flexBasis: 220,
+      flexBasis: isPhone ? "100%" : 220,
       flexGrow: 1,
-      paddingHorizontal: theme.spacing.xs
+      paddingHorizontal: 0
     },
     errorText: {
       color: theme.colors.danger,
@@ -723,15 +727,15 @@ function createStyles(theme: AppTheme) {
       marginBottom: theme.spacing.md
     },
     meetingTop: {
-      flexDirection: "row",
+      flexDirection: isPhone ? "column" : "row",
       justifyContent: "space-between",
-      alignItems: "flex-start",
-      flexWrap: "wrap",
+      alignItems: isPhone ? "stretch" : "flex-start",
       marginBottom: theme.spacing.md
     },
     meetingTitleWrap: {
       flex: 1,
-      paddingRight: theme.spacing.md
+      paddingRight: isPhone ? 0 : theme.spacing.md,
+      marginBottom: isPhone ? theme.spacing.sm : 0
     },
     meetingTitle: {
       fontSize: theme.typography.sectionTitle,
@@ -747,13 +751,13 @@ function createStyles(theme: AppTheme) {
     infoGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginHorizontal: -theme.spacing.xs,
+      marginHorizontal: 0,
       marginBottom: theme.spacing.sm
     },
     infoTile: {
-      flexBasis: 220,
+      flexBasis: isPhone ? "100%" : 220,
       flexGrow: 1,
-      marginHorizontal: theme.spacing.xs,
+      marginHorizontal: 0,
       marginBottom: theme.spacing.sm,
       padding: theme.spacing.md,
       borderRadius: theme.radius.md,

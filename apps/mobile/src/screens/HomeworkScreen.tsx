@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -740,7 +740,7 @@ function createStyles(theme: AppTheme, width: number) {
     },
     heroLeft: {
       flex: 1,
-      minWidth: 320,
+      minWidth: 0,
       paddingRight: isCompact ? 0 : theme.spacing.lg,
       marginBottom: isCompact ? theme.spacing.md : 0
     },
@@ -816,17 +816,17 @@ function createStyles(theme: AppTheme, width: number) {
     inputGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginHorizontal: -theme.spacing.xs
+      marginHorizontal: 0
     },
     inputCol: {
-      flexBasis: 220,
+      flexBasis: isPhone ? "100%" : 220,
       flexGrow: 1,
-      paddingHorizontal: theme.spacing.xs
+      paddingHorizontal: 0
     },
     inputColWide: {
-      flexBasis: 360,
+      flexBasis: isPhone ? "100%" : 360,
       flexGrow: 1,
-      paddingHorizontal: theme.spacing.xs
+      paddingHorizontal: 0
     },
     errorText: {
       color: theme.colors.danger,
@@ -883,13 +883,13 @@ function createStyles(theme: AppTheme, width: number) {
     infoGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginHorizontal: -theme.spacing.xs,
+      marginHorizontal: 0,
       marginBottom: theme.spacing.sm
     },
     infoTile: {
       flexBasis: isPhone ? "100%" : 220,
       flexGrow: 1,
-      marginHorizontal: theme.spacing.xs,
+      marginHorizontal: 0,
       marginBottom: theme.spacing.sm,
       padding: theme.spacing.md,
       borderRadius: theme.radius.md,

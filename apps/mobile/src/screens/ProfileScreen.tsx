@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+﻿import React, { useMemo } from "react";
 import { StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
 
 import { AppButton } from "../components/ui/AppButton";
@@ -344,7 +344,7 @@ function createStyles(theme: AppTheme, width: number) {
     },
     heroLeft: {
       flex: 1,
-      minWidth: 320,
+      minWidth: 0,
       flexDirection: isPhone ? "column" : "row",
       alignItems: isPhone ? "flex-start" : "center",
       paddingRight: isCompact ? 0 : theme.spacing.lg,
@@ -444,12 +444,12 @@ function createStyles(theme: AppTheme, width: number) {
     infoGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginHorizontal: -theme.spacing.xs
+      marginHorizontal: 0
     },
     infoTile: {
       flexBasis: isPhone ? "100%" : 220,
       flexGrow: 1,
-      marginHorizontal: theme.spacing.xs,
+      marginHorizontal: 0,
       marginBottom: theme.spacing.sm,
       padding: theme.spacing.md,
       borderRadius: theme.radius.md,

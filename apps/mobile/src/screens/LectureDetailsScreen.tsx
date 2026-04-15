@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import {
   Linking,
   Pressable,
@@ -421,7 +421,7 @@ function createStyles(theme: AppTheme, width: number) {
     },
     heroLeft: {
       flex: 1,
-      minWidth: 320,
+      minWidth: 0,
       paddingRight: isCompact ? 0 : theme.spacing.lg,
       marginBottom: isCompact ? theme.spacing.md : 0
     },
@@ -511,12 +511,12 @@ function createStyles(theme: AppTheme, width: number) {
     infoGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginHorizontal: -theme.spacing.xs
+      marginHorizontal: 0
     },
     infoTile: {
       flexBasis: isPhone ? "100%" : 220,
       flexGrow: 1,
-      marginHorizontal: theme.spacing.xs,
+      marginHorizontal: 0,
       marginBottom: theme.spacing.sm,
       padding: theme.spacing.md,
       borderRadius: theme.radius.md,
@@ -568,12 +568,12 @@ function createStyles(theme: AppTheme, width: number) {
     blockList: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginHorizontal: -theme.spacing.xs
+      marginHorizontal: 0
     },
     blockSummaryCard: {
       flexBasis: isPhone ? "100%" : 300,
       flexGrow: 1,
-      marginHorizontal: theme.spacing.xs,
+      marginHorizontal: 0,
       marginBottom: theme.spacing.md,
       padding: theme.spacing.lg,
       borderRadius: theme.radius.lg,

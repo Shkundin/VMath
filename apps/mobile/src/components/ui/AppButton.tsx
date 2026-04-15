@@ -57,12 +57,14 @@ function createStyles(
   return StyleSheet.create({
     button: {
       width: fullWidth ? "100%" : undefined,
+      maxWidth: "100%",
       minHeight: 46,
       borderRadius: theme.radius.md,
       paddingHorizontal: theme.spacing.lg,
       paddingVertical: theme.spacing.sm,
       alignItems: "center",
       justifyContent: "center",
+      alignSelf: fullWidth ? "stretch" : "flex-start",
       backgroundColor: isPrimary
         ? theme.colors.primary
         : isSecondary
@@ -77,7 +79,9 @@ function createStyles(
       color: isPrimary ? "#FFFFFF" : theme.colors.text,
       fontSize: theme.typography.body,
       fontWeight: "700",
-      letterSpacing: 0.1
+      letterSpacing: 0.1,
+      textAlign: "center",
+      flexShrink: 1
     }
   });
 }

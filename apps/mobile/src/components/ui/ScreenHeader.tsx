@@ -18,6 +18,8 @@ export function ScreenHeader({
 }: ScreenHeaderProps) {
   const { width } = useWindowDimensions();
   const isPhone = width < 720;
+  const isNarrowPhone = width < 560;
+  const titleSize = isNarrowPhone ? theme.typography.title : theme.typography.screenTitle;
 
   return (
     <View
@@ -37,7 +39,8 @@ export function ScreenHeader({
             styles.title,
             {
               color: theme.colors.text,
-              fontSize: isPhone ? 34 : theme.typography.screenTitle
+              fontSize: titleSize,
+              lineHeight: titleSize + 4
             }
           ]}
         >
@@ -50,7 +53,8 @@ export function ScreenHeader({
               styles.subtitle,
               {
                 color: theme.colors.textSecondary,
-                fontSize: theme.typography.body
+                fontSize: theme.typography.body,
+                lineHeight: isPhone ? 22 : 24
               }
             ]}
           >
@@ -65,7 +69,8 @@ export function ScreenHeader({
             styles.right,
             {
               marginTop: isPhone ? theme.spacing.md : 0,
-              alignSelf: isPhone ? "stretch" : "auto"
+              alignSelf: isPhone ? "stretch" : "auto",
+              width: isPhone ? "100%" : undefined
             }
           ]}
         >

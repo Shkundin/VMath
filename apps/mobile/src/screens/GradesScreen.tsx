@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import { AppButton } from "../components/ui/AppButton";
@@ -591,6 +591,7 @@ function createStyles(theme: AppTheme, width: number) {
     },
     heroMain: {
       flex: 1,
+      minWidth: 0,
       paddingRight: isCompact ? 0 : theme.spacing.lg,
       marginBottom: isCompact ? theme.spacing.md : 0
     },
@@ -680,13 +681,13 @@ function createStyles(theme: AppTheme, width: number) {
     infoGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginHorizontal: -theme.spacing.xs,
+      marginHorizontal: 0,
       marginBottom: theme.spacing.sm
     },
     infoTile: {
       flexBasis: isPhone ? "100%" : 210,
       flexGrow: 1,
-      marginHorizontal: theme.spacing.xs,
+      marginHorizontal: 0,
       marginBottom: theme.spacing.sm,
       padding: theme.spacing.md,
       borderRadius: theme.radius.md,
@@ -751,17 +752,17 @@ function createStyles(theme: AppTheme, width: number) {
     inputGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginHorizontal: -theme.spacing.xs
+      marginHorizontal: 0
     },
     inputCol: {
       flexBasis: isPhone ? "100%" : 180,
       flexGrow: 1,
-      paddingHorizontal: theme.spacing.xs
+      paddingHorizontal: 0
     },
     inputColWide: {
       flexBasis: isPhone ? "100%" : 360,
       flexGrow: 1,
-      paddingHorizontal: theme.spacing.xs
+      paddingHorizontal: 0
     },
     inlineButton: {
       marginTop: theme.spacing.sm

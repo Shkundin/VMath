@@ -1,5 +1,5 @@
 ﻿import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import { AppButton } from "../components/ui/AppButton";
 import { Screen } from "../components/ui/Screen";
@@ -23,7 +23,8 @@ export function TaskResultScreen({
   onBackToSession,
   onFinish
 }: TaskResultScreenProps) {
-  const styles = createStyles(theme);
+  const { width } = useWindowDimensions();
+  const styles = createStyles(theme, width);
   const percent = result.totalQuestions > 0
     ? Math.round((result.correctCount / result.totalQuestions) * 100)
     : 0;
@@ -180,7 +181,7 @@ type MiniStatCardProps = {
 };
 
 function MiniStatCard({ theme, value, label }: MiniStatCardProps) {
-  const styles = createStyles(theme);
+  const styles = createStyles(theme, 1200);
 
   return (
     <View style={styles.miniStatCard}>
@@ -197,7 +198,7 @@ type InfoTileProps = {
 };
 
 function InfoTile({ theme, label, value }: InfoTileProps) {
-  const styles = createStyles(theme);
+  const styles = createStyles(theme, 1200);
 
   return (
     <View style={styles.infoTile}>
@@ -214,7 +215,7 @@ type AnswerInfoTileProps = {
 };
 
 function AnswerInfoTile({ theme, label, value }: AnswerInfoTileProps) {
-  const styles = createStyles(theme);
+  const styles = createStyles(theme, 1200);
 
   return (
     <View style={styles.answerInfoTile}>
@@ -224,17 +225,19 @@ function AnswerInfoTile({ theme, label, value }: AnswerInfoTileProps) {
   );
 }
 
-function createStyles(theme: AppTheme) {
+function createStyles(theme: AppTheme, width: number) {
+  const isPhone = width < 560;
+  const isCompact = width < 980;
+
   return StyleSheet.create({
     headerPills: {
       flexDirection: "row",
       flexWrap: "wrap"
     },
     heroCard: {
-      flexDirection: "row",
-      flexWrap: "wrap",
+      flexDirection: isCompact ? "column" : "row",
       borderRadius: theme.radius.xl,
-      padding: theme.spacing.xl,
+      padding: isPhone ? theme.spacing.lg : theme.spacing.xl,
       backgroundColor: theme.colors.surface,
       borderWidth: 1,
       borderColor: theme.colors.border,
@@ -243,8 +246,9 @@ function createStyles(theme: AppTheme) {
     },
     heroLeft: {
       flex: 1,
-      minWidth: 320,
-      paddingRight: theme.spacing.lg
+      minWidth: 0,
+      paddingRight: isCompact ? 0 : theme.spacing.lg,
+      marginBottom: isCompact ? theme.spacing.md : 0
     },
     heroEyebrow: {
       fontSize: theme.typography.caption,
@@ -255,15 +259,15 @@ function createStyles(theme: AppTheme) {
       letterSpacing: 0.4
     },
     heroTitle: {
-      fontSize: theme.typography.title,
-      lineHeight: theme.typography.title + 6,
+      fontSize: isPhone ? 24 : theme.typography.title,
+      lineHeight: isPhone ? 30 : theme.typography.title + 6,
       fontWeight: "900",
       color: theme.colors.text,
       marginBottom: theme.spacing.sm
     },
     heroSubtitle: {
       fontSize: theme.typography.body,
-      lineHeight: 26,
+      lineHeight: 22,
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.lg,
       maxWidth: 760
@@ -277,8 +281,7 @@ function createStyles(theme: AppTheme) {
       marginBottom: theme.spacing.sm
     },
     heroStats: {
-      width: 260,
-      minWidth: 220,
+      width: isCompact ? "100%" : 260,
       justifyContent: "space-between"
     },
     miniStatCard: {
@@ -301,29 +304,25 @@ function createStyles(theme: AppTheme) {
       color: theme.colors.textSecondary
     },
     grid: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      marginHorizontal: -theme.spacing.xs
+      flexDirection: isCompact ? "column" : "row",
+      marginHorizontal: 0
     },
     cardWide: {
-      flexBasis: 720,
-      flexGrow: 1,
-      marginHorizontal: theme.spacing.xs
+      flex: 1.2,
+      marginRight: isCompact ? 0 : theme.spacing.md
     },
     cardNarrow: {
-      flexBasis: 320,
-      flexGrow: 1,
-      marginHorizontal: theme.spacing.xs
+      flex: 0.8
     },
     infoGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginHorizontal: -theme.spacing.xs
+      marginHorizontal: 0
     },
     infoTile: {
-      flexBasis: 220,
+      flexBasis: isPhone ? "100%" : 220,
       flexGrow: 1,
-      marginHorizontal: theme.spacing.xs,
+      marginHorizontal: 0,
       marginBottom: theme.spacing.sm,
       padding: theme.spacing.md,
       borderRadius: theme.radius.md,
@@ -343,7 +342,7 @@ function createStyles(theme: AppTheme) {
       color: theme.colors.text
     },
     summaryBadge: {
-      minHeight: 140,
+      minHeight: isPhone ? 120 : 140,
       borderRadius: theme.radius.xl,
       alignItems: "center",
       justifyContent: "center",
@@ -353,7 +352,7 @@ function createStyles(theme: AppTheme) {
       marginBottom: theme.spacing.md
     },
     summaryBadgeValue: {
-      fontSize: 42,
+      fontSize: isPhone ? 36 : 42,
       fontWeight: "900",
       color: theme.colors.primary,
       marginBottom: theme.spacing.xs
@@ -380,10 +379,9 @@ function createStyles(theme: AppTheme) {
       ...theme.shadow.sm
     },
     answerTop: {
-      flexDirection: "row",
+      flexDirection: isPhone ? "column" : "row",
       justifyContent: "space-between",
-      alignItems: "center",
-      flexWrap: "wrap",
+      alignItems: isPhone ? "stretch" : "center",
       marginBottom: theme.spacing.sm
     },
     answerIndex: {
@@ -428,13 +426,13 @@ function createStyles(theme: AppTheme) {
     answerInfoGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginHorizontal: -theme.spacing.xs,
+      marginHorizontal: 0,
       marginBottom: theme.spacing.sm
     },
     answerInfoTile: {
-      flexBasis: 240,
+      flexBasis: isPhone ? "100%" : 240,
       flexGrow: 1,
-      marginHorizontal: theme.spacing.xs,
+      marginHorizontal: 0,
       marginBottom: theme.spacing.sm,
       padding: theme.spacing.md,
       borderRadius: theme.radius.md,

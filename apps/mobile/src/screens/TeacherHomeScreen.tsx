@@ -877,6 +877,7 @@ function createStyles(theme: AppTheme, width: number) {
     },
     heroMain: {
       flex: 1,
+      minWidth: 0,
       paddingRight: isCompact ? 0 : theme.spacing.lg,
       marginBottom: isCompact ? theme.spacing.md : 0
     },
@@ -982,17 +983,17 @@ function createStyles(theme: AppTheme, width: number) {
     formRow: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginHorizontal: -theme.spacing.xs
+      marginHorizontal: 0
     },
     formCol: {
-      flexBasis: 220,
+      flexBasis: isPhone ? "100%" : 220,
       flexGrow: 1,
-      paddingHorizontal: theme.spacing.xs
+      paddingHorizontal: 0
     },
     halfCol: {
-      flexBasis: 260,
+      flexBasis: isPhone ? "100%" : 260,
       flexGrow: 1,
-      paddingHorizontal: theme.spacing.xs
+      paddingHorizontal: 0
     },
     actionTop: {
       marginTop: theme.spacing.sm
@@ -1088,7 +1089,7 @@ function createStyles(theme: AppTheme, width: number) {
     metaPanel: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginHorizontal: -theme.spacing.xs,
+      marginHorizontal: 0,
       marginTop: theme.spacing.md,
       marginBottom: theme.spacing.sm
     },
@@ -1096,7 +1097,7 @@ function createStyles(theme: AppTheme, width: number) {
       flexBasis: isPhone ? "100%" : 150,
       flexGrow: 1,
       padding: theme.spacing.md,
-      marginHorizontal: theme.spacing.xs,
+      marginHorizontal: 0,
       marginBottom: theme.spacing.sm,
       borderRadius: theme.radius.md,
       backgroundColor: theme.colors.surface,

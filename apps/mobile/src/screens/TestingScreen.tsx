@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -643,13 +643,13 @@ function createStyles(theme: AppTheme, width: number) {
     infoGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginHorizontal: -theme.spacing.xs,
+      marginHorizontal: 0,
       marginBottom: theme.spacing.sm
     },
     infoCard: {
       flexBasis: isPhone ? "100%" : 220,
       flexGrow: 1,
-      marginHorizontal: theme.spacing.xs,
+      marginHorizontal: 0,
       marginBottom: theme.spacing.sm,
       padding: theme.spacing.md,
       borderRadius: theme.radius.md,
@@ -680,12 +680,12 @@ function createStyles(theme: AppTheme, width: number) {
     inputGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginHorizontal: -theme.spacing.xs
+      marginHorizontal: 0
     },
     inputCol: {
       flexBasis: isPhone ? "100%" : 260,
       flexGrow: 1,
-      paddingHorizontal: theme.spacing.xs
+      paddingHorizontal: 0
     },
     actionTop: {
       marginTop: theme.spacing.sm
