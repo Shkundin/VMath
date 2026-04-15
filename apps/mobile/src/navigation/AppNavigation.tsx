@@ -116,11 +116,103 @@ type ScreenKey =
   | "latex"
   | "profile";
 
+type MenuScreenKey =
+  | "catalog"
+  | "solver"
+  | "videoLessons"
+  | "photoMaterials"
+  | "meetings"
+  | "homework"
+  | "grades"
+  | "testing"
+  | "latex"
+  | "profile";
+
 type LoginRole = "student" | "teacher";
 type AuthMode = "login" | "register";
 type DemoDataMode = "online" | "offline" | "loading" | "error";
 
 const GOOGLE_WEB_CLIENT_ID = "PASTE_YOUR_WEB_CLIENT_ID_HERE.apps.googleusercontent.com";
+
+function getNavigationLabel(screen: MenuScreenKey): string {
+  if (screen === "catalog") {
+    return "Курсы";
+  }
+
+  if (screen === "meetings") {
+    return "Занятия";
+  }
+
+  if (screen === "homework") {
+    return "Домашние задания";
+  }
+
+  if (screen === "testing") {
+    return "Тесты";
+  }
+
+  if (screen === "grades") {
+    return "Успеваемость";
+  }
+
+  if (screen === "videoLessons") {
+    return "Видеоуроки";
+  }
+
+  if (screen === "photoMaterials") {
+    return "Фотоматериалы";
+  }
+
+  if (screen === "solver") {
+    return "Решение задач";
+  }
+
+  if (screen === "latex") {
+    return "Конспекты";
+  }
+
+  return "Профиль";
+}
+
+function getNavigationOrder(screen: MenuScreenKey): number {
+  if (screen === "catalog") {
+    return 1;
+  }
+
+  if (screen === "meetings") {
+    return 2;
+  }
+
+  if (screen === "homework") {
+    return 3;
+  }
+
+  if (screen === "testing") {
+    return 4;
+  }
+
+  if (screen === "grades") {
+    return 5;
+  }
+
+  if (screen === "videoLessons") {
+    return 6;
+  }
+
+  if (screen === "photoMaterials") {
+    return 7;
+  }
+
+  if (screen === "solver") {
+    return 8;
+  }
+
+  if (screen === "latex") {
+    return 9;
+  }
+
+  return 10;
+}
 
 function nextMode(currentMode: DemoDataMode): DemoDataMode {
   if (currentMode === "online") {
@@ -2426,8 +2518,10 @@ export function AppNavigation() {
             { key: "testing", label: "Тестирование" },
             { key: "photoMaterials", label: "Фотоматериалы" }
           ]
-            .sort((left, right) =>
-              fixText(left.label).localeCompare(fixText(right.label), "ru", { sensitivity: "base" })
+            .sort(
+              (left, right) =>
+                getNavigationOrder(left.key as MenuScreenKey) -
+                getNavigationOrder(right.key as MenuScreenKey)
             )
             .map((item) => {
             const isCatalogActive =
@@ -2467,7 +2561,7 @@ export function AppNavigation() {
                     color: isActive ? theme.colors.primary : theme.colors.text
                   }}
                 >
-                  {fixText(item.label)}
+                  {getNavigationLabel(item.key as MenuScreenKey)}
                 </Text>
               </Pressable>
             );
@@ -2739,14 +2833,14 @@ function BottomTabs({
       {isTeacher ? (
         <TabButton
           theme={theme}
-          label={String.fromCharCode(0x041F,0x0440,0x0435,0x043F,0x043E,0x0434,0x0430,0x0432,0x0430,0x0442,0x0435,0x043B,0x044C)}
+          label="Главная"
           isActive={activeScreen === "teacher"}
           onPress={() => onChange("teacher")}
         />
       ) : (
         <TabButton
           theme={theme}
-          label={String.fromCharCode(0x041A,0x0430,0x0442,0x0430,0x043B,0x043E,0x0433)}
+          label="Курсы"
           isActive={activeScreen === "catalog"}
           onPress={() => onChange("catalog")}
         />
@@ -2754,7 +2848,7 @@ function BottomTabs({
 
       <TabButton
         theme={theme}
-        label={String.fromCharCode(0x041F,0x0440,0x043E,0x0444,0x0438,0x043B,0x044C)}
+        label="Профиль"
         isActive={activeScreen === "profile"}
         onPress={() => onChange("profile")}
       />

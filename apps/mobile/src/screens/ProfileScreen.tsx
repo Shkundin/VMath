@@ -41,6 +41,7 @@ export function ProfileScreen({
   onLogout
 }: ProfileScreenProps) {
   const { width } = useWindowDimensions();
+  const isPhone = width < 560;
   const styles = createStyles(theme, width);
 
   const displayName = useMemo(() => {
@@ -69,8 +70,8 @@ export function ProfileScreen({
     <Screen theme={theme}>
       <ScreenHeader
         theme={theme}
-        title="Профиль и настройки"
-        subtitle="Управляй аккаунтом, параметрами интерфейса и demo-состояниями приложения."
+        title="Профиль"
+        subtitle="Аккаунт, интерфейс и быстрые настройки приложения."
         rightSlot={
           <View style={styles.roleChip}>
             <Text style={styles.roleChipText}>{roleLabel}</Text>
@@ -88,7 +89,7 @@ export function ProfileScreen({
             <Text style={styles.heroEyebrow}>Личный кабинет</Text>
             <Text style={styles.heroName}>{displayName}</Text>
             <Text style={styles.heroSubtitle}>
-              Личный кабинет пользователя платформы VisualMath.
+              Здесь находятся данные аккаунта, статус приложения и основные параметры.
             </Text>
 
             <View style={styles.heroBadges}>
@@ -115,8 +116,8 @@ export function ProfileScreen({
           />
           <MiniStatCard
             theme={theme}
-            value={catalogMode}
-            label="Каталог"
+            value={formatModeLabel(catalogMode)}
+            label="Курсы"
           />
         </View>
       </View>
@@ -124,7 +125,7 @@ export function ProfileScreen({
       <View style={styles.grid}>
         <SectionCard
           theme={theme}
-          title="Данные аккаунта"
+          title="Аккаунт"
           subtitle="Основная информация по текущему профилю."
           style={styles.cardWide}
         >
@@ -138,19 +139,19 @@ export function ProfileScreen({
 
         <SectionCard
           theme={theme}
-          title="Быстрые статусы"
-          subtitle="Состояние ключевых частей приложения."
+          title="Состояние приложения"
+          subtitle="Короткий статус основных разделов."
           style={styles.cardNarrow}
         >
           <View style={styles.statusWrap}>
             <StatusPill
               theme={theme}
-              label={`Каталог: ${catalogMode}`}
+              label={`Курсы: ${formatModeLabel(catalogMode)}`}
               tone={mapModeToTone(catalogMode)}
             />
             <StatusPill
               theme={theme}
-              label={`Сессия: ${sessionMode}`}
+              label={`Занятия: ${formatModeLabel(sessionMode)}`}
               tone={mapModeToTone(sessionMode)}
             />
           </View>
@@ -160,8 +161,8 @@ export function ProfileScreen({
       <View style={styles.grid}>
         <SectionCard
           theme={theme}
-          title="Настройки интерфейса"
-          subtitle="Минимальный набор пользовательских параметров."
+          title="Интерфейс"
+          subtitle="Тема, уведомления и базовые параметры приложения."
           style={styles.cardWide}
         >
           <SettingRow
@@ -185,12 +186,12 @@ export function ProfileScreen({
 
         <SectionCard
           theme={theme}
-          title="Demo-режимы"
-          subtitle="Переключение состояний для быстрой проверки интерфейса."
+          title="Режим проверки"
+          subtitle="Быстрая смена состояний для проверки экранов."
           style={styles.cardNarrow}
         >
           <AppButton
-            label="Сменить состояние каталога"
+            label="Состояние курсов"
             onPress={onCycleCatalogMode}
             theme={theme}
             variant="secondary"
@@ -198,7 +199,7 @@ export function ProfileScreen({
           />
 
           <AppButton
-            label="Сменить состояние сессии"
+            label="Состояние занятия"
             onPress={onCycleSessionMode}
             theme={theme}
             variant="secondary"
@@ -209,16 +210,16 @@ export function ProfileScreen({
 
       <SectionCard
         theme={theme}
-        title="Сессия пользователя"
-        subtitle="Локальное управление входом в аккаунт."
+        title="Аккаунт"
+        subtitle="Выход из текущего профиля."
       >
         <View style={styles.logoutWrap}>
           <AppButton
-            label="Выйти из аккаунта"
+            label="Выйти"
             onPress={onLogout}
             theme={theme}
             variant="secondary"
-            fullWidth={false}
+            fullWidth={isPhone}
             style={styles.logoutButton}
           />
         </View>
@@ -311,6 +312,22 @@ function mapModeToTone(mode: DemoDataMode): StatusTone {
   }
 
   return "danger";
+}
+
+function formatModeLabel(mode: DemoDataMode): string {
+  if (mode === "online") {
+    return "Онлайн";
+  }
+
+  if (mode === "offline") {
+    return "Офлайн";
+  }
+
+  if (mode === "loading") {
+    return "Загрузка";
+  }
+
+  return "Ошибка";
 }
 
 function createStyles(theme: AppTheme, width: number) {
