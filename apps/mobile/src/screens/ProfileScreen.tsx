@@ -7,6 +7,7 @@ import { ScreenHeader } from "../components/ui/ScreenHeader";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatusPill } from "../components/ui/StatusPill";
 import type { UserProfile } from "../mocks/user";
+import type { TeacherBranch } from "../storage/teacherBranchesStorage";
 import type { AppTheme, ThemeMode } from "../theme";
 import { fixText } from "../utils/fixText";
 
@@ -20,10 +21,13 @@ type ProfileScreenProps = {
   notificationsEnabled: boolean;
   catalogMode: DemoDataMode;
   sessionMode: DemoDataMode;
+  selectedTeacherBranch?: TeacherBranch | null;
   onToggleTheme: () => void;
   onToggleNotifications: () => void;
   onCycleCatalogMode: () => void;
   onCycleSessionMode: () => void;
+  onOpenTeacherConnection?: () => void;
+  onDisconnectTeacher?: () => void;
   onLogout: () => void;
 };
 
@@ -34,10 +38,13 @@ export function ProfileScreen({
   notificationsEnabled,
   catalogMode,
   sessionMode,
+  selectedTeacherBranch,
   onToggleTheme,
   onToggleNotifications,
   onCycleCatalogMode,
   onCycleSessionMode,
+  onOpenTeacherConnection,
+  onDisconnectTeacher,
   onLogout
 }: ProfileScreenProps) {
   const { width } = useWindowDimensions();
@@ -65,6 +72,7 @@ export function ProfileScreen({
   }, [displayName]);
 
   const roleLabel = user.role === "teacher" ? "Преподаватель" : "Студент";
+  const isStudent = user.role === "student";
 
   return (
     <Screen theme={theme}>
@@ -159,11 +167,59 @@ export function ProfileScreen({
       </View>
 
       <View style={styles.grid}>
+        {isStudent ? (
+          <SectionCard
+            theme={theme}
+            title="Подключение к преподавателю"
+            subtitle={
+              selectedTeacherBranch
+                ? `Сейчас открыт каталог преподавателя ${fixText(selectedTeacherBranch.teacherName)}.`
+                : "Сначала введи код преподавателя, чтобы открыть его каталог и материалы."
+            }
+            style={styles.cardWide}
+          >
+            <View style={styles.infoGrid}>
+              <InfoTile
+                theme={theme}
+                label="Преподаватель"
+                value={selectedTeacherBranch?.teacherName || "Не подключен"}
+              />
+              <InfoTile
+                theme={theme}
+                label="Код курса"
+                value={selectedTeacherBranch?.joinCode || "Не выбран"}
+              />
+            </View>
+
+            <View style={styles.connectionActions}>
+              <AppButton
+                label={selectedTeacherBranch ? "Сменить преподавателя" : "Ввести код преподавателя"}
+                onPress={onOpenTeacherConnection ?? (() => {})}
+                theme={theme}
+                variant="secondary"
+                fullWidth={isPhone}
+                style={styles.connectionButton}
+              />
+
+              {selectedTeacherBranch ? (
+                <AppButton
+                  label="Отключиться"
+                  onPress={onDisconnectTeacher ?? (() => {})}
+                  theme={theme}
+                  variant="ghost"
+                  fullWidth={isPhone}
+                  style={styles.connectionButton}
+                />
+              ) : null}
+            </View>
+          </SectionCard>
+        ) : null}
+
         <SectionCard
           theme={theme}
           title="Интерфейс"
           subtitle="Тема, уведомления и базовые параметры приложения."
-          style={styles.cardWide}
+          style={isStudent ? styles.cardNarrow : styles.cardWide}
         >
           <SettingRow
             theme={theme}
@@ -526,6 +582,15 @@ function createStyles(theme: AppTheme, width: number) {
       flexDirection: isPhone ? "column" : "row",
       alignItems: "stretch",
       marginBottom: theme.spacing.xs
+    },
+    connectionActions: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      marginTop: theme.spacing.sm
+    },
+    connectionButton: {
+      marginRight: theme.spacing.sm,
+      marginBottom: theme.spacing.sm
     },
     logoutWrap: {
       flexDirection: "row",

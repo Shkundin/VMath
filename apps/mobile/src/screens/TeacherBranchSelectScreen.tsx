@@ -23,13 +23,15 @@ type TeacherBranchSelectScreenProps = {
   onJoinByCode: (
     joinCode: string
   ) => { ok: true; branch: TeacherBranch } | { ok: false; error: string };
+  onDisconnectCurrent?: () => void;
 };
 
 export function TeacherBranchSelectScreen({
   theme,
   branches,
   selectedTeacherLogin,
-  onJoinByCode
+  onJoinByCode,
+  onDisconnectCurrent
 }: TeacherBranchSelectScreenProps) {
   const { width } = useWindowDimensions();
   const styles = createStyles(theme, width);
@@ -110,6 +112,21 @@ export function TeacherBranchSelectScreen({
             onPress={() => handleConnect()}
             theme={theme}
           />
+
+          {selectedBranch ? (
+            <AppButton
+              label="Отключиться от текущего преподавателя"
+              onPress={() => {
+                setJoinCode("");
+                setJoinError("");
+                setJoinSuccess("");
+                onDisconnectCurrent?.();
+              }}
+              theme={theme}
+              variant="ghost"
+              style={styles.disconnectButton}
+            />
+          ) : null}
         </View>
       </SectionCard>
 
@@ -324,6 +341,9 @@ function createStyles(theme: AppTheme, width: number) {
       color: theme.colors.textSecondary
     },
     connectButtonWrap: {
+      marginTop: theme.spacing.sm
+    },
+    disconnectButton: {
       marginTop: theme.spacing.sm
     },
     successText: {

@@ -835,9 +835,12 @@ export function AppNavigation() {
 
   const roleBadgeLabel = isTeacher
     ? "Преподаватель"
-    : selectedTeacherBranch?.teacherName || "Ветка";
+    : selectedTeacherBranch?.teacherName || "Выбор преподавателя";
 
   const scopedTeacherLogin = isTeacher ? user.login : selectedTeacherLogin;
+  const studentLandingScreen: "catalog" | "teacherBranchSelect" = selectedTeacherLogin
+    ? "catalog"
+    : "teacherBranchSelect";
 
   const visibleLectures = useMemo(() => {
     if (!scopedTeacherLogin) {
@@ -1351,6 +1354,19 @@ export function AppNavigation() {
     setActiveScreen("catalog");
   }
 
+  function handleDisconnectTeacherBranch() {
+    setSelectedTeacherLogin(null);
+    resetStudentFlow();
+    resetTeacherFlow();
+    setActiveScreen("teacherBranchSelect");
+  }
+
+  function handleOpenTeacherBranchSelector() {
+    resetStudentFlow();
+    resetTeacherFlow();
+    setActiveScreen("teacherBranchSelect");
+  }
+
   function handleJoinTeacherBranch(
     joinCode: string
   ): { ok: true; branch: TeacherBranch } | { ok: false; error: string } {
@@ -1522,7 +1538,10 @@ export function AppNavigation() {
 
     setUser(nextUser);
     setIsAuthenticated(true);
-    setActiveScreen(selectedTeacherLogin ? "catalog" : "teacherBranchSelect");
+    setSelectedTeacherLogin(null);
+    resetStudentFlow();
+    resetTeacherFlow();
+    setActiveScreen("teacherBranchSelect");
 
     try {
       await refreshCatalogFromApi();
@@ -1585,7 +1604,10 @@ export function AppNavigation() {
 
       setUser(nextUser);
       setIsAuthenticated(true);
-      setActiveScreen(selectedTeacherLogin ? "catalog" : "teacherBranchSelect");
+      setSelectedTeacherLogin(null);
+      resetStudentFlow();
+      resetTeacherFlow();
+      setActiveScreen("teacherBranchSelect");
 
       try {
         await refreshCatalogFromApi();
@@ -1849,7 +1871,7 @@ export function AppNavigation() {
 
   function handleBackToCatalog() {
     resetStudentFlow();
-    setActiveScreen(selectedTeacherLogin ? "catalog" : "teacherBranchSelect");
+    setActiveScreen(studentLandingScreen);
   }
 
   async function handleOpenSession() {
@@ -2308,6 +2330,22 @@ export function AppNavigation() {
   ) {
     setIsMenuOpen(false);
 
+    const requiresTeacherConnection =
+      screen === "catalog" ||
+      screen === "videoLessons" ||
+      screen === "photoMaterials" ||
+      screen === "meetings" ||
+      screen === "homework" ||
+      screen === "grades" ||
+      screen === "testing";
+
+    if (!isTeacher && requiresTeacherConnection && !selectedTeacherLogin) {
+      resetStudentFlow();
+      resetTeacherFlow();
+      setActiveScreen("teacherBranchSelect");
+      return;
+    }
+
     if (screen === "profile") {
       resetTeacherFlow();
       setActiveScreen("profile");
@@ -2681,6 +2719,7 @@ export function AppNavigation() {
             branches={teacherBranches}
             selectedTeacherLogin={selectedTeacherLogin}
             onJoinByCode={handleJoinTeacherBranch}
+            onDisconnectCurrent={handleDisconnectTeacherBranch}
           />
         ) : null}
 
@@ -2875,6 +2914,7 @@ export function AppNavigation() {
             notificationsEnabled={notificationsEnabled}
             catalogMode={catalogMode}
             sessionMode={sessionMode}
+            selectedTeacherBranch={isTeacher ? null : selectedTeacherBranch}
             onToggleTheme={() =>
               setThemeMode((currentMode) =>
                 currentMode === "light" ? "dark" : "light"
@@ -2888,6 +2928,12 @@ export function AppNavigation() {
             }
             onCycleSessionMode={() =>
               setSessionMode((currentMode) => nextMode(currentMode))
+            }
+            onOpenTeacherConnection={
+              isTeacher ? undefined : handleOpenTeacherBranchSelector
+            }
+            onDisconnectTeacher={
+              isTeacher ? undefined : handleDisconnectTeacherBranch
             }
             onLogout={() => { void handleLogout(); }}
           />
