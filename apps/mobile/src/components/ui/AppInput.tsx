@@ -33,6 +33,11 @@ export function AppInput({
     <View style={styles.wrapper}>
       <Text style={styles.label}>{fixText(label)}</Text>
       <TextInput
+        placeholder={
+          typeof props.placeholder === "string"
+            ? fixText(props.placeholder)
+            : props.placeholder
+        }
         placeholderTextColor={theme.colors.textSecondary}
         style={[styles.input, style]}
         multiline={multiline}

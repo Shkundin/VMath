@@ -2,6 +2,7 @@
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 
 import type { AppTheme } from "../../theme";
+import { fixText } from "../../utils/fixText";
 
 type SectionCardProps = {
   theme: AppTheme;
@@ -41,7 +42,7 @@ export function SectionCard({
             }
           ]}
         >
-          {title}
+          {fixText(title)}
         </Text>
       ) : null}
 
@@ -55,7 +56,7 @@ export function SectionCard({
             }
           ]}
         >
-          {subtitle}
+          {fixText(subtitle)}
         </Text>
       ) : null}
 

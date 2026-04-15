@@ -2,6 +2,7 @@
 import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import type { AppTheme } from "../../theme";
+import { fixText } from "../../utils/fixText";
 
 type ScreenHeaderProps = {
   theme: AppTheme;
@@ -44,7 +45,7 @@ export function ScreenHeader({
             }
           ]}
         >
-          {title}
+          {fixText(title)}
         </Text>
 
         {subtitle ? (
@@ -58,7 +59,7 @@ export function ScreenHeader({
               }
             ]}
           >
-            {subtitle}
+            {fixText(subtitle)}
           </Text>
         ) : null}
       </View>

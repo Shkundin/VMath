@@ -75,9 +75,9 @@ export function TeacherHomeScreen({
   const [description, setDescription] = useState("");
   const [theory, setTheory] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
-  const [subject, setSubject] = useState("РњР°С‚РµРјР°С‚РёС‡РµСЃРєРёР№ Р°РЅР°Р»РёР·");
-  const [semester, setSemester] = useState("1 СЃРµРјРµСЃС‚СЂ");
-  const [level, setLevel] = useState("Р‘Р°Р·РѕРІС‹Р№");
+  const [subject, setSubject] = useState("Математический анализ");
+  const [semester, setSemester] = useState("1 семестр");
+  const [level, setLevel] = useState("Базовый");
   const [createError, setCreateError] = useState("");
   const [createSuccess, setCreateSuccess] = useState("");
 
@@ -127,7 +127,7 @@ export function TeacherHomeScreen({
   const normalizedTeacherName = fixText(user.fullName || "");
   const teacherDisplayName = normalizedTeacherName.trim().length > 0
     ? normalizedTeacherName
-    : "РџСЂРµРїРѕРґР°РІР°С‚РµР»СЊ VisualMath";
+    : "Преподаватель VisualMath";
 
   const teacherVideoUrl =
     expandedLecture ? ((expandedLecture as LectureItem & { videoUrl?: string }).videoUrl ?? "") : "";
@@ -211,9 +211,9 @@ export function TeacherHomeScreen({
     setDescription("");
     setTheory("");
     setVideoUrl("");
-    setSubject("РњР°С‚РµРјР°С‚РёС‡РµСЃРєРёР№ Р°РЅР°Р»РёР·");
-    setSemester("1 СЃРµРјРµСЃС‚СЂ");
-    setLevel("Р‘Р°Р·РѕРІС‹Р№");
+    setSubject("Математический анализ");
+    setSemester("1 семестр");
+    setLevel("Базовый");
     setCreateError("");
     setCreateSuccess("Р›РµРєС†РёСЏ СЃРѕР·РґР°РЅР°. РўРµРїРµСЂСЊ РјРѕР¶РЅРѕ РѕС‚РєСЂС‹С‚СЊ СЂРµРґР°РєС‚РѕСЂ Рё РґРѕР±Р°РІРёС‚СЊ РІРѕРїСЂРѕСЃС‹.");
     setExpandedLectureId(createdLectureId);
@@ -299,10 +299,10 @@ export function TeacherHomeScreen({
 
       <View style={styles.heroCard}>
         <View style={styles.heroMain}>
-          <Text style={styles.heroEyebrow}>Р Р°Р±РѕС‡РµРµ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІРѕ</Text>
+          <Text style={styles.heroEyebrow}>{fixText("Р Р°Р±РѕС‡РµРµ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІРѕ")}</Text>
           <Text style={styles.heroTitle}>{teacherDisplayName}</Text>
           <Text style={styles.heroSubtitle}>
-            Р’СЃС‘ РІР°Р¶РЅРѕРµ РІ РѕРґРЅРѕРј РјРµСЃС‚Рµ: СЃРѕР·РґР°РЅРёРµ Р»РµРєС†РёР№, СЂРµРґР°РєС‚РѕСЂ РІРѕРїСЂРѕСЃРѕРІ, Р·Р°РїСѓСЃРє С‚РµСЃС‚РѕРІ Рё РїСЂРѕРІРµСЂРєР° СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ.
+            {fixText("Р’СЃС‘ РІР°Р¶РЅРѕРµ РІ РѕРґРЅРѕРј РјРµСЃС‚Рµ: СЃРѕР·РґР°РЅРёРµ Р»РµРєС†РёР№, СЂРµРґР°РєС‚РѕСЂ РІРѕРїСЂРѕСЃРѕРІ, Р·Р°РїСѓСЃРє С‚РµСЃС‚РѕРІ Рё РїСЂРѕРІРµСЂРєР° СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ.")}
           </Text>
 
           <View style={styles.infoRow}>
@@ -408,8 +408,8 @@ export function TeacherHomeScreen({
             autoCorrect={false}
           />
 
-          {createError ? <Text style={styles.errorText}>{createError}</Text> : null}
-          {createSuccess ? <Text style={styles.successText}>{createSuccess}</Text> : null}
+          {createError ? <Text style={styles.errorText}>{fixText(createError)}</Text> : null}
+          {createSuccess ? <Text style={styles.successText}>{fixText(createSuccess)}</Text> : null}
 
           <AppButton
             label="РЎРѕР·РґР°С‚СЊ Р»РµРєС†РёСЋ"
@@ -454,7 +454,7 @@ export function TeacherHomeScreen({
         subtitle="Р—Р°РїСѓСЃРє СЃРµСЃСЃРёРё, СЂРµРґР°РєС‚РѕСЂ Рё СѓРїСЂР°РІР»РµРЅРёРµ РІРѕРїСЂРѕСЃР°РјРё вЂ” РїСЂСЏРјРѕ РёР· РєР°СЂС‚РѕС‡РєРё Р»РµРєС†РёРё."
       >
         {lectures.length === 0 ? (
-          <Text style={styles.emptyText}>РџРѕРєР° РЅРµС‚ Р»РµРєС†РёР№. РЎРѕР·РґР°Р№ РїРµСЂРІСѓСЋ Р»РµРєС†РёСЋ РІС‹С€Рµ.</Text>
+          <Text style={styles.emptyText}>{fixText("РџРѕРєР° РЅРµС‚ Р»РµРєС†РёР№. РЎРѕР·РґР°Р№ РїРµСЂРІСѓСЋ Р»РµРєС†РёСЋ РІС‹С€Рµ.")}</Text>
         ) : (
           lectures.map((lecture) => {
             const isExpanded = expandedLectureId === lecture.id;
@@ -475,7 +475,7 @@ export function TeacherHomeScreen({
 
                     <Text style={styles.lectureTitle}>{fixText(lecture.title)}</Text>
                     <Text style={styles.lectureMeta}>
-                      {fixText(`${lecture.subject} вЂў ${lecture.semester} вЂў ${lecture.level}`)}
+                      {`${fixText(lecture.subject)} • ${fixText(lecture.semester)} • ${fixText(lecture.level)}`}
                     </Text>
                     <Text style={styles.lectureDescription}>{fixText(lecture.description)}</Text>
                   </View>
@@ -560,7 +560,7 @@ export function TeacherHomeScreen({
                           autoCorrect={false}
                         />
 
-                        {metaSuccess ? <Text style={styles.successText}>{metaSuccess}</Text> : null}
+                        {metaSuccess ? <Text style={styles.successText}>{fixText(metaSuccess)}</Text> : null}
 
                         <AppButton
                           label="РЎРѕС…СЂР°РЅРёС‚СЊ РїР°СЂР°РјРµС‚СЂС‹"
@@ -641,7 +641,7 @@ export function TeacherHomeScreen({
                           </View>
                         </View>
 
-                        <Text style={styles.sectionLabel}>РџСЂР°РІРёР»СЊРЅС‹Р№ РѕС‚РІРµС‚</Text>
+                        <Text style={styles.sectionLabel}>{fixText("РџСЂР°РІРёР»СЊРЅС‹Р№ РѕС‚РІРµС‚")}</Text>
                         <View style={styles.answerRow}>
                           {(["A", "B", "C", "D"] as const).map((key) => {
                             const isActive = correctOptionKey === key;
@@ -681,8 +681,8 @@ export function TeacherHomeScreen({
                           numberOfLines={3}
                         />
 
-                        {questionError ? <Text style={styles.errorText}>{questionError}</Text> : null}
-                        {questionSuccess ? <Text style={styles.successText}>{questionSuccess}</Text> : null}
+                        {questionError ? <Text style={styles.errorText}>{fixText(questionError)}</Text> : null}
+                        {questionSuccess ? <Text style={styles.successText}>{fixText(questionSuccess)}</Text> : null}
 
                         <AppButton
                           label="Р”РѕР±Р°РІРёС‚СЊ РІРѕРїСЂРѕСЃ"
@@ -699,7 +699,7 @@ export function TeacherHomeScreen({
                         style={styles.editorCard}
                       >
                         {expandedQuestions.length === 0 ? (
-                          <Text style={styles.emptyText}>РџРѕРєР° РЅРµС‚ РІРѕРїСЂРѕСЃРѕРІ.</Text>
+                          <Text style={styles.emptyText}>{fixText("РџРѕРєР° РЅРµС‚ РІРѕРїСЂРѕСЃРѕРІ.")}</Text>
                         ) : (
                           expandedQuestions.map((question, index) => (
                             <View key={question.id} style={styles.questionCard}>
@@ -752,8 +752,8 @@ function StatTile({ theme, value, label }: StatTileProps) {
 
   return (
     <View style={styles.statTile}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue}>{fixText(value)}</Text>
+      <Text style={styles.statLabel}>{fixText(label)}</Text>
     </View>
   );
 }
@@ -768,7 +768,7 @@ function InfoBadge({ theme, label }: InfoBadgeProps) {
 
   return (
     <View style={styles.infoBadge}>
-      <Text style={styles.infoBadgeText}>{label}</Text>
+      <Text style={styles.infoBadgeText}>{fixText(label)}</Text>
     </View>
   );
 }
@@ -798,7 +798,7 @@ function TinyPill({ theme, label, tone }: TinyPillProps) {
           tone === "success" ? styles.tinyPillTextSuccess : null
         ]}
       >
-        {label}
+        {fixText(label)}
       </Text>
     </View>
   );
@@ -815,8 +815,8 @@ function MetaItem({ theme, label, value }: MetaItemProps) {
 
   return (
     <View style={styles.metaItem}>
-      <Text style={styles.metaItemLabel}>{label}</Text>
-      <Text style={styles.metaItemValue}>{value}</Text>
+      <Text style={styles.metaItemLabel}>{fixText(label)}</Text>
+      <Text style={styles.metaItemValue}>{fixText(value)}</Text>
     </View>
   );
 }
@@ -832,8 +832,8 @@ function ActionMiniCard({ theme, title, subtitle }: ActionMiniCardProps) {
 
   return (
     <View style={styles.actionMiniCard}>
-      <Text style={styles.actionMiniTitle}>{title}</Text>
-      <Text style={styles.actionMiniSubtitle}>{subtitle}</Text>
+      <Text style={styles.actionMiniTitle}>{fixText(title)}</Text>
+      <Text style={styles.actionMiniSubtitle}>{fixText(subtitle)}</Text>
     </View>
   );
 }
