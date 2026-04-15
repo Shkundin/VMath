@@ -10,7 +10,7 @@ import { SectionCard } from "../components/ui/SectionCard";
 import type { LectureItem } from "../mocks/lectures";
 import type { UserProfile } from "../mocks/user";
 import type { AppTheme } from "../theme";
-import { fixText } from "../utils/fixText";
+import { fixTextSafe as fixText } from "../utils/fixTextSafe";
 
 export type DraftLectureInput = {
   title: string;

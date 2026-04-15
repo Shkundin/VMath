@@ -2,7 +2,7 @@
 import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import type { AppTheme } from "../../theme";
-import { fixText } from "../../utils/fixText";
+import { fixTextSafe as fixText } from "../../utils/fixTextSafe";
 
 type ScreenHeaderProps = {
   theme: AppTheme;

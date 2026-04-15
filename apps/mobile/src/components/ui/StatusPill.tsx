@@ -1,7 +1,7 @@
 import React from "react";
 
 import { StyleSheet, Text, View } from "react-native";
-import { fixText } from "../../utils/fixText";
+import { fixTextSafe as fixText } from "../../utils/fixTextSafe";
 
 import type { AppTheme } from "../../theme";
 
