@@ -2,7 +2,7 @@
 
 ## Repository fit
 
-The backend was added as `apps/server` inside the existing `pnpm` monorepo instead of creating a parallel stack.
+The backend lives in the top-level `backend` workspace inside the existing `pnpm` monorepo instead of creating a parallel stack.
 
 - `packages/shared` contains cross-workspace DTOs, error codes, and websocket contracts.
 - `packages/integration` contains HTTP and websocket clients that now target the real backend.

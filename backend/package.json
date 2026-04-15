@@ -10,7 +10,7 @@
     "db:migrate": "tsx src/database/migrate.ts",
     "db:seed": "tsx src/database/seed.ts",
     "db:prepare": "pnpm db:migrate && pnpm db:seed",
-    "test": "tsc -p tsconfig.tests.json && node .test-dist/apps/server/test/run-all.js"
+    "test": "tsc -p tsconfig.tests.json && node .test-dist/backend/test/run-all.js"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.8",

@@ -27,6 +27,7 @@ pnpm dev:mobile
   - monorepo on `pnpm`
   - existing app: `apps/mobile`
   - existing shared layers: `packages/shared`, `packages/integration`, `packages/server-mock`
+  - production backend workspace: `backend`
   - existing mock contracts already cover auth, lectures, sessions, quiz submission, and basic WS events
 - Implementation direction:
   - add a real NestJS backend workspace without deleting the existing mock server

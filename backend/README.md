@@ -1,6 +1,6 @@
 # VisualMath Server
 
-`apps/server` is the production NestJS backend for VisualMath.
+`backend` is the production NestJS backend for VisualMath.
 
 It lives inside the existing `pnpm` monorepo and deliberately reuses the current repository structure:
 

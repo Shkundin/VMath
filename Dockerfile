@@ -8,12 +8,12 @@ RUN corepack enable
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
-COPY apps/server/package.json apps/server/package.json
+COPY backend/package.json backend/package.json
 COPY packages/shared/package.json packages/shared/package.json
 
 RUN pnpm install --frozen-lockfile=false --prod=false
 
-COPY apps/server apps/server
+COPY backend backend
 COPY packages/shared packages/shared
 
 RUN pnpm --filter @vm/shared build

@@ -2,7 +2,7 @@
 
 ## Repository integration
 
-- [x] Backend added as `apps/server` inside the existing `pnpm` monorepo
+- [x] Backend added as top-level `backend` workspace inside the existing `pnpm` monorepo
 - [x] Shared DTOs and websocket contracts extended in `packages/shared`
 - [x] Existing client package `packages/integration` updated to use the real backend
 - [x] Mock server preserved as a fallback
