@@ -286,7 +286,8 @@ export function LoginScreen({
                 accent="С"
                 isActive={role === "student"}
                 onPress={() => handleRoleChange("student")}
-                fullWidth={width < 860}
+                isStacked={width < 860}
+                isPhone={width < 560}
               />
               <RoleCard
                 theme={theme}
@@ -295,7 +296,8 @@ export function LoginScreen({
                 accent="П"
                 isActive={role === "teacher"}
                 onPress={() => handleRoleChange("teacher")}
-                fullWidth={width < 860}
+                isStacked={width < 860}
+                isPhone={width < 560}
               />
             </View>
           </View>
@@ -415,7 +417,8 @@ type RoleCardProps = {
   accent: string;
   isActive: boolean;
   onPress: () => void;
-  fullWidth: boolean;
+  isStacked: boolean;
+  isPhone: boolean;
 };
 
 type BrandMarkProps = {
@@ -573,9 +576,10 @@ function RoleCard({
   accent,
   isActive,
   onPress,
-  fullWidth
+  isStacked,
+  isPhone
 }: RoleCardProps) {
-  const styles = createRoleCardStyles(theme, isActive, fullWidth);
+  const styles = createRoleCardStyles(theme, isActive, isStacked, isPhone);
 
   return (
     <Pressable onPress={onPress} style={styles.card}>
@@ -588,12 +592,12 @@ function RoleCard({
   );
 }
 
-function createRoleCardStyles(theme: AppTheme, isActive: boolean, fullWidth: boolean) {
+function createRoleCardStyles(theme: AppTheme, isActive: boolean, isStacked: boolean, isPhone: boolean) {
   return StyleSheet.create({
     card: {
-      flexBasis: fullWidth ? "100%" : undefined,
-      flex: fullWidth ? undefined : 1,
-      minHeight: 132,
+      width: isStacked ? "100%" : undefined,
+      flex: isStacked ? undefined : 1,
+      minHeight: isPhone ? 108 : 132,
       borderRadius: theme.radius.lg,
       padding: theme.spacing.lg,
       borderWidth: 1,
@@ -782,7 +786,8 @@ function createStyles(theme: AppTheme, width: number) {
       alignItems: "stretch"
     },
     heroPanel: {
-      flex: 1.1,
+      width: "100%",
+      flex: isStacked ? undefined : 1.1,
       borderRadius: theme.radius.xl,
       padding: isPhone ? theme.spacing.lg : theme.spacing.xxl,
       backgroundColor: "#F7FAFF",
@@ -792,7 +797,8 @@ function createStyles(theme: AppTheme, width: number) {
       marginRight: isStacked ? 0 : theme.spacing.lg
     },
     formPanel: {
-      flex: 0.95,
+      width: "100%",
+      flex: isStacked ? undefined : 0.95,
       borderRadius: theme.radius.xl,
       padding: isPhone ? theme.spacing.lg : theme.spacing.xxl,
       backgroundColor: theme.colors.surface,
@@ -834,6 +840,7 @@ function createStyles(theme: AppTheme, width: number) {
     },
     roleGrid: {
       flexDirection: width < 860 ? "column" : "row",
+      alignItems: "stretch",
       gap: theme.spacing.md
     },
     modeRow: {
