@@ -1,5 +1,6 @@
 ﻿import React, { useMemo, useState } from "react";
 import {
+  Linking,
   Platform,
   StyleSheet,
   Text,
@@ -14,22 +15,35 @@ import { ScreenHeader } from "../components/ui/ScreenHeader";
 import { SectionCard } from "../components/ui/SectionCard";
 import type { AppTheme } from "../theme";
 import { fixText } from "../utils/fixText";
+import { formatFileSize, openWebFile, pickWebFile, type WebPickedFile } from "../utils/webFiles";
 
 export type PhotoMaterialItem = {
   id: string;
   title: string;
-  imageUrl: string;
+  resourceUrl: string;
   note: string;
   authorName: string;
   createdAt: string;
   teacherLogin?: string;
+  fileName?: string;
+  fileType?: string;
+  fileData?: string;
+  mimeType?: string;
 };
 
 type PhotoMaterialsScreenProps = {
   theme: AppTheme;
   isTeacher: boolean;
   materials: PhotoMaterialItem[];
-  onCreateMaterial: (input: { title: string; imageUrl: string; note: string }) => void;
+  onCreateMaterial: (input: {
+    title: string;
+    resourceUrl: string;
+    note: string;
+    fileName?: string;
+    fileType?: string;
+    fileData?: string;
+    mimeType?: string;
+  }) => void;
   onDeleteMaterial: (materialId: string) => void;
 };
 
@@ -45,9 +59,11 @@ export function PhotoMaterialsScreen({
   const isPhone = width < 520;
 
   const [title, setTitle] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [resourceUrl, setResourceUrl] = useState("");
   const [note, setNote] = useState("");
   const [query, setQuery] = useState("");
+  const [pickedFile, setPickedFile] = useState<WebPickedFile | null>(null);
+  const [errorText, setErrorText] = useState("");
 
   const filteredMaterials = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -57,43 +73,82 @@ export function PhotoMaterialsScreen({
     }
 
     return materials.filter((material) =>
-      [material.title, material.note, material.authorName].join(" ").toLowerCase().includes(normalized)
+      [
+        material.title,
+        material.note,
+        material.authorName,
+        material.resourceUrl,
+        material.fileName ?? "",
+        material.fileType ?? ""
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalized)
     );
   }, [materials, query]);
 
   function handleCreate() {
     const nextTitle = title.trim();
-    const nextImageUrl = imageUrl.trim();
+    const nextResourceUrl = resourceUrl.trim();
     const nextNote = note.trim();
 
-    if (!nextTitle || !nextImageUrl) {
+    if (!nextTitle || (!nextResourceUrl && !pickedFile)) {
+      setErrorText("Укажи название и добавь ссылку или файл.");
       return;
     }
 
     onCreateMaterial({
       title: nextTitle,
-      imageUrl: nextImageUrl,
-      note: nextNote
+      resourceUrl: nextResourceUrl,
+      note: nextNote,
+      fileName: pickedFile?.fileName,
+      fileType: pickedFile?.fileType,
+      fileData: pickedFile?.fileData,
+      mimeType: pickedFile?.mimeType
     });
 
     setTitle("");
-    setImageUrl("");
+    setResourceUrl("");
     setNote("");
+    setPickedFile(null);
+    setErrorText("");
+  }
+
+  function handlePickFile() {
+    pickWebFile({
+      accept: "image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt",
+      onPicked: (file) => {
+        setPickedFile(file);
+        setErrorText("");
+      },
+      onError: setErrorText
+    });
+  }
+
+  function handleOpenMaterial(material: PhotoMaterialItem) {
+    if (material.fileData && material.fileName && material.fileType) {
+      openWebFile(material.fileData, material.fileName, material.fileType);
+      return;
+    }
+
+    if (material.resourceUrl.trim()) {
+      void Linking.openURL(material.resourceUrl);
+    }
   }
 
   return (
     <Screen theme={theme}>
       <ScreenHeader
         theme={theme}
-        title="Фотоматериалы"
-        subtitle="Иллюстрации, схемы, изображения и дополнительные визуальные материалы."
+        title="Материалы"
+        subtitle="Фотографии, PDF, таблицы и дополнительные файлы курса."
       />
 
       {isTeacher ? (
         <SectionCard
           theme={theme}
           title="Добавить материал"
-          subtitle="Загрузите или добавьте ссылку на иллюстрацию."
+          subtitle="Добавь ссылку на материал или загрузи изображение, PDF, Excel и другие документы."
         >
           <AppInputBlock
             label="Название материала"
@@ -105,10 +160,10 @@ export function PhotoMaterialsScreen({
           />
 
           <AppInputBlock
-            label="Ссылка на изображение"
-            value={imageUrl}
-            onChangeText={setImageUrl}
-            placeholder="https://... или выберите файл"
+            label="Ссылка на материал"
+            value={resourceUrl}
+            onChangeText={setResourceUrl}
+            placeholder="https://... или загрузите файл"
             theme={theme}
             multiline={false}
           />
@@ -116,11 +171,28 @@ export function PhotoMaterialsScreen({
           {Platform.OS === "web" ? (
             <View style={styles.fileButtonWrap}>
               <AppButton
-                label="Выбрать иллюстрацию"
-                onPress={() => {}}
+                label="Загрузить файл"
+                onPress={handlePickFile}
                 theme={theme}
                 variant="secondary"
                 fullWidth={isPhone}
+              />
+            </View>
+          ) : null}
+
+          {pickedFile ? (
+            <View style={styles.selectedFileCard}>
+              <Text style={styles.selectedFileTitle}>{fixText(pickedFile.fileName)}</Text>
+              <Text style={styles.selectedFileMeta}>
+                {fixText(`${pickedFile.fileType.toUpperCase()} • ${formatFileSize(pickedFile.fileSize)}`)}
+              </Text>
+              <AppButton
+                label="Убрать файл"
+                onPress={() => setPickedFile(null)}
+                theme={theme}
+                variant="ghost"
+                fullWidth={isPhone}
+                style={styles.clearButton}
               />
             </View>
           ) : null}
@@ -134,6 +206,12 @@ export function PhotoMaterialsScreen({
             multiline
           />
 
+          <Text style={styles.helperText}>
+            В браузере можно загружать изображения, PDF, Word, Excel, CSV и другие учебные файлы.
+          </Text>
+
+          {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
+
           <AppButton
             label="Добавить материал"
             onPress={handleCreate}
@@ -146,7 +224,7 @@ export function PhotoMaterialsScreen({
       <SectionCard
         theme={theme}
         title="Поиск по материалам"
-        subtitle="Ищи по названию, описанию и автору."
+        subtitle="Ищи по названию, описанию, файлу и автору."
       >
         <TextInput
           value={query}
@@ -171,14 +249,34 @@ export function PhotoMaterialsScreen({
               <View key={material.id} style={styles.card}>
                 <Text style={styles.cardTitle}>{fixText(material.title)}</Text>
                 <Text style={styles.cardMeta}>{fixText(`Автор: ${material.authorName}`)}</Text>
-                <Text style={styles.cardUrl}>{fixText(material.imageUrl)}</Text>
+
+                {material.fileName ? (
+                  <Text style={styles.cardUrl}>
+                    {fixText(`Файл: ${material.fileName}${material.fileType ? ` • ${material.fileType.toUpperCase()}` : ""}`)}
+                  </Text>
+                ) : null}
+
+                {material.resourceUrl ? (
+                  <Text style={styles.cardUrl}>{fixText(material.resourceUrl)}</Text>
+                ) : null}
 
                 {material.note ? (
                   <Text style={styles.cardNote}>{fixText(material.note)}</Text>
                 ) : null}
 
-                {isTeacher ? (
-                  <View style={styles.actions}>
+                <View style={styles.actions}>
+                  {(material.fileData || material.resourceUrl) ? (
+                    <AppButton
+                      label={material.fileData ? "Открыть файл" : "Открыть ссылку"}
+                      onPress={() => handleOpenMaterial(material)}
+                      theme={theme}
+                      variant="secondary"
+                      fullWidth={isPhone}
+                      style={styles.actionButton}
+                    />
+                  ) : null}
+
+                  {isTeacher ? (
                     <AppButton
                       label="Удалить"
                       onPress={() => onDeleteMaterial(material.id)}
@@ -186,8 +284,8 @@ export function PhotoMaterialsScreen({
                       variant="ghost"
                       fullWidth={isPhone}
                     />
-                  </View>
-                ) : null}
+                  ) : null}
+                </View>
               </View>
             ))}
           </View>
@@ -263,6 +361,39 @@ function createStyles(theme: AppTheme, width: number) {
     fileButtonWrap: {
       marginBottom: theme.spacing.md
     },
+    helperText: {
+      fontSize: theme.typography.caption,
+      lineHeight: 20,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.md
+    },
+    errorText: {
+      fontSize: theme.typography.caption,
+      fontWeight: "700",
+      color: theme.colors.danger,
+      marginBottom: theme.spacing.md
+    },
+    selectedFileCard: {
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.md,
+      backgroundColor: theme.colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      marginBottom: theme.spacing.md
+    },
+    selectedFileTitle: {
+      fontSize: theme.typography.body,
+      fontWeight: "800",
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs
+    },
+    selectedFileMeta: {
+      fontSize: theme.typography.caption,
+      color: theme.colors.textSecondary
+    },
+    clearButton: {
+      marginTop: theme.spacing.sm
+    },
     searchInput: {
       minHeight: 52,
       borderRadius: theme.radius.md,
@@ -320,6 +451,10 @@ function createStyles(theme: AppTheme, width: number) {
     actions: {
       flexDirection: "row",
       flexWrap: "wrap"
+    },
+    actionButton: {
+      marginRight: isPhone ? 0 : theme.spacing.sm,
+      marginBottom: theme.spacing.sm
     }
   });
 }

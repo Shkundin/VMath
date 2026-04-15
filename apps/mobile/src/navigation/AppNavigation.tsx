@@ -156,11 +156,11 @@ function getNavigationLabel(screen: MenuScreenKey): string {
   }
 
   if (screen === "videoLessons") {
-    return "Видеоуроки";
+    return "Видео";
   }
 
   if (screen === "photoMaterials") {
-    return "Фотоматериалы";
+    return "Материалы";
   }
 
   if (screen === "solver") {
@@ -700,7 +700,18 @@ function readVideoLessons(): VideoLessonItem[] {
     }
 
     const parsed = JSON.parse(raw) as VideoLessonItem[];
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed.map((item) => ({
+          ...item,
+          title: fixText(String(item.title ?? "")),
+          url: String(item.url ?? ""),
+          authorName: fixText(String(item.authorName ?? "")),
+          fileName: item.fileName ? fixText(String(item.fileName)) : undefined,
+          fileType: item.fileType ? String(item.fileType) : undefined,
+          fileData: item.fileData ? String(item.fileData) : undefined,
+          mimeType: item.mimeType ? String(item.mimeType) : undefined
+        }))
+      : [];
   } catch {
     return [];
   }
@@ -731,13 +742,18 @@ function readPhotoMaterials(): PhotoMaterialItem[] {
       return [];
     }
 
-    const parsed = JSON.parse(raw) as PhotoMaterialItem[];
+    const parsed = JSON.parse(raw) as Array<PhotoMaterialItem & { imageUrl?: string }>;
     return Array.isArray(parsed)
       ? parsed.map((item) => ({
           ...item,
+          resourceUrl: String(item.resourceUrl ?? item.imageUrl ?? ""),
           title: fixText(String(item.title ?? "")),
           note: fixText(String(item.note ?? "")),
-          authorName: fixText(String(item.authorName ?? ""))
+          authorName: fixText(String(item.authorName ?? "")),
+          fileName: item.fileName ? fixText(String(item.fileName)) : undefined,
+          fileType: item.fileType ? String(item.fileType) : undefined,
+          fileData: item.fileData ? String(item.fileData) : undefined,
+          mimeType: item.mimeType ? String(item.mimeType) : undefined
         }))
       : [];
   } catch {
@@ -1699,11 +1715,22 @@ export function AppNavigation() {
     });
   }
 
-  function handleCreateVideoLesson(input: { title: string; url: string }) {
+  function handleCreateVideoLesson(input: {
+    title: string;
+    url: string;
+    fileName?: string;
+    fileType?: string;
+    fileData?: string;
+    mimeType?: string;
+  }) {
     const nextTitle = input.title.trim();
     const nextUrl = input.url.trim();
+    const nextFileName = input.fileName?.trim() ?? "";
+    const nextFileType = input.fileType?.trim() ?? "";
+    const nextFileData = input.fileData?.trim() ?? "";
+    const nextMimeType = input.mimeType?.trim() ?? "";
 
-    if (!nextTitle || !nextUrl) {
+    if (!nextTitle || (!nextUrl && !nextFileData)) {
       return;
     }
 
@@ -1715,6 +1742,13 @@ export function AppNavigation() {
       createdAt: new Date().toISOString(),
       teacherLogin: user.login
     };
+
+    if (nextFileName && nextFileType && nextFileData) {
+      nextLesson.fileName = nextFileName;
+      nextLesson.fileType = nextFileType;
+      nextLesson.fileData = nextFileData;
+      nextLesson.mimeType = nextMimeType || "video/mp4";
+    }
 
     setVideoLessons((current: VideoLessonItem[]) => [nextLesson, ...current]);
   }
@@ -1946,24 +1980,43 @@ export function AppNavigation() {
     }
   }
 
-  function handleCreatePhotoMaterial(input: { title: string; imageUrl: string; note: string }) {
+  function handleCreatePhotoMaterial(input: {
+    title: string;
+    resourceUrl: string;
+    note: string;
+    fileName?: string;
+    fileType?: string;
+    fileData?: string;
+    mimeType?: string;
+  }) {
     const nextTitle = input.title.trim();
-    const nextImageUrl = input.imageUrl.trim();
+    const nextResourceUrl = input.resourceUrl.trim();
     const nextNote = input.note.trim();
+    const nextFileName = input.fileName?.trim() ?? "";
+    const nextFileType = input.fileType?.trim() ?? "";
+    const nextFileData = input.fileData?.trim() ?? "";
+    const nextMimeType = input.mimeType?.trim() ?? "";
 
-    if (!nextTitle || !nextImageUrl) {
+    if (!nextTitle || (!nextResourceUrl && !nextFileData)) {
       return;
     }
 
     const nextMaterial: PhotoMaterialItem = {
       id: `photo-material-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       title: nextTitle,
-      imageUrl: nextImageUrl,
+      resourceUrl: nextResourceUrl,
       note: nextNote,
       authorName: user.fullName || "Visual Math Team",
       createdAt: new Date().toISOString(),
       teacherLogin: user.login
     };
+
+    if (nextFileName && nextFileType && nextFileData) {
+      nextMaterial.fileName = nextFileName;
+      nextMaterial.fileType = nextFileType;
+      nextMaterial.fileData = nextFileData;
+      nextMaterial.mimeType = nextMimeType || "application/octet-stream";
+    }
 
     setPhotoMaterials((current: PhotoMaterialItem[]) => [nextMaterial, ...current]);
   }
