@@ -74,7 +74,7 @@ export async function createTestApp() {
 
 export async function login(
   baseUrl: string,
-  credentials: { login: string; password: string }
+  credentials: { login: string; password: string; role?: "student" | "teacher" | "admin" }
 ): Promise<{ accessToken: string; refreshToken: string }> {
   const response = await fetch(`${baseUrl}/api/v1/auth/login`, {
     method: "POST",
@@ -123,12 +123,20 @@ async function seedTestData(pool: { query: (text: string, params?: unknown[]) =>
     `,
     [
       TEST_USERS.teacher,
-      teacherPassword,
+      "teacher-credentials-only$teacher",
       TEST_USERS.student,
       studentPassword,
       TEST_USERS.admin,
       adminPassword
     ]
+  );
+
+  await pool.query(
+    `
+      insert into teacher_credentials (user_id, login, password_hash, is_active, created_at, updated_at)
+      values ($1, 'teacher', $2, true, now(), now())
+    `,
+    [TEST_USERS.teacher, teacherPassword]
   );
 
   await pool.query(

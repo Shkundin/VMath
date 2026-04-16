@@ -49,6 +49,7 @@ async function main() {
     const teacherPassword = await passwordService.hashPassword("teacher");
     const studentPassword = await passwordService.hashPassword("student");
     const adminPassword = await passwordService.hashPassword("admin");
+    const teacherPlaceholderHash = "teacher-credentials-only$teacher";
 
     await pool.query(
       `
@@ -68,12 +69,25 @@ async function main() {
       `,
       [
         USERS.teacher,
-        teacherPassword,
+        teacherPlaceholderHash,
         USERS.student,
         studentPassword,
         USERS.admin,
         adminPassword
       ]
+    );
+
+    await pool.query(
+      `
+        insert into teacher_credentials (user_id, login, password_hash, is_active, created_at, updated_at)
+        values ($1, 'teacher', $2, true, now(), now())
+        on conflict (user_id) do update set
+          login = excluded.login,
+          password_hash = excluded.password_hash,
+          is_active = excluded.is_active,
+          updated_at = now()
+      `,
+      [USERS.teacher, teacherPassword]
     );
 
     await pool.query(

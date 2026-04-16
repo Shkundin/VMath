@@ -28,6 +28,20 @@ interface RefreshTokenRow extends QueryResultRow {
   replaced_by_token_id: string | null;
 }
 
+interface TeacherCredentialLoginRow extends QueryResultRow {
+  user_id: string;
+  login: string;
+  password_hash: string;
+  credential_is_active: boolean;
+  id: string;
+  full_name: string;
+  role: UserProfile["role"];
+  group_name: string | null;
+  is_active: boolean;
+  last_login_at: string | null;
+  last_seen_at: string | null;
+}
+
 interface UserAuthEventInsert {
   userId?: string | null;
   login: string;
@@ -44,6 +58,11 @@ type QueryRunner = {
   query: (text: string, params?: unknown[]) => Promise<unknown>;
 };
 
+type AuthenticatedUserRecord = UserRow & {
+  auth_password_hash: string;
+  auth_source: "users" | "teacher_credentials";
+};
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -55,17 +74,11 @@ export class AuthService {
   async login(params: {
     login: string;
     password: string;
+    role?: Role;
     ipAddress?: string;
     userAgent?: string;
   }) {
-    const user = await this.database.maybeOne<UserRow>(
-      `
-        select id, login, password_hash, full_name, role, group_name, is_active, last_login_at, last_seen_at
-        from users
-        where lower(login) = lower($1)
-      `,
-      [params.login]
-    );
+    const user = await this.findAuthUser(params.login, params.role);
 
     if (!user || !user.is_active) {
       await this.recordAuthEvent(this.database, {
@@ -86,7 +99,7 @@ export class AuthService {
 
     const isPasswordValid = await this.passwordService.verifyPassword(
       params.password,
-      user.password_hash
+      user.auth_password_hash
     );
 
     if (!isPasswordValid) {
@@ -144,6 +157,113 @@ export class AuthService {
 
       return issued;
     });
+  }
+
+  async registerStudent(input: {
+    login: string;
+    password: string;
+    fullName: string;
+    groupName?: string | null;
+    ipAddress?: string;
+    userAgent?: string;
+  }): Promise<UserProfile> {
+    const normalizedLogin = input.login.trim().toLowerCase();
+    const normalizedFullName = input.fullName.trim();
+    const normalizedGroupName = input.groupName?.trim() || "BPI-248";
+
+    if (normalizedLogin.length < 3) {
+      throw new AppException(
+        "VALIDATION",
+        HttpStatus.BAD_REQUEST,
+        "Login must be at least 3 characters"
+      );
+    }
+
+    if (input.password.trim().length < 4) {
+      throw new AppException(
+        "VALIDATION",
+        HttpStatus.BAD_REQUEST,
+        "Password must be at least 4 characters"
+      );
+    }
+
+    if (!normalizedFullName) {
+      throw new AppException(
+        "VALIDATION",
+        HttpStatus.BAD_REQUEST,
+        "fullName is required"
+      );
+    }
+
+    if (!normalizedGroupName) {
+      throw new AppException(
+        "VALIDATION",
+        HttpStatus.BAD_REQUEST,
+        "groupName is required for students"
+      );
+    }
+
+    const existingUser = await this.database.maybeOne<{ id: string; role: Role }>(
+      `
+        select id, role
+        from users
+        where lower(login) = lower($1)
+      `,
+      [normalizedLogin]
+    );
+
+    if (existingUser) {
+      throw new AppException("CONFLICT", HttpStatus.CONFLICT, "Login already exists");
+    }
+
+    const existingTeacherCredential = await this.database.maybeOne<{ user_id: string }>(
+      `
+        select user_id
+        from teacher_credentials
+        where lower(login) = lower($1)
+      `,
+      [normalizedLogin]
+    );
+
+    if (existingTeacherCredential) {
+      throw new AppException(
+        "CONFLICT",
+        HttpStatus.CONFLICT,
+        "Login is reserved for a teacher account"
+      );
+    }
+
+    const passwordHash = await this.passwordService.hashPassword(input.password.trim());
+    const created = await this.database.one<UserRow>(
+      `
+        insert into users (
+          id,
+          login,
+          password_hash,
+          full_name,
+          role,
+          group_name,
+          is_active,
+          created_at,
+          updated_at
+        )
+        values ($1, $2, $3, $4, 'student', $5, true, now(), now())
+        returning id, login, password_hash, full_name, role, group_name, is_active, last_login_at, last_seen_at
+      `,
+      [randomUUID(), normalizedLogin, passwordHash, normalizedFullName, normalizedGroupName]
+    );
+
+    return {
+      id: created.id,
+      login: created.login,
+      fullName: created.full_name,
+      role: created.role,
+      group: created.group_name ?? undefined,
+      groupName: created.group_name,
+      isActive: created.is_active,
+      lastLoginAt: created.last_login_at,
+      lastSeenAt: created.last_seen_at
+    };
   }
 
   async refresh(refreshToken: string, params: { ipAddress?: string; userAgent?: string }) {
@@ -414,6 +534,79 @@ export class AuthService {
         JSON.stringify(event.metadata ?? {})
       ]
     );
+  }
+
+  private async findAuthUser(
+    login: string,
+    requestedRole?: Role
+  ): Promise<AuthenticatedUserRecord | null> {
+    const normalizedLogin = login.trim().toLowerCase();
+
+    const teacherUser = await this.database.maybeOne<TeacherCredentialLoginRow>(
+      `
+        select
+          tc.user_id,
+          tc.login,
+          tc.password_hash,
+          tc.is_active as credential_is_active,
+          u.id,
+          u.full_name,
+          u.role,
+          u.group_name,
+          u.is_active,
+          u.last_login_at,
+          u.last_seen_at
+        from teacher_credentials tc
+        inner join users u on u.id = tc.user_id
+        where lower(tc.login) = lower($1)
+      `,
+      [normalizedLogin]
+    );
+
+    if (teacherUser) {
+      if (requestedRole && requestedRole !== "teacher") {
+        return null;
+      }
+
+      return {
+        id: teacherUser.id,
+        login: teacherUser.login,
+        password_hash: `teacher-credentials-only$${teacherUser.id}`,
+        auth_password_hash: teacherUser.password_hash,
+        auth_source: "teacher_credentials",
+        full_name: teacherUser.full_name,
+        role: teacherUser.role,
+        group_name: teacherUser.group_name,
+        is_active: teacherUser.is_active && teacherUser.credential_is_active,
+        last_login_at: teacherUser.last_login_at,
+        last_seen_at: teacherUser.last_seen_at
+      };
+    }
+
+    if (requestedRole === "teacher") {
+      return null;
+    }
+
+    const user = await this.database.maybeOne<UserRow>(
+      `
+        select id, login, password_hash, full_name, role, group_name, is_active, last_login_at, last_seen_at
+        from users
+        where lower(login) = lower($1)
+          and role <> 'teacher'
+          ${requestedRole ? "and role = $2" : ""}
+      `,
+      requestedRole ? [normalizedLogin, requestedRole] : [normalizedLogin]
+    );
+
+    if (!user) {
+      return null;
+    }
+
+    return {
+      ...user,
+      auth_password_hash: user.password_hash,
+      auth_source: "users"
+    };
   }
 
   private async issueTokens(

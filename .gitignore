@@ -12,6 +12,7 @@ Thumbs.db
 .vscode
 .idea
 apps/mobile/.env.local
+backend/temp-dist-render-check*/
 *.bak_*
 google-services.json
 GoogleService-Info.plist

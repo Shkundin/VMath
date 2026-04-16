@@ -146,6 +146,55 @@ async function main() {
     }
   });
 
+  await run("integration: root endpoint and student registration", async () => {
+    const fixture = await createTestApp();
+    try {
+      const rootResponse = await fetch(`${fixture.baseUrl}/`);
+      assert.equal(rootResponse.status, 200);
+      const rootPayload = (await rootResponse.json()) as { ok?: boolean; healthUrl?: string };
+      assert.equal(rootPayload.ok, true);
+      assert.equal(rootPayload.healthUrl, "/api/v1/health");
+
+      const registerResponse = await fetch(`${fixture.baseUrl}/api/v1/auth/register/student`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          login: "gleb.shkundin",
+          password: "secure-pass",
+          fullName: "Gleb Shkundin",
+          groupName: "BPI-248"
+        })
+      });
+
+      assert.equal(registerResponse.status, 201);
+      const registeredUser = (await registerResponse.json()) as { login: string; role: string };
+      assert.equal(registeredUser.login, "gleb.shkundin");
+      assert.equal(registeredUser.role, "student");
+
+      const adminTokens = await login(fixture.baseUrl, {
+        login: "admin",
+        password: "admin"
+      });
+
+      const usersResponse = await api(
+        fixture.baseUrl,
+        adminTokens.accessToken,
+        "/api/v1/admin/users?q=gleb.shkundin"
+      );
+      assert.equal(usersResponse.status, 200);
+
+      const users = (await usersResponse.json()) as Array<{ login: string; fullName: string }>;
+      assert.equal(
+        users.some((user) => user.login === "gleb.shkundin" && user.fullName === "Gleb Shkundin"),
+        true
+      );
+    } finally {
+      await fixture.close();
+    }
+  });
+
   await run("e2e: student flow", async () => {
     const fixture = await createTestApp();
     try {

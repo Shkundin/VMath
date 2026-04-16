@@ -15,11 +15,17 @@ import {
   isSuccessResponse,
   statusCodes
 } from "@react-native-google-signin/google-signin";
-import type { LectureDetails, QuizBlock, QuizQuestion, TextBlock } from "@vm/shared";
+import type {
+  LectureDetails,
+  QuizBlock,
+  QuizQuestion,
+  TextBlock,
+  UserProfile as ApiUserProfile
+} from "@vm/shared";
 import { createMockSession, evaluateSubmission, type SessionData, type TaskResult, type TaskSubmission } from "../mocks/session";
 import { clearTeacherParticipants, createTeacherManagedSession, moveTeacherSessionBlock, updateTeacherSessionStatus, type TeacherManagedSession } from "../mocks/teacher";
 import { mockLectures, type LectureItem } from "../mocks/lectures";
-import { mockUser, type UserProfile } from "../mocks/user";
+import type { UserProfile } from "../mocks/user";
 import { CatalogScreen } from "../screens/CatalogScreen";
 import { LectureDetailsScreen } from "../screens/LectureDetailsScreen";
 import { LoginScreen, type GoogleLoginPayload, type VkLoginPayload } from "../screens/LoginScreen";
@@ -83,12 +89,6 @@ import {
   writeSelectedTeacherLogin,
   type TeacherBranch
 } from "../storage/teacherBranchesStorage";
-import {
-  findTeacherAccount,
-  readStudentAccounts,
-  registerStudentAccount,
-  validateStudentCredentials
-} from "../storage/localUsersStorage";
 import { fixText } from "../utils/fixText";
 import { authApi, catalogApi, quizApi, sessionApi, toUserMessage } from "../api/mobileApi";
 import {
@@ -136,6 +136,22 @@ type AuthMode = "login" | "register";
 type DemoDataMode = "online" | "offline" | "loading" | "error";
 
 const GOOGLE_WEB_CLIENT_ID = "PASTE_YOUR_WEB_CLIENT_ID_HERE.apps.googleusercontent.com";
+const DEFAULT_STUDENT_GROUP = "BPI-248";
+const DEFAULT_USER: UserProfile = {
+  fullName: "",
+  login: "",
+  role: "student",
+  group: DEFAULT_STUDENT_GROUP
+};
+
+function mapApiProfileToMobileUser(profile: ApiUserProfile): UserProfile {
+  return {
+    fullName: profile.fullName,
+    login: profile.login,
+    role: profile.role === "teacher" ? "teacher" : "student",
+    group: profile.groupName?.trim() || profile.group?.trim() || DEFAULT_STUDENT_GROUP
+  };
+}
 
 function getNavigationLabel(screen: MenuScreenKey): string {
   if (screen === "catalog") {
@@ -782,7 +798,7 @@ export function AppNavigation() {
   const [activeScreen, setActiveScreen] = useState<ScreenKey>("catalog");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const [user, setUser] = useState<UserProfile>(mockUser);
+  const [user, setUser] = useState<UserProfile>(DEFAULT_USER);
   const [catalogLectures, setCatalogLectures] = useState<LectureItem[]>(mockLectures);
   const [selectedLecture, setSelectedLecture] = useState<LectureItem | null>(null);
   const [lastOpenedLectureId, setLastOpenedLectureId] = useState<string | null>(null);
@@ -1099,27 +1115,36 @@ export function AppNavigation() {
         }
 
         if (storedAuthMeta?.userLogin) {
-          setUser({
-            fullName: storedAuthMeta.fullName || mockUser.fullName,
-            login: storedAuthMeta.userLogin,
-            role: storedAuthMeta.role,
-            group: storedAuthMeta.group || mockUser.group
-          });
-
-          if (storedAuthMeta.role === "teacher") {
-            ensureTeacherBranch(storedAuthMeta.userLogin, storedAuthMeta.fullName || storedAuthMeta.userLogin);
-          }
-
-          setIsAuthenticated(true);
-          setActiveScreen(
-            storedAuthMeta.role === "teacher"
-              ? "teacherHome"
-              : storedSelectedTeacherLogin
-                ? "catalog"
-                : "teacherBranchSelect"
-          );
-
           try {
+            const profile = await authApi.me();
+
+            if (!isMounted) {
+              return;
+            }
+
+            const nextUser = mapApiProfileToMobileUser(profile);
+            setUser(nextUser);
+
+            await writeAuthMeta({
+              userLogin: nextUser.login,
+              role: nextUser.role,
+              fullName: nextUser.fullName,
+              group: nextUser.group
+            });
+
+            if (nextUser.role === "teacher") {
+              ensureTeacherBranch(nextUser.login, nextUser.fullName || nextUser.login);
+            }
+
+            setIsAuthenticated(true);
+            setActiveScreen(
+              nextUser.role === "teacher"
+                ? "teacherHome"
+                : storedSelectedTeacherLogin
+                  ? "catalog"
+                  : "teacherBranchSelect"
+            );
+
             const summaries = await catalogApi.listLectures();
             if (!isMounted) {
               return;
@@ -1133,10 +1158,10 @@ export function AppNavigation() {
             );
 
             const scopedLectures =
-              storedAuthMeta.role === "teacher"
+              nextUser.role === "teacher"
                 ? nextLectures.map((lecture) => ({
                     ...lecture,
-                    teacherLogin: lecture.teacherLogin ?? storedAuthMeta.userLogin
+                    teacherLogin: lecture.teacherLogin ?? nextUser.login
                   }))
                 : nextLectures;
 
@@ -1150,6 +1175,9 @@ export function AppNavigation() {
             setCatalogMode("online");
             await writeCatalogSnapshot(mergedLectures);
           } catch {
+            await clearAuthSession();
+            setIsAuthenticated(false);
+            setUser(DEFAULT_USER);
             setCatalogMode(cachedLectures?.length ? "offline" : "error");
           }
         } else {
@@ -1449,6 +1477,33 @@ export function AppNavigation() {
     }
   }
 
+  async function persistAuthenticatedUser(nextUser: UserProfile) {
+    await writeAuthMeta({
+      userLogin: nextUser.login,
+      role: nextUser.role,
+      fullName: nextUser.fullName,
+      group: nextUser.group
+    });
+
+    if (nextUser.role === "teacher") {
+      ensureTeacherBranch(nextUser.login, nextUser.fullName || nextUser.login);
+      adoptTeacherContent(nextUser.login);
+      setActiveScreen("teacherHome");
+    } else {
+      setSelectedTeacherLogin(null);
+      resetStudentFlow();
+      resetTeacherFlow();
+      setActiveScreen("teacherBranchSelect");
+    }
+
+    setUser(nextUser);
+    setIsAuthenticated(true);
+
+    try {
+      await refreshCatalogFromApi(nextUser.role === "teacher" ? nextUser.login : undefined);
+    } catch {}
+  }
+
   async function handleLogin(input: {
     login: string;
     password: string;
@@ -1456,6 +1511,8 @@ export function AppNavigation() {
     mode: "login" | "register";
     fullName?: string;
   }): Promise<string | null> {
+    return handleBackendLogin(input);
+    /*
     const safeLogin = input.login.trim().toLowerCase();
     const safePassword = input.password.trim();
 
@@ -1549,9 +1606,12 @@ export function AppNavigation() {
     } catch {}
 
     return null;
+    */
   }
 
   async function handleGoogleLogin(_payload: GoogleLoginPayload): Promise<string | null> {
+    return handleBackendGoogleLogin(_payload);
+    /*
     if (!GOOGLE_WEB_CLIENT_ID || GOOGLE_WEB_CLIENT_ID.startsWith("PASTE_YOUR_WEB_CLIENT_ID_HERE")) {
       return "Сначала вставь реальный Google Web Client ID в AppNavigation.tsx.";
     }
@@ -1631,8 +1691,139 @@ export function AppNavigation() {
     }
   }
 
+    */
+  }
+
   async function handleVkLogin(_payload: VkLoginPayload): Promise<string | null> {
     return "Для реального входа через VK сначала добавь VK APP ID и redirect URL.";
+  }
+
+  async function handleBackendLogin(input: {
+    login: string;
+    password: string;
+    role: LoginRole;
+    mode: "login" | "register";
+    fullName?: string;
+  }): Promise<string | null> {
+    const safeLogin = input.login.trim().toLowerCase();
+    const safePassword = input.password.trim();
+
+    if (!safeLogin || !safePassword) {
+      return fixText("Заполни логин и пароль.");
+    }
+
+    try {
+      if (input.role === "teacher" && input.mode === "register") {
+        return fixText(
+          "Регистрация преподавателя отключена. Преподавателя создает администратор через backend."
+        );
+      }
+
+      if (input.mode === "register") {
+        const registeredUser = await authApi.registerStudent({
+          login: safeLogin,
+          password: safePassword,
+          fullName: input.fullName?.trim() || safeLogin,
+          groupName: DEFAULT_STUDENT_GROUP
+        });
+
+        return `REGISTRATION_SUCCESS::${registeredUser.login}`;
+      }
+
+      await authApi.login(
+        safeLogin,
+        safePassword,
+        input.role === "teacher" ? "teacher" : "student"
+      );
+      const profile = await authApi.me();
+      const nextUser = mapApiProfileToMobileUser(profile);
+
+      if (input.role === "teacher" && nextUser.role !== "teacher") {
+        await authApi.logout();
+        await clearAuthSession();
+        return fixText("Этот аккаунт не имеет доступа преподавателя.");
+      }
+
+      await persistAuthenticatedUser(nextUser);
+      return null;
+    } catch (error: unknown) {
+      return fixText(toUserMessage(error));
+    }
+  }
+
+  async function handleBackendGoogleLogin(_payload: GoogleLoginPayload): Promise<string | null> {
+    if (!GOOGLE_WEB_CLIENT_ID || GOOGLE_WEB_CLIENT_ID.startsWith("PASTE_YOUR_WEB_CLIENT_ID_HERE")) {
+      return fixText("Сначала вставь реальный Google Web Client ID в AppNavigation.tsx.");
+    }
+
+    try {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleSignin.signIn();
+
+      if (!isSuccessResponse(response)) {
+        return fixText("Вход через Google отменен.");
+      }
+
+      const googleUser = response.data.user;
+      const safeEmail = String(googleUser.email ?? "").trim().toLowerCase();
+      const safeName = String(googleUser.name ?? "").trim();
+
+      if (!safeEmail) {
+        return fixText("Google не вернул email пользователя.");
+      }
+
+      try {
+        await authApi.registerStudent({
+          login: safeEmail,
+          password: "google_oauth_account",
+          fullName: safeName || safeEmail,
+          groupName: DEFAULT_STUDENT_GROUP
+        });
+      } catch {}
+
+      await authApi.login(safeEmail, "google_oauth_account", "student");
+      const profile = await authApi.me();
+      await persistAuthenticatedUser(mapApiProfileToMobileUser(profile));
+
+      return null;
+    } catch (error: unknown) {
+      if (isErrorWithCode(error)) {
+        switch (error.code) {
+          case statusCodes.IN_PROGRESS:
+            return fixText("Вход через Google уже выполняется.");
+          case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+            return fixText("На устройстве недоступны Google Play Services.");
+          default:
+            return fixText("Не удалось выполнить вход через Google.");
+        }
+      }
+
+      return fixText("Не удалось выполнить вход через Google.");
+    }
+  }
+
+  async function handleBackendLogout() {
+    try {
+      await authApi.logout();
+    } catch {}
+
+    setIsAuthenticated(false);
+    setActiveScreen("catalog");
+    setSelectedLecture(null);
+    setCurrentSession(null);
+    setCurrentResult(null);
+    setCurrentTeacherSession(null);
+    setLastOpenedLectureId(null);
+    setLectureDetailsById((current) => pickDraftLectureDetails(current));
+    setUser(DEFAULT_USER);
+
+    try {
+      await clearAuthSession();
+    } catch {}
+
+    try {
+      await GoogleSignin.signOut();
+    } catch {}
   }
 
   function resetStudentFlow() {
@@ -1841,7 +2032,7 @@ export function AppNavigation() {
     setCurrentTeacherSession(null);
     setLastOpenedLectureId(null);
     setLectureDetailsById((current) => pickDraftLectureDetails(current));
-    setUser(mockUser);
+    setUser(DEFAULT_USER);
 
     try {
       await clearAuthSession();
@@ -2464,7 +2655,14 @@ export function AppNavigation() {
   }
 
   if (!isAuthenticated) {
-    return <LoginScreen theme={theme} onLogin={handleLogin} onGoogleLogin={handleGoogleLogin} onVkLogin={handleVkLogin} />;
+    return (
+      <LoginScreen
+        theme={theme}
+        onLogin={handleBackendLogin}
+        onGoogleLogin={handleBackendGoogleLogin}
+        onVkLogin={handleVkLogin}
+      />
+    );
   }
 
   const lastOpenedLecture =
@@ -2791,7 +2989,7 @@ export function AppNavigation() {
             onAddDraftQuestion={handleAddDraftQuestion}
             onDeleteDraftQuestion={handleDeleteDraftQuestion}
             onDeleteLecture={handleDeleteLecture}
-            onLogout={() => void handleLogout()}
+            onLogout={() => void handleBackendLogout()}
           />
         ) : null}
 
@@ -2936,7 +3134,9 @@ export function AppNavigation() {
             onDisconnectTeacher={
               isTeacher ? undefined : handleDisconnectTeacherBranch
             }
-            onLogout={() => { void handleLogout(); }}
+            onLogout={() => {
+              void handleBackendLogout();
+            }}
           />
         ) : null}
       </View>

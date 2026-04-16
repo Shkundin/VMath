@@ -1,4 +1,4 @@
-import { Controller, Get } from "@nestjs/common";
+import { Controller, Get, HttpCode } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { DatabaseService } from "../database/database.service";
 
@@ -6,6 +6,38 @@ import { DatabaseService } from "../database/database.service";
 @Controller()
 export class HealthController {
   constructor(private readonly database: DatabaseService) {}
+
+  @Get()
+  @ApiOperation({ summary: "Root API status endpoint" })
+  async root() {
+    const databaseOk = await this.database.ping();
+
+    return {
+      ok: true,
+      service: "vm-server",
+      status: databaseOk ? "ready" : "degraded",
+      docsUrl: "/api/docs",
+      healthUrl: "/api/v1/health",
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  @Get("api")
+  @ApiOperation({ summary: "API entrypoint summary" })
+  async apiRoot() {
+    return {
+      ok: true,
+      docsUrl: "/api/docs",
+      openApiUrl: "/api/v1/openapi.json",
+      healthUrl: "/api/v1/health"
+    };
+  }
+
+  @Get("favicon.ico")
+  @HttpCode(204)
+  favicon() {
+    return;
+  }
 
   @Get("health")
   @ApiOperation({ summary: "Health check endpoint" })

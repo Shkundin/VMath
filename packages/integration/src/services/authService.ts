@@ -8,20 +8,32 @@ export interface LoginResponse {
   expiresInSec: number;
 }
 
+export interface RegisterStudentInput {
+  login: string;
+  password: string;
+  fullName: string;
+  groupName?: string;
+}
+
 export class AuthService {
   constructor(
     private readonly http: HttpClient,
     private readonly storage: TokenStorage
   ) {}
 
-  async login(login: string, password: string): Promise<void> {
+  async login(
+    login: string,
+    password: string,
+    role?: "student" | "teacher" | "admin"
+  ): Promise<void> {
     if (!login || !password) {
       throw err("VALIDATION", "Login and password are required");
     }
 
     const response = await this.http.postJson<LoginResponse>("/api/v1/auth/login", {
       login,
-      password
+      password,
+      role
     });
 
     const tokens: TokenPair = {
@@ -81,5 +93,13 @@ export class AuthService {
 
   async me(): Promise<UserProfile> {
     return this.http.getJson<UserProfile>("/api/v1/auth/me");
+  }
+
+  async registerStudent(input: RegisterStudentInput): Promise<UserProfile> {
+    if (!input.login || !input.password || !input.fullName) {
+      throw err("VALIDATION", "Login, password, and fullName are required");
+    }
+
+    return this.http.postJson<UserProfile>("/api/v1/auth/register/student", input);
   }
 }

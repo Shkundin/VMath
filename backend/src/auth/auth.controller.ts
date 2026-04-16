@@ -14,11 +14,18 @@ import {
   ApiOperation,
   ApiTags
 } from "@nestjs/swagger";
-import { IsBoolean, IsOptional, IsString, MinLength } from "class-validator";
+import { IsBoolean, IsEnum, IsOptional, IsString, MinLength } from "class-validator";
+import type { Role } from "@vm/shared";
 import { CurrentUser, RateLimit, RateLimitGuard } from "../common/http";
 import type { AuthenticatedUser } from "../common/http";
 import { AuthService } from "./auth.service";
 import { JwtAccessGuard } from "./jwt-access.guard";
+
+const LOGIN_ROLE_VALUES = {
+  student: "student",
+  teacher: "teacher",
+  admin: "admin"
+} as const;
 
 class LoginDto {
   @IsString()
@@ -28,6 +35,28 @@ class LoginDto {
   @IsString()
   @MinLength(4)
   password!: string;
+
+  @IsOptional()
+  @IsEnum(LOGIN_ROLE_VALUES)
+  role?: Role;
+}
+
+class RegisterStudentDto {
+  @IsString()
+  @MinLength(3)
+  login!: string;
+
+  @IsString()
+  @MinLength(4)
+  password!: string;
+
+  @IsString()
+  @MinLength(2)
+  fullName!: string;
+
+  @IsOptional()
+  @IsString()
+  groupName?: string;
 }
 
 class RefreshDto {
@@ -63,6 +92,27 @@ export class AuthController {
     return this.authService.login({
       login: body.login,
       password: body.password,
+      role: body.role,
+      ipAddress,
+      userAgent
+    });
+  }
+
+  @Post("register/student")
+  @ApiOperation({ summary: "Register a new student account in the primary database" })
+  @ApiBody({ type: RegisterStudentDto })
+  @UseGuards(RateLimitGuard)
+  @RateLimit(6, 60_000)
+  async registerStudent(
+    @Body() body: RegisterStudentDto,
+    @Ip() ipAddress: string,
+    @Headers("user-agent") userAgent?: string
+  ) {
+    return this.authService.registerStudent({
+      login: body.login,
+      password: body.password,
+      fullName: body.fullName,
+      groupName: body.groupName,
       ipAddress,
       userAgent
     });
@@ -123,6 +173,7 @@ export class LegacyAuthController {
     return this.authService.login({
       login: body.login,
       password: body.password,
+      role: body.role,
       ipAddress,
       userAgent
     });

@@ -33,6 +33,18 @@ interface UserAuthEventRow extends QueryResultRow {
   created_at: string;
 }
 
+interface UserWithCredentialRow extends UserRow {
+  password_hash: string;
+  teacher_password_hash: string | null;
+}
+
+type QueryRunner = {
+  query: <T extends QueryResultRow = QueryResultRow>(
+    text: string,
+    params?: unknown[]
+  ) => Promise<{ rows: T[] }>;
+};
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -86,13 +98,13 @@ export class UsersService {
           u.created_at,
           u.updated_at
         from users u
-        left join lateral (
-          select count(*)::int as active_session_count
-          from refresh_tokens rt
-          where rt.user_id = u.id
-            and rt.revoked_at is null
-            and rt.expires_at > now()
-        ) rt on true
+        left join (
+          select user_id, count(*)::int as active_session_count
+          from refresh_tokens
+          where revoked_at is null
+            and expires_at > now()
+          group by user_id
+        ) rt on rt.user_id = u.id
         ${where.length > 0 ? `where ${where.join(" and ")}` : ""}
         order by u.created_at desc
       `,
@@ -180,48 +192,62 @@ export class UsersService {
     isActive?: boolean;
   }): Promise<UserProfile> {
     this.assertStudentGroupRule(input.role, input.groupName);
-    await this.ensureLoginIsUnique(input.login);
+    const normalizedLogin = input.login.trim().toLowerCase();
+    await this.ensureLoginIsUnique(normalizedLogin);
 
     const passwordHash = await this.passwordService.hashPassword(input.password);
-    const user = await this.database.one<UserRow>(
-      `
-        insert into users (
-          id,
-          login,
-          password_hash,
-          full_name,
-          role,
-          group_name,
-          is_active,
-          created_at,
-          updated_at
-        )
-        values ($1, $2, $3, $4, $5, $6, $7, now(), now())
-        returning
-          id,
-          login,
-          full_name,
-          role,
-          group_name,
-          is_active,
-          last_login_at,
-          last_seen_at,
-          0::int as active_session_count,
-          created_at,
-          updated_at
-      `,
-      [
-        randomUUID(),
-        input.login.trim().toLowerCase(),
-        passwordHash,
-        input.fullName.trim(),
-        input.role,
-        input.groupName?.trim() || null,
-        input.isActive ?? true
-      ]
-    );
 
-    return this.mapUser(user);
+    return this.database.tx(async (client) => {
+      const user = await this.oneWithRunner<UserRow>(
+        client,
+        `
+          insert into users (
+            id,
+            login,
+            password_hash,
+            full_name,
+            role,
+            group_name,
+            is_active,
+            created_at,
+            updated_at
+          )
+          values ($1, $2, $3, $4, $5, $6, $7, now(), now())
+          returning
+            id,
+            login,
+            full_name,
+            role,
+            group_name,
+            is_active,
+            last_login_at,
+            last_seen_at,
+            0::int as active_session_count,
+            created_at,
+            updated_at
+        `,
+        [
+          randomUUID(),
+          normalizedLogin,
+          input.role === "teacher" ? this.createTeacherPasswordPlaceholder(normalizedLogin) : passwordHash,
+          input.fullName.trim(),
+          input.role,
+          input.groupName?.trim() || null,
+          input.isActive ?? true
+        ]
+      );
+
+      if (input.role === "teacher") {
+        await this.upsertTeacherCredential(client, {
+          userId: user.id,
+          login: normalizedLogin,
+          passwordHash,
+          isActive: input.isActive ?? true
+        });
+      }
+
+      return this.mapUser(user);
+    });
   }
 
   async updateUser(
@@ -235,23 +261,25 @@ export class UsersService {
       isActive?: boolean;
     }
   ): Promise<UserProfile> {
-    const current = await this.database.maybeOne<UserRow & { password_hash: string }>(
+    const current = await this.database.maybeOne<UserWithCredentialRow>(
       `
         select
-          id,
-          login,
-          password_hash,
-          full_name,
-          role,
-          group_name,
-          is_active,
-          last_login_at,
-          last_seen_at,
+          u.id,
+          u.login,
+          u.password_hash,
+          u.full_name,
+          u.role,
+          u.group_name,
+          u.is_active,
+          u.last_login_at,
+          u.last_seen_at,
+          tc.password_hash as teacher_password_hash,
           0::int as active_session_count,
-          created_at,
-          updated_at
-        from users
-        where id = $1
+          u.created_at,
+          u.updated_at
+        from users u
+        left join teacher_credentials tc on tc.user_id = u.id
+        where u.id = $1
       `,
       [userId]
     );
@@ -268,48 +296,73 @@ export class UsersService {
       await this.ensureLoginIsUnique(input.login, current.id);
     }
 
-    const passwordHash =
+    const nextLogin = (input.login ?? current.login).trim().toLowerCase();
+    const nextIsActive = input.isActive ?? current.is_active;
+    const nextFullName = (input.fullName ?? current.full_name).trim();
+    const nextTeacherPasswordHash =
       input.password && input.password.trim().length > 0
         ? await this.passwordService.hashPassword(input.password)
-        : current.password_hash;
+        : current.teacher_password_hash ?? current.password_hash;
+    const nextPasswordHash =
+      nextRole === "teacher"
+        ? this.createTeacherPasswordPlaceholder(nextLogin)
+        : input.password && input.password.trim().length > 0
+          ? await this.passwordService.hashPassword(input.password)
+          : current.role === "teacher"
+            ? current.teacher_password_hash ?? current.password_hash
+            : current.password_hash;
 
-    const updated = await this.database.one<UserRow>(
-      `
-        update users
-        set
-          login = $2,
-          password_hash = $3,
-          full_name = $4,
-          role = $5,
-          group_name = $6,
-          is_active = $7,
-          updated_at = now()
-        where id = $1
-        returning
-          id,
-          login,
-          full_name,
-          role,
-          group_name,
-          is_active,
-          last_login_at,
-          last_seen_at,
-          0::int as active_session_count,
-          created_at,
-          updated_at
-      `,
-      [
-        current.id,
-        (input.login ?? current.login).trim().toLowerCase(),
-        passwordHash,
-        (input.fullName ?? current.full_name).trim(),
-        nextRole,
-        nextGroupName?.trim() || null,
-        input.isActive ?? current.is_active
-      ]
-    );
+    return this.database.tx(async (client) => {
+      const updated = await this.oneWithRunner<UserRow>(
+        client,
+        `
+          update users
+          set
+            login = $2,
+            password_hash = $3,
+            full_name = $4,
+            role = $5,
+            group_name = $6,
+            is_active = $7,
+            updated_at = now()
+          where id = $1
+          returning
+            id,
+            login,
+            full_name,
+            role,
+            group_name,
+            is_active,
+            last_login_at,
+            last_seen_at,
+            0::int as active_session_count,
+            created_at,
+            updated_at
+        `,
+        [
+          current.id,
+          nextLogin,
+          nextPasswordHash,
+          nextFullName,
+          nextRole,
+          nextGroupName?.trim() || null,
+          nextIsActive
+        ]
+      );
 
-    return this.mapUser(updated);
+      if (nextRole === "teacher") {
+        await this.upsertTeacherCredential(client, {
+          userId: current.id,
+          login: nextLogin,
+          passwordHash: nextTeacherPasswordHash,
+          isActive: nextIsActive
+        });
+      } else if (current.role === "teacher") {
+        await client.query(`delete from teacher_credentials where user_id = $1`, [current.id]);
+      }
+
+      return this.mapUser(updated);
+    });
   }
 
   private mapUser(row: UserRow): UserProfile {
@@ -353,5 +406,48 @@ export class UsersService {
     if (existing) {
       throw new AppException("CONFLICT", HttpStatus.CONFLICT, "Login already exists");
     }
+  }
+
+  private createTeacherPasswordPlaceholder(login: string): string {
+    return `teacher-credentials-only$${login}`;
+  }
+
+  private async upsertTeacherCredential(
+    runner: QueryRunner,
+    input: { userId: string; login: string; passwordHash: string; isActive: boolean }
+  ) {
+    await runner.query(
+      `
+        insert into teacher_credentials (
+          user_id,
+          login,
+          password_hash,
+          is_active,
+          created_at,
+          updated_at
+        )
+        values ($1, $2, $3, $4, now(), now())
+        on conflict (user_id) do update
+        set
+          login = excluded.login,
+          password_hash = excluded.password_hash,
+          is_active = excluded.is_active,
+          updated_at = now()
+      `,
+      [input.userId, input.login, input.passwordHash, input.isActive]
+    );
+  }
+
+  private async oneWithRunner<T extends QueryResultRow = QueryResultRow>(
+    runner: QueryRunner,
+    text: string,
+    params: unknown[] = []
+  ): Promise<T> {
+    const result = await runner.query<T>(text, params);
+    if (!result.rows[0]) {
+      throw new Error(`Expected one row for query: ${text}`);
+    }
+
+    return result.rows[0];
   }
 }
