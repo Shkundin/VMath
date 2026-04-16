@@ -359,7 +359,7 @@ async function main() {
         )
         values
           ($1, 'Functions and Graphs', 'Lecture on reading graphs and understanding function behavior', $3, $5, 1, 'basic', array['functions','graphs'], 'published', array['student','teacher'], now(), now()),
-          ($2, 'Derivative and Tangent', 'Lecture on geometric meaning of the derivative', $3, $5, 1, 'intermediate', array['derivative','tangent'], 'published', array['student','teacher'], now(), now())
+          ($2, 'Derivative and Tangent', 'Lecture on geometric meaning of the derivative', $4, $5, 1, 'intermediate', array['derivative','tangent'], 'published', array['student','teacher'], now(), now())
         on conflict (id) do update set
           title = excluded.title,
           description = excluded.description,
