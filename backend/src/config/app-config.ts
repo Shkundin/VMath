@@ -62,13 +62,21 @@ function parseOrigins(value: string | undefined, fallback: string): string[] {
 
 export function loadAppConfig(): AppConfig {
   const nodeEnv = process.env.NODE_ENV?.trim() || "development";
-  const isProduction = nodeEnv === "production";
+  const renderExternalUrl = process.env.RENDER_EXTERNAL_URL?.trim() || "";
+  const isRender = Boolean(
+    process.env.RENDER?.trim() ||
+      process.env.RENDER_SERVICE_ID?.trim() ||
+      renderExternalUrl
+  );
+  const isProduction = nodeEnv === "production" || isRender;
+  const appUrl = process.env.APP_URL?.trim() || renderExternalUrl || "http://localhost:8787";
+  const apiBaseUrl = process.env.API_BASE_URL?.trim() || `${appUrl.replace(/\/+$/, "")}/api/v1`;
 
   return {
     port: parseNumber("PORT", 8787),
     nodeEnv,
-    appUrl: process.env.APP_URL?.trim() || "http://localhost:8787",
-    apiBaseUrl: process.env.API_BASE_URL?.trim() || "http://localhost:8787/api/v1",
+    appUrl,
+    apiBaseUrl,
     corsOrigins: parseOrigins(process.env.CORS_ORIGIN, "http://localhost:19006,http://127.0.0.1:19006"),
     wsCorsOrigins: parseOrigins(
       process.env.WS_CORS_ORIGIN,

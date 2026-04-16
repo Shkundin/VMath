@@ -42,6 +42,7 @@ The repository already contains a matching [render.yaml](../../render.yaml).
 ## Notes
 
 - `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `DATABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` must be explicitly configured in production. The backend refuses to use development fallbacks in production mode.
+- `DATABASE_URL` must point to your real Supabase/Postgres instance. On Render it must not reference the local development address `127.0.0.1:54322`.
 - Render should terminate HTTPS at the edge. The backend assumes HTTPS and WSS in production.
 - Run the backend behind a Postgres instance backed by Supabase or another managed Postgres service.
 - `SUPABASE_SERVICE_ROLE_KEY` must stay backend-only and must never be exposed to clients.
