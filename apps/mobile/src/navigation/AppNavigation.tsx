@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -2965,13 +2966,16 @@ function BottomTabs({
   activeScreen,
   onChange
 }: BottomTabsProps) {
+  const bottomInset = Platform.OS === "web" ? 24 : 16;
+
   return (
     <View
       style={[
         styles.tabBar,
         {
           backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.border
+          borderTopColor: theme.colors.border,
+          paddingBottom: bottomInset
         }
       ]}
     >

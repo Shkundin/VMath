@@ -544,8 +544,9 @@ function createStyles(theme: AppTheme, width: number) {
       color: theme.colors.text
     },
     statusWrap: {
-      flexDirection: "row",
-      flexWrap: "wrap"
+      flexDirection: isPhone ? "column" : "row",
+      flexWrap: "wrap",
+      alignItems: "flex-start"
     },
     settingRow: {
       flexDirection: "row",

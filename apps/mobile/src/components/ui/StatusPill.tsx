@@ -59,6 +59,7 @@ function createStyles(theme: AppTheme, tone: StatusTone) {
   return StyleSheet.create({
     pill: {
       alignSelf: "flex-start",
+      maxWidth: "100%",
       paddingHorizontal: theme.spacing.sm,
       paddingVertical: theme.spacing.xs,
       borderRadius: theme.radius.pill,
@@ -71,7 +72,8 @@ function createStyles(theme: AppTheme, tone: StatusTone) {
     label: {
       fontSize: theme.typography.caption,
       fontWeight: "700",
-      color: palette.textColor
+      color: palette.textColor,
+      flexShrink: 1
     }
   });
 }

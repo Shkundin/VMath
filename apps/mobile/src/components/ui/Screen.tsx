@@ -18,6 +18,11 @@ type ScreenProps = {
 export function Screen({ theme, children }: ScreenProps) {
   const { width } = useWindowDimensions();
   const isPhone = width < 560;
+  const bottomPadding = isPhone
+    ? Platform.OS === "web"
+      ? 128
+      : theme.spacing.xl * 4
+    : theme.spacing.xl * 2;
 
   return (
     <KeyboardAvoidingView
@@ -34,7 +39,7 @@ export function Screen({ theme, children }: ScreenProps) {
           {
             paddingHorizontal: isPhone ? theme.spacing.sm : theme.spacing.md,
             paddingTop: isPhone ? theme.spacing.sm : theme.spacing.md,
-            paddingBottom: isPhone ? theme.spacing.xl * 4 : theme.spacing.xl * 2
+            paddingBottom: bottomPadding
           }
         ]}
         keyboardShouldPersistTaps="handled"
