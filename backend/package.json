@@ -6,7 +6,7 @@
     "dev": "tsx watch src/main.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "start": "node --enable-source-maps dist/apps/server/src/main.js",
+    "start": "node --enable-source-maps dist/backend/src/main.js",
     "db:migrate": "tsx src/database/migrate.ts",
     "db:seed": "tsx src/database/seed.ts",
     "db:prepare": "pnpm db:migrate && pnpm db:seed",
