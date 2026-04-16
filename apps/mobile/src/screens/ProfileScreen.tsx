@@ -510,11 +510,15 @@ function createStyles(theme: AppTheme, width: number) {
       flexDirection: isCompact ? "column" : "row"
     },
     cardWide: {
-      flex: 1.2,
+      flexGrow: isCompact ? 0 : 1.2,
+      flexShrink: 0,
+      flexBasis: isCompact ? "auto" : 0,
       marginRight: isCompact ? 0 : theme.spacing.md
     },
     cardNarrow: {
-      flex: 0.8
+      flexGrow: isCompact ? 0 : 0.8,
+      flexShrink: 0,
+      flexBasis: isCompact ? "auto" : 0
     },
     infoGrid: {
       flexDirection: "row",
