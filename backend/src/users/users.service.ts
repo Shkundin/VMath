@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
-import type { Role, UserProfile } from "@vm/shared";
+import type { Role, UserAuthEventView, UserProfile } from "@vm/shared";
 import { randomUUID } from "crypto";
 import type { QueryResultRow } from "pg";
 import { AppException } from "../common/http";
@@ -13,8 +13,24 @@ interface UserRow extends QueryResultRow {
   role: Role;
   group_name: string | null;
   is_active: boolean;
+  last_login_at: string | null;
+  last_seen_at: string | null;
+  active_session_count: number;
   created_at: string;
   updated_at: string;
+}
+
+interface UserAuthEventRow extends QueryResultRow {
+  id: string;
+  user_id: string | null;
+  login: string;
+  full_name: string | null;
+  role: Role | null;
+  event_type: UserAuthEventView["eventType"];
+  status: UserAuthEventView["status"];
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
 }
 
 @Injectable()
@@ -35,35 +51,124 @@ export class UsersService {
 
     if (filters.q) {
       params.push(`%${filters.q.trim().toLowerCase()}%`);
-      where.push(`(lower(login) like $${params.length} or lower(full_name) like $${params.length})`);
+      where.push(
+        `(lower(u.login) like $${params.length} or lower(u.full_name) like $${params.length})`
+      );
     }
 
     if (filters.role) {
       params.push(filters.role);
-      where.push(`role = $${params.length}`);
+      where.push(`u.role = $${params.length}`);
     }
 
     if (filters.groupName) {
       params.push(filters.groupName);
-      where.push(`group_name = $${params.length}`);
+      where.push(`u.group_name = $${params.length}`);
     }
 
     if (typeof filters.isActive === "boolean") {
       params.push(filters.isActive);
-      where.push(`is_active = $${params.length}`);
+      where.push(`u.is_active = $${params.length}`);
     }
 
     const result = await this.database.query<UserRow>(
       `
-        select id, login, full_name, role, group_name, is_active, created_at, updated_at
-        from users
+        select
+          u.id,
+          u.login,
+          u.full_name,
+          u.role,
+          u.group_name,
+          u.is_active,
+          u.last_login_at,
+          u.last_seen_at,
+          coalesce(rt.active_session_count, 0)::int as active_session_count,
+          u.created_at,
+          u.updated_at
+        from users u
+        left join lateral (
+          select count(*)::int as active_session_count
+          from refresh_tokens rt
+          where rt.user_id = u.id
+            and rt.revoked_at is null
+            and rt.expires_at > now()
+        ) rt on true
         ${where.length > 0 ? `where ${where.join(" and ")}` : ""}
-        order by created_at desc
+        order by u.created_at desc
       `,
       params
     );
 
     return result.rows.map((row) => this.mapUser(row));
+  }
+
+  async listAuthEvents(filters: {
+    q?: string;
+    userId?: string;
+    eventType?: UserAuthEventView["eventType"];
+    status?: UserAuthEventView["status"];
+    limit?: number;
+  }): Promise<UserAuthEventView[]> {
+    const params: unknown[] = [];
+    const where: string[] = [];
+
+    if (filters.q) {
+      params.push(`%${filters.q.trim().toLowerCase()}%`);
+      where.push(
+        `(lower(login) like $${params.length} or lower(coalesce(full_name, '')) like $${params.length})`
+      );
+    }
+
+    if (filters.userId) {
+      params.push(filters.userId);
+      where.push(`user_id = $${params.length}`);
+    }
+
+    if (filters.eventType) {
+      params.push(filters.eventType);
+      where.push(`event_type = $${params.length}`);
+    }
+
+    if (filters.status) {
+      params.push(filters.status);
+      where.push(`status = $${params.length}`);
+    }
+
+    params.push(Math.min(Math.max(filters.limit ?? 100, 1), 500));
+
+    const result = await this.database.query<UserAuthEventRow>(
+      `
+        select
+          id,
+          user_id,
+          login,
+          full_name,
+          role,
+          event_type,
+          status,
+          ip_address,
+          user_agent,
+          created_at
+        from user_auth_events
+        ${where.length > 0 ? `where ${where.join(" and ")}` : ""}
+        order by created_at desc
+        limit $${params.length}
+      `,
+      params
+    );
+
+    return result.rows.map((row) => ({
+      id: row.id,
+      userId: row.user_id,
+      login: row.login,
+      fullName: row.full_name,
+      role: row.role,
+      eventType: row.event_type,
+      status: row.status,
+      ipAddress: row.ip_address,
+      userAgent: row.user_agent,
+      createdAt: row.created_at
+    }));
   }
 
   async createUser(input: {
@@ -92,7 +197,18 @@ export class UsersService {
           updated_at
         )
         values ($1, $2, $3, $4, $5, $6, $7, now(), now())
-        returning id, login, full_name, role, group_name, is_active, created_at, updated_at
+        returning
+          id,
+          login,
+          full_name,
+          role,
+          group_name,
+          is_active,
+          last_login_at,
+          last_seen_at,
+          0::int as active_session_count,
+          created_at,
+          updated_at
       `,
       [
         randomUUID(),
@@ -121,7 +237,19 @@ export class UsersService {
   ): Promise<UserProfile> {
     const current = await this.database.maybeOne<UserRow & { password_hash: string }>(
       `
-        select id, login, password_hash, full_name, role, group_name, is_active, created_at, updated_at
+        select
+          id,
+          login,
+          password_hash,
+          full_name,
+          role,
+          group_name,
+          is_active,
+          last_login_at,
+          last_seen_at,
+          0::int as active_session_count,
+          created_at,
+          updated_at
         from users
         where id = $1
       `,
@@ -157,7 +285,18 @@ export class UsersService {
           is_active = $7,
           updated_at = now()
         where id = $1
-        returning id, login, full_name, role, group_name, is_active, created_at, updated_at
+        returning
+          id,
+          login,
+          full_name,
+          role,
+          group_name,
+          is_active,
+          last_login_at,
+          last_seen_at,
+          0::int as active_session_count,
+          created_at,
+          updated_at
       `,
       [
         current.id,
@@ -183,7 +322,10 @@ export class UsersService {
       groupName: row.group_name,
       isActive: row.is_active,
       createdAt: row.created_at,
-      updatedAt: row.updated_at
+      updatedAt: row.updated_at,
+      lastLoginAt: row.last_login_at,
+      lastSeenAt: row.last_seen_at,
+      activeSessionCount: Number(row.active_session_count ?? 0)
     };
   }
 

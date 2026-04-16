@@ -1,6 +1,6 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { randomUUID } from "crypto";
-import type { UserProfile } from "@vm/shared";
+import type { Role, UserProfile } from "@vm/shared";
 import type { QueryResultRow } from "pg";
 import { AppException, type AuthenticatedUser } from "../common/http";
 import { DatabaseService } from "../database/database.service";
@@ -15,6 +15,8 @@ interface UserRow extends QueryResultRow {
   role: UserProfile["role"];
   group_name: string | null;
   is_active: boolean;
+  last_login_at: string | null;
+  last_seen_at: string | null;
 }
 
 interface RefreshTokenRow extends QueryResultRow {
@@ -25,6 +27,22 @@ interface RefreshTokenRow extends QueryResultRow {
   revoked_at: string | null;
   replaced_by_token_id: string | null;
 }
+
+interface UserAuthEventInsert {
+  userId?: string | null;
+  login: string;
+  role?: Role | null;
+  fullName?: string | null;
+  eventType: "login" | "refresh" | "logout" | "login_failed";
+  status: "success" | "failed";
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+type QueryRunner = {
+  query: (text: string, params?: unknown[]) => Promise<unknown>;
+};
 
 @Injectable()
 export class AuthService {
@@ -42,7 +60,7 @@ export class AuthService {
   }) {
     const user = await this.database.maybeOne<UserRow>(
       `
-        select id, login, password_hash, full_name, role, group_name, is_active
+        select id, login, password_hash, full_name, role, group_name, is_active, last_login_at, last_seen_at
         from users
         where lower(login) = lower($1)
       `,
@@ -50,6 +68,19 @@ export class AuthService {
     );
 
     if (!user || !user.is_active) {
+      await this.recordAuthEvent(this.database, {
+        userId: user?.id ?? null,
+        login: params.login.trim().toLowerCase(),
+        role: user?.role ?? null,
+        fullName: user?.full_name ?? null,
+        eventType: "login_failed",
+        status: "failed",
+        ipAddress: params.ipAddress,
+        userAgent: params.userAgent,
+        metadata: {
+          reason: user ? "inactive_user" : "user_not_found"
+        }
+      });
       throw new AppException("AUTH", HttpStatus.UNAUTHORIZED, "Invalid credentials");
     }
 
@@ -59,10 +90,60 @@ export class AuthService {
     );
 
     if (!isPasswordValid) {
+      await this.recordAuthEvent(this.database, {
+        userId: user.id,
+        login: user.login,
+        role: user.role,
+        fullName: user.full_name,
+        eventType: "login_failed",
+        status: "failed",
+        ipAddress: params.ipAddress,
+        userAgent: params.userAgent,
+        metadata: {
+          reason: "password_mismatch"
+        }
+      });
       throw new AppException("AUTH", HttpStatus.UNAUTHORIZED, "Invalid credentials");
     }
 
-    return this.issueTokens(user, params);
+    return this.database.tx(async (client) => {
+      const issued = await this.issueTokens(
+        user,
+        params,
+        async (values) => {
+          await client.query(
+            `
+              insert into refresh_tokens (
+                id,
+                user_id,
+                token_hash,
+                user_agent,
+                ip_address,
+                expires_at,
+                replaced_by_token_id,
+                created_at,
+                updated_at
+              ) values ($1, $2, $3, $4, $5, $6, $7, now(), now())
+            `,
+            values
+          );
+        }
+      );
+
+      await this.touchUserActivity(client, user.id, { updateLoginAt: true });
+      await this.recordAuthEvent(client, {
+        userId: user.id,
+        login: user.login,
+        role: user.role,
+        fullName: user.full_name,
+        eventType: "login",
+        status: "success",
+        ipAddress: params.ipAddress,
+        userAgent: params.userAgent
+      });
+
+      return issued;
+    });
   }
 
   async refresh(refreshToken: string, params: { ipAddress?: string; userAgent?: string }) {
@@ -110,7 +191,7 @@ export class AuthService {
 
     const user = await this.database.one<UserRow>(
       `
-        select id, login, password_hash, full_name, role, group_name, is_active
+        select id, login, password_hash, full_name, role, group_name, is_active, last_login_at, last_seen_at
         from users
         where id = $1
       `,
@@ -125,7 +206,7 @@ export class AuthService {
       await client.query(
         `
           update refresh_tokens
-          set revoked_at = now(), last_used_at = now()
+          set revoked_at = now(), last_used_at = now(), updated_at = now()
           where id = $1
         `,
         [currentSession.id]
@@ -164,6 +245,22 @@ export class AuthService {
         [currentSession.id, next.refreshSessionId]
       );
 
+      await this.touchUserActivity(client, user.id);
+      await this.recordAuthEvent(client, {
+        userId: user.id,
+        login: user.login,
+        role: user.role,
+        fullName: user.full_name,
+        eventType: "refresh",
+        status: "success",
+        ipAddress: params.ipAddress,
+        userAgent: params.userAgent,
+        metadata: {
+          previousSessionId: currentSession.id,
+          nextSessionId: next.refreshSessionId
+        }
+      });
+
       return next;
     });
   }
@@ -178,6 +275,18 @@ export class AuthService {
         `,
         [params.currentUser.userId]
       );
+
+      await this.touchUserActivity(this.database, params.currentUser.userId);
+      await this.recordAuthEvent(this.database, {
+        userId: params.currentUser.userId,
+        login: params.currentUser.login,
+        role: params.currentUser.role,
+        eventType: "logout",
+        status: "success",
+        metadata: {
+          allSessions: true
+        }
+      });
 
       return { ok: true };
     }
@@ -209,13 +318,28 @@ export class AuthService {
       );
     }
 
+    if (params.currentUser) {
+      await this.touchUserActivity(this.database, params.currentUser.userId);
+      await this.recordAuthEvent(this.database, {
+        userId: params.currentUser.userId,
+        login: params.currentUser.login,
+        role: params.currentUser.role,
+        eventType: "logout",
+        status: "success",
+        metadata: {
+          allSessions: Boolean(params.allSessions),
+          sessionId: params.currentUser.sessionId ?? null
+        }
+      });
+    }
+
     return { ok: true };
   }
 
   async getProfile(currentUser: AuthenticatedUser): Promise<UserProfile> {
     const user = await this.database.maybeOne<UserRow>(
       `
-        select id, login, password_hash, full_name, role, group_name, is_active
+        select id, login, password_hash, full_name, role, group_name, is_active, last_login_at, last_seen_at
         from users
         where id = $1 and is_active = true
       `,
@@ -226,6 +350,8 @@ export class AuthService {
       throw new AppException("AUTH", HttpStatus.UNAUTHORIZED, "User not found");
     }
 
+    await this.touchUserActivity(this.database, user.id);
+
     return {
       id: user.id,
       login: user.login,
@@ -233,8 +359,61 @@ export class AuthService {
       role: user.role,
       group: user.group_name ?? undefined,
       groupName: user.group_name,
-      isActive: user.is_active
+      isActive: user.is_active,
+      lastLoginAt: user.last_login_at,
+      lastSeenAt: new Date().toISOString()
     };
+  }
+
+  private async touchUserActivity(
+    database: QueryRunner,
+    userId: string,
+    options: { updateLoginAt?: boolean } = {}
+  ) {
+    await database.query(
+      `
+        update users
+        set
+          last_seen_at = now(),
+          last_login_at = case when $2::boolean then now() else last_login_at end,
+          updated_at = now()
+        where id = $1
+      `,
+      [userId, options.updateLoginAt ?? false]
+    );
+  }
+
+  private async recordAuthEvent(database: QueryRunner, event: UserAuthEventInsert) {
+    await database.query(
+      `
+        insert into user_auth_events (
+          id,
+          user_id,
+          login,
+          role,
+          full_name,
+          event_type,
+          status,
+          ip_address,
+          user_agent,
+          metadata,
+          created_at
+        )
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, now())
+      `,
+      [
+        randomUUID(),
+        event.userId ?? null,
+        event.login.trim().toLowerCase(),
+        event.role ?? null,
+        event.fullName ?? null,
+        event.eventType,
+        event.status,
+        event.ipAddress ?? null,
+        event.userAgent ?? null,
+        JSON.stringify(event.metadata ?? {})
+      ]
+    );
   }
 
   private async issueTokens(

@@ -14,8 +14,8 @@ import {
   ApiOperation,
   ApiTags
 } from "@nestjs/swagger";
-import { IsBoolean, IsEnum, IsOptional, IsString, MinLength } from "class-validator";
-import type { Role } from "@vm/shared";
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Max, Min, MinLength } from "class-validator";
+import type { Role, UserAuthEventView } from "@vm/shared";
 import { Roles, RolesGuard } from "../common/http";
 import { JwtAccessGuard } from "../auth/jwt-access.guard";
 import { UsersService } from "./users.service";
@@ -24,6 +24,18 @@ const ROLE_VALUES = {
   student: "student",
   teacher: "teacher",
   admin: "admin"
+} as const;
+
+const AUTH_EVENT_TYPE_VALUES = {
+  login: "login",
+  refresh: "refresh",
+  logout: "logout",
+  login_failed: "login_failed"
+} as const;
+
+const AUTH_EVENT_STATUS_VALUES = {
+  success: "success",
+  failed: "failed"
 } as const;
 
 class ListUsersQueryDto {
@@ -69,6 +81,30 @@ class CreateUserDto {
   isActive?: boolean;
 }
 
+class ListAuthEventsQueryDto {
+  @IsOptional()
+  @IsString()
+  q?: string;
+
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
+  @IsOptional()
+  @IsEnum(AUTH_EVENT_TYPE_VALUES)
+  eventType?: UserAuthEventView["eventType"];
+
+  @IsOptional()
+  @IsEnum(AUTH_EVENT_STATUS_VALUES)
+  status?: UserAuthEventView["status"];
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  limit?: number;
+}
+
 class UpdateUserDto {
   @IsOptional()
   @IsString()
@@ -110,6 +146,12 @@ export class UsersController {
   @ApiOperation({ summary: "List users with filters" })
   async listUsers(@Query() query: ListUsersQueryDto) {
     return this.usersService.listUsers(query);
+  }
+
+  @Get("auth-events")
+  @ApiOperation({ summary: "List user authentication events" })
+  async listAuthEvents(@Query() query: ListAuthEventsQueryDto) {
+    return this.usersService.listAuthEvents(query);
   }
 
   @Post()

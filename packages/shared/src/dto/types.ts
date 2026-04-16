@@ -49,6 +49,22 @@ export interface UserProfile {
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  lastLoginAt?: string | null;
+  lastSeenAt?: string | null;
+  activeSessionCount?: number;
+}
+
+export interface UserAuthEventView {
+  id: string;
+  userId?: string | null;
+  login: string;
+  fullName?: string | null;
+  role?: Role | null;
+  eventType: "login" | "refresh" | "logout" | "login_failed";
+  status: "success" | "failed";
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  createdAt: string;
 }
 
 export interface AuthTokens {
