@@ -17,12 +17,14 @@ type ScreenProps = {
 
 export function Screen({ theme, children }: ScreenProps) {
   const { width } = useWindowDimensions();
-  const isPhone = width < 560;
+  const isPhone = width < 640;
+  const horizontalPadding = isPhone ? theme.spacing.md : theme.spacing.md;
+  const topPadding = isPhone ? theme.spacing.md : theme.spacing.md;
   const bottomPadding = isPhone
     ? Platform.OS === "web"
-      ? 128
-      : theme.spacing.xl * 4
-    : theme.spacing.xl * 2;
+      ? 160
+      : theme.spacing.xxxl * 4
+    : theme.spacing.xxxl * 2;
 
   return (
     <KeyboardAvoidingView
@@ -37,8 +39,8 @@ export function Screen({ theme, children }: ScreenProps) {
         contentContainerStyle={[
           styles.content,
           {
-            paddingHorizontal: isPhone ? theme.spacing.sm : theme.spacing.md,
-            paddingTop: isPhone ? theme.spacing.sm : theme.spacing.md,
+            paddingHorizontal: horizontalPadding,
+            paddingTop: topPadding,
             paddingBottom: bottomPadding
           }
         ]}
@@ -64,7 +66,8 @@ const styles = StyleSheet.create({
     minWidth: 0
   },
   content: {
-    flexGrow: 1
+    flexGrow: 1,
+    width: "100%"
   },
   inner: {
     width: "100%",

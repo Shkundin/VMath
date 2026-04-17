@@ -581,7 +581,8 @@ type InfoCardProps = {
 };
 
 function InfoCard({ theme, label, value }: InfoCardProps) {
-  const styles = createStyles(theme, 1200);
+  const { width } = useWindowDimensions();
+  const styles = createStyles(theme, width);
 
   return (
     <View style={styles.infoCard}>
@@ -634,11 +635,11 @@ function createStyles(theme: AppTheme, width: number) {
       color: theme.colors.primary
     },
     dashboardRow: {
-      flexDirection: isCompact ? "column" : "row"
+      flexDirection: isCompact ? "column" : "row",
+      columnGap: theme.spacing.md
     },
     dashboardWide: {
-      flex: 1,
-      marginRight: isCompact ? 0 : theme.spacing.md
+      flex: 1
     },
     infoGrid: {
       flexDirection: "row",
@@ -674,13 +675,15 @@ function createStyles(theme: AppTheme, width: number) {
       marginTop: theme.spacing.sm
     },
     inlineButton: {
-      marginRight: theme.spacing.sm,
+      width: isPhone ? "100%" : undefined,
+      marginRight: isPhone ? 0 : theme.spacing.sm,
       marginBottom: theme.spacing.sm
     },
     inputGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginHorizontal: 0
+      marginHorizontal: 0,
+      gap: theme.spacing.sm
     },
     inputCol: {
       flexBasis: isPhone ? "100%" : 260,
@@ -710,7 +713,8 @@ function createStyles(theme: AppTheme, width: number) {
     answerKeyRow: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginBottom: theme.spacing.md
+      marginBottom: theme.spacing.md,
+      gap: theme.spacing.sm
     },
     answerKeyChip: {
       minHeight: 42,
@@ -719,7 +723,6 @@ function createStyles(theme: AppTheme, width: number) {
       paddingHorizontal: theme.spacing.md,
       paddingVertical: theme.spacing.sm,
       justifyContent: "center",
-      marginRight: theme.spacing.sm,
       marginBottom: theme.spacing.sm
     },
     answerOptionWide: {
@@ -731,7 +734,7 @@ function createStyles(theme: AppTheme, width: number) {
     },
     questionCard: {
       borderRadius: theme.radius.lg,
-      padding: theme.spacing.md,
+      padding: isPhone ? theme.spacing.sm + 2 : theme.spacing.md,
       backgroundColor: theme.colors.surfaceElevated,
       borderWidth: 1,
       borderColor: theme.colors.border,

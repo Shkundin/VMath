@@ -1,5 +1,13 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import {
+  Pressable,
+  StyleProp,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+  useWindowDimensions
+} from "react-native";
 import type { LectureDetails, QuizQuestion } from "@vm/shared";
 
 import { AppButton } from "../components/ui/AppButton";
@@ -425,26 +433,32 @@ export function TeacherHomeScreen({
           subtitle="Быстрый доступ к главным действиям преподавателя."
           style={styles.dashboardNarrow}
         >
-          <ActionMiniCard
-            theme={theme}
-            title="Лекции"
-            subtitle="Открывай редактор и дополняй структуру курса."
-          />
-          <ActionMiniCard
-            theme={theme}
-            title="Сессии"
-            subtitle="Запускай занятие и переключай учебные блоки."
-          />
-          <ActionMiniCard
-            theme={theme}
-            title="Тестирование"
-            subtitle="Делай быстрые проверочные тесты прямо на занятии."
-          />
-          <ActionMiniCard
-            theme={theme}
-            title="Итоги"
-            subtitle="Смотри, кто уже сдал задания и как прошли проверки."
-          />
+          <View style={styles.quickActionsGrid}>
+            <ActionMiniCard
+              theme={theme}
+              title="Лекции"
+              subtitle="Открывай редактор и дополняй структуру курса."
+              style={styles.quickActionItem}
+            />
+            <ActionMiniCard
+              theme={theme}
+              title="Сессии"
+              subtitle="Запускай занятие и переключай учебные блоки."
+              style={styles.quickActionItem}
+            />
+            <ActionMiniCard
+              theme={theme}
+              title="Тестирование"
+              subtitle="Делай быстрые проверочные тесты прямо на занятии."
+              style={styles.quickActionItem}
+            />
+            <ActionMiniCard
+              theme={theme}
+              title="Итоги"
+              subtitle="Смотри, кто уже сдал задания и как прошли проверки."
+              style={styles.quickActionItem}
+            />
+          </View>
         </SectionCard>
       </View>
 
@@ -748,7 +762,8 @@ type StatTileProps = {
 };
 
 function StatTile({ theme, value, label }: StatTileProps) {
-  const styles = createStyles(theme, 1200);
+  const { width } = useWindowDimensions();
+  const styles = createStyles(theme, width);
 
   return (
     <View style={styles.statTile}>
@@ -764,7 +779,8 @@ type InfoBadgeProps = {
 };
 
 function InfoBadge({ theme, label }: InfoBadgeProps) {
-  const styles = createStyles(theme, 1200);
+  const { width } = useWindowDimensions();
+  const styles = createStyles(theme, width);
 
   return (
     <View style={styles.infoBadge}>
@@ -780,7 +796,8 @@ type TinyPillProps = {
 };
 
 function TinyPill({ theme, label, tone }: TinyPillProps) {
-  const styles = createStyles(theme, 1200);
+  const { width } = useWindowDimensions();
+  const styles = createStyles(theme, width);
 
   return (
     <View
@@ -811,7 +828,8 @@ type MetaItemProps = {
 };
 
 function MetaItem({ theme, label, value }: MetaItemProps) {
-  const styles = createStyles(theme, 1200);
+  const { width } = useWindowDimensions();
+  const styles = createStyles(theme, width);
 
   return (
     <View style={styles.metaItem}>
@@ -825,13 +843,15 @@ type ActionMiniCardProps = {
   theme: AppTheme;
   title: string;
   subtitle: string;
+  style?: StyleProp<ViewStyle>;
 };
 
-function ActionMiniCard({ theme, title, subtitle }: ActionMiniCardProps) {
-  const styles = createStyles(theme, 1200);
+function ActionMiniCard({ theme, title, subtitle, style }: ActionMiniCardProps) {
+  const { width } = useWindowDimensions();
+  const styles = createStyles(theme, width);
 
   return (
-    <View style={styles.actionMiniCard}>
+    <View style={[styles.actionMiniCard, style]}>
       <Text style={styles.actionMiniTitle}>{fixText(title)}</Text>
       <Text style={styles.actionMiniSubtitle}>{fixText(subtitle)}</Text>
     </View>
@@ -932,15 +952,21 @@ function createStyles(theme: AppTheme, width: number) {
       flexWrap: "wrap"
     },
     heroStats: {
-      width: isCompact ? "100%" : 250
+      width: isCompact ? "100%" : 250,
+      flexDirection: isPhone ? "row" : "column",
+      flexWrap: isPhone ? "wrap" : "nowrap",
+      gap: isPhone ? theme.spacing.sm : 0
     },
     statTile: {
+      flexBasis: isPhone ? "30%" : undefined,
+      flexGrow: isPhone ? 1 : 0,
+      minWidth: isPhone ? 92 : undefined,
       borderRadius: theme.radius.lg,
-      padding: theme.spacing.lg,
+      padding: isPhone ? theme.spacing.md : theme.spacing.lg,
       backgroundColor: theme.colors.surfaceMuted,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      marginBottom: theme.spacing.sm
+      marginBottom: isPhone ? 0 : theme.spacing.sm
     },
     statValue: {
       fontSize: 26,
@@ -955,18 +981,28 @@ function createStyles(theme: AppTheme, width: number) {
     },
     dashboardRow: {
       flexDirection: isCompact ? "column" : "row",
-      alignItems: "stretch"
+      alignItems: "stretch",
+      columnGap: theme.spacing.md
     },
     dashboardWide: {
-      flex: 1.2,
-      marginRight: isCompact ? 0 : theme.spacing.md
+      flex: 1.2
     },
     dashboardNarrow: {
       flex: 0.8
     },
+    quickActionsGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: theme.spacing.sm
+    },
+    quickActionItem: {
+      flexBasis: isPhone && width >= 380 ? "48%" : "100%",
+      flexGrow: 1,
+      marginBottom: 0
+    },
     actionMiniCard: {
       borderRadius: theme.radius.md,
-      padding: theme.spacing.md,
+      padding: isPhone ? theme.spacing.sm + 2 : theme.spacing.md,
       backgroundColor: theme.colors.surfaceMuted,
       borderWidth: 1,
       borderColor: theme.colors.border,
@@ -1019,7 +1055,7 @@ function createStyles(theme: AppTheme, width: number) {
     },
     lectureCard: {
       borderRadius: theme.radius.xl,
-      padding: theme.spacing.lg,
+      padding: isPhone ? theme.spacing.md : theme.spacing.lg,
       backgroundColor: theme.colors.surfaceElevated,
       borderWidth: 1,
       borderColor: theme.colors.border,
@@ -1129,7 +1165,8 @@ function createStyles(theme: AppTheme, width: number) {
       marginTop: theme.spacing.sm
     },
     inlineButton: {
-      marginRight: theme.spacing.sm,
+      width: isPhone ? "100%" : undefined,
+      marginRight: isPhone ? 0 : theme.spacing.sm,
       marginBottom: theme.spacing.sm
     },
     editorShell: {
@@ -1139,11 +1176,11 @@ function createStyles(theme: AppTheme, width: number) {
       borderTopColor: theme.colors.border
     },
     editorRow: {
-      flexDirection: isCompact ? "column" : "row"
+      flexDirection: isCompact ? "column" : "row",
+      columnGap: theme.spacing.md
     },
     editorCard: {
-      flex: 1,
-      marginRight: isCompact ? 0 : theme.spacing.md
+      flex: 1
     },
     sectionLabel: {
       fontSize: theme.typography.caption,
@@ -1183,7 +1220,7 @@ function createStyles(theme: AppTheme, width: number) {
     },
     questionCard: {
       borderRadius: theme.radius.lg,
-      padding: theme.spacing.md,
+      padding: isPhone ? theme.spacing.sm + 2 : theme.spacing.md,
       backgroundColor: theme.colors.surfaceMuted,
       borderWidth: 1,
       borderColor: theme.colors.border,

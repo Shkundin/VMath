@@ -32,6 +32,10 @@ function normalizeTransportError(error: unknown): AppError {
   return normalizeError(error);
 }
 
+function isAuthPath(path: string): boolean {
+  return /^\/(?:api\/v\d+\/)?auth(?:\/|$)/.test(path);
+}
+
 export class HttpClient {
   constructor(
     private readonly opts: HttpClientOptions,
@@ -68,7 +72,7 @@ export class HttpClient {
     const timeoutMs = this.opts.timeoutMs ?? 15000;
     const maxRetries = this.opts.maxRetries ?? 2;
 
-    const allowAuthRecovery = !path.startsWith("/auth/");
+    const allowAuthRecovery = !isAuthPath(path);
     let last: AppError | null = null;
     let didAuthRecovery = false;
 

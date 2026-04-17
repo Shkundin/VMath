@@ -1,10 +1,12 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import {
+  Platform,
   StyleSheet,
   Text,
   TextInput,
   type TextInputProps,
-  View
+  View,
+  useWindowDimensions
 } from "react-native";
 
 import { fixTextSafe as fixText } from "../../utils/fixTextSafe";
@@ -27,7 +29,15 @@ export function AppInput({
   ...props
 }: AppInputProps) {
   const [isFocused, setIsFocused] = useState(false);
-  const styles = createStyles(theme, Boolean(error), isFocused, Boolean(multiline));
+  const { width } = useWindowDimensions();
+  const useReadableMobileSizing = Platform.OS === "web" && width < 768;
+  const styles = createStyles(
+    theme,
+    Boolean(error),
+    isFocused,
+    Boolean(multiline),
+    useReadableMobileSizing
+  );
 
   return (
     <View style={styles.wrapper}>
@@ -60,11 +70,13 @@ function createStyles(
   theme: AppTheme,
   hasError: boolean,
   isFocused: boolean,
-  isMultiline: boolean
+  isMultiline: boolean,
+  useReadableMobileSizing: boolean
 ) {
   return StyleSheet.create({
     wrapper: {
       width: "100%",
+      maxWidth: "100%",
       marginBottom: theme.spacing.md
     },
     label: {
@@ -86,8 +98,8 @@ function createStyles(
       backgroundColor: theme.colors.input,
       color: theme.colors.text,
       paddingHorizontal: theme.spacing.md,
-      paddingVertical: isMultiline ? theme.spacing.md : theme.spacing.sm,
-      fontSize: theme.typography.body,
+      paddingVertical: isMultiline ? theme.spacing.md : useReadableMobileSizing ? 11 : theme.spacing.sm,
+      fontSize: useReadableMobileSizing ? 16 : theme.typography.body,
       textAlignVertical: isMultiline ? "top" : "center",
       ...(isFocused ? theme.shadow.sm : {})
     },
