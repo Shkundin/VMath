@@ -996,8 +996,8 @@ function createStyles(theme: AppTheme, width: number) {
       gap: theme.spacing.sm
     },
     quickActionItem: {
-      flexBasis: isPhone && width >= 380 ? "48%" : "100%",
-      flexGrow: 1,
+      flexBasis: "100%",
+      flexGrow: 0,
       marginBottom: 0
     },
     actionMiniCard: {

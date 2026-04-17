@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 16,
     alignSelf: "stretch",
-    overflow: "hidden"
+    overflow: "visible"
   },
   title: {
     fontWeight: "900",

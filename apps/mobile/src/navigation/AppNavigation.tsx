@@ -3166,20 +3166,24 @@ function BottomTabs({
   activeScreen,
   onChange
 }: BottomTabsProps) {
-  const bottomInset = Platform.OS === "web" ? 20 : 12;
+  const bottomInset = Platform.OS === "web" ? 12 : 8;
 
   return (
     <View
       style={[
         styles.tabBar,
         {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.border,
+          backgroundColor: theme.colors.surfaceElevated,
+          borderColor: theme.colors.border,
+          borderRadius: 22,
+          marginHorizontal: 12,
+          marginTop: 10,
+          marginBottom: bottomInset,
           paddingBottom: bottomInset,
           shadowColor: "#0F172A",
-          shadowOpacity: 0.06,
-          shadowRadius: 14,
-          shadowOffset: { width: 0, height: -6 },
+          shadowOpacity: 0.08,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 6 },
           elevation: 10
         }
       ]}
@@ -3224,7 +3228,7 @@ function TabButton({ theme, label, isActive, onPress }: TabButtonProps) {
       style={[
         styles.tabButton,
         {
-          backgroundColor: isActive ? theme.colors.surfaceMuted : theme.colors.surface,
+          backgroundColor: isActive ? theme.colors.primarySoft : "transparent",
           borderColor: isActive ? theme.colors.primarySoft : "transparent"
         }
       ]}
@@ -3259,23 +3263,23 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: "row",
-    borderTopWidth: 1,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingBottom: 8
   },
   tabButton: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 50,
-    paddingVertical: 12,
-    borderRadius: 18,
+    minHeight: 46,
+    paddingVertical: 10,
+    borderRadius: 16,
     borderWidth: 1,
     marginHorizontal: 4
   },
   tabLabel: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700"
   }
 });
