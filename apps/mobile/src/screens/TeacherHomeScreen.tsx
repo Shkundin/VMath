@@ -308,7 +308,7 @@ export function TeacherHomeScreen({
           <View style={styles.infoRow}>
             <InfoBadge theme={theme} label={`Логин: ${user.login}`} />
             <InfoBadge theme={theme} label={`Группа: ${user.group}`} />
-            <InfoBadge theme={theme} label={`Лод курса: ${teacherJoinCode}`} />
+            <InfoBadge theme={theme} label={`Код курса: ${teacherJoinCode}`} />
           </View>
 
           <View style={styles.heroActionRow}>
