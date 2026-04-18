@@ -79,6 +79,7 @@ export function TeacherHomeScreen({
 }: TeacherHomeScreenProps) {
   const { width } = useWindowDimensions();
   const styles = createStyles(theme, width);
+  const isCompactLayout = width < 980;
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -298,6 +299,132 @@ export function TeacherHomeScreen({
     setQuestionSuccess("Вопрос добавлен.");
   }
 
+  const createLectureSection = (
+    <SectionCard
+      theme={theme}
+      title="Создать новую лекцию"
+      subtitle="Сначала создаём основу, потом открываем редактор и наполняем вопросами."
+      style={isCompactLayout ? undefined : styles.dashboardWide}
+    >
+      <AppInput
+        label="Название лекции"
+        theme={theme}
+        value={title}
+        onChangeText={setTitle}
+        placeholder="Например: Производная и касательная"
+        autoCorrect={false}
+      />
+
+      <AppInput
+        label="Краткое описание"
+        theme={theme}
+        value={description}
+        onChangeText={setDescription}
+        placeholder="О чём эта лекция"
+        multiline
+        numberOfLines={3}
+      />
+
+      <AppInput
+        label="Теоретический материал"
+        theme={theme}
+        value={theory}
+        onChangeText={setTheory}
+        placeholder="Вставь основной текст лекции"
+        multiline
+        numberOfLines={8}
+      />
+
+      <View style={styles.formRow}>
+        <View style={styles.formCol}>
+          <AppInput
+            label="Предмет"
+            theme={theme}
+            value={subject}
+            onChangeText={setSubject}
+            placeholder="Математический анализ"
+          />
+        </View>
+
+        <View style={styles.formCol}>
+          <AppInput
+            label="Семестр"
+            theme={theme}
+            value={semester}
+            onChangeText={setSemester}
+            placeholder="1 семестр"
+          />
+        </View>
+
+        <View style={styles.formCol}>
+          <AppInput
+            label="Уровень"
+            theme={theme}
+            value={level}
+            onChangeText={setLevel}
+            placeholder="Базовый"
+          />
+        </View>
+      </View>
+
+      <AppInput
+        label="Ссылка на видеоматериал"
+        theme={theme}
+        value={videoUrl}
+        onChangeText={setVideoUrl}
+        placeholder="https://..."
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+
+      {createError ? <Text style={styles.errorText}>{fixText(createError)}</Text> : null}
+      {createSuccess ? <Text style={styles.successText}>{fixText(createSuccess)}</Text> : null}
+
+      <AppButton
+        label="Создать лекцию"
+        onPress={handleCreateLecture}
+        theme={theme}
+        style={styles.actionTop}
+      />
+    </SectionCard>
+  );
+
+  const focusDaySection = (
+    <SectionCard
+      theme={theme}
+      title="Фокус дня"
+      subtitle="Быстрый доступ к главным действиям преподавателя."
+      style={isCompactLayout ? undefined : styles.dashboardNarrow}
+    >
+      <View style={styles.quickActionsGrid}>
+        <ActionMiniCard
+          theme={theme}
+          title="Лекции"
+          subtitle="Открывай редактор и дополняй структуру курса."
+          style={styles.quickActionItem}
+        />
+        <ActionMiniCard
+          theme={theme}
+          title="Сессии"
+          subtitle="Запускай занятие и переключай учебные блоки."
+          style={styles.quickActionItem}
+        />
+        <ActionMiniCard
+          theme={theme}
+          title="Тестирование"
+          subtitle="Делай быстрые проверочные тесты прямо на занятии."
+          style={styles.quickActionItem}
+        />
+        <ActionMiniCard
+          theme={theme}
+          title="Итоги"
+          subtitle="Смотри, кто уже сдал задания и как прошли проверки."
+          style={styles.quickActionItem}
+        />
+      </View>
+    </SectionCard>
+  );
+
   return (
     <Screen theme={theme}>
       <ScreenHeader
@@ -339,129 +466,17 @@ export function TeacherHomeScreen({
         </View>
       </View>
 
-      <View style={styles.dashboardRow}>
-        <SectionCard
-          theme={theme}
-          title="Создать новую лекцию"
-          subtitle="Сначала создаём основу, потом открываем редактор и наполняем вопросами."
-          style={styles.dashboardWide}
-        >
-          <AppInput
-            label="Название лекции"
-            theme={theme}
-            value={title}
-            onChangeText={setTitle}
-            placeholder="Например: Производная и касательная"
-            autoCorrect={false}
-          />
-
-          <AppInput
-            label="Краткое описание"
-            theme={theme}
-            value={description}
-            onChangeText={setDescription}
-            placeholder="О чём эта лекция"
-            multiline
-            numberOfLines={3}
-          />
-
-          <AppInput
-            label="Теоретический материал"
-            theme={theme}
-            value={theory}
-            onChangeText={setTheory}
-            placeholder="Вставь основной текст лекции"
-            multiline
-            numberOfLines={8}
-          />
-
-          <View style={styles.formRow}>
-            <View style={styles.formCol}>
-              <AppInput
-                label="Предмет"
-                theme={theme}
-                value={subject}
-                onChangeText={setSubject}
-                placeholder="Математический анализ"
-              />
-            </View>
-
-            <View style={styles.formCol}>
-              <AppInput
-                label="Семестр"
-                theme={theme}
-                value={semester}
-                onChangeText={setSemester}
-                placeholder="1 СЃРµРјРµСЃС‚СЂ"
-              />
-            </View>
-
-            <View style={styles.formCol}>
-              <AppInput
-                label="Уровень"
-                theme={theme}
-                value={level}
-                onChangeText={setLevel}
-                placeholder="Р‘Р°Р·РѕРІС‹Р№"
-              />
-            </View>
-          </View>
-
-          <AppInput
-            label="Ссылка на видеоматериал"
-            theme={theme}
-            value={videoUrl}
-            onChangeText={setVideoUrl}
-            placeholder="https://..."
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-
-          {createError ? <Text style={styles.errorText}>{fixText(createError)}</Text> : null}
-          {createSuccess ? <Text style={styles.successText}>{fixText(createSuccess)}</Text> : null}
-
-          <AppButton
-            label="Создать лекцию"
-            onPress={handleCreateLecture}
-            theme={theme}
-            style={styles.actionTop}
-          />
-        </SectionCard>
-
-        <SectionCard
-          theme={theme}
-          title="Фокус дня"
-          subtitle="Быстрый доступ к главным действиям преподавателя."
-          style={styles.dashboardNarrow}
-        >
-          <View style={styles.quickActionsGrid}>
-            <ActionMiniCard
-              theme={theme}
-              title="Лекции"
-              subtitle="Открывай редактор и дополняй структуру курса."
-              style={styles.quickActionItem}
-            />
-            <ActionMiniCard
-              theme={theme}
-              title="Сессии"
-              subtitle="Запускай занятие и переключай учебные блоки."
-              style={styles.quickActionItem}
-            />
-            <ActionMiniCard
-              theme={theme}
-              title="Тестирование"
-              subtitle="Делай быстрые проверочные тесты прямо на занятии."
-              style={styles.quickActionItem}
-            />
-            <ActionMiniCard
-              theme={theme}
-              title="Итоги"
-              subtitle="Смотри, кто уже сдал задания и как прошли проверки."
-              style={styles.quickActionItem}
-            />
-          </View>
-        </SectionCard>
-      </View>
+      {isCompactLayout ? (
+        <>
+          {createLectureSection}
+          {focusDaySection}
+        </>
+      ) : (
+        <View style={styles.dashboardRow}>
+          {createLectureSection}
+          {focusDaySection}
+        </View>
+      )}
 
       <SectionCard
         theme={theme}
@@ -475,6 +490,202 @@ export function TeacherHomeScreen({
             const isExpanded = expandedLectureId === lecture.id;
             const questions = getQuestions(lectureDetailsById[lecture.id]);
             const videoValue = (lecture as LectureItem & { videoUrl?: string }).videoUrl ?? "";
+            const lectureMetaSection = (
+              <SectionCard
+                theme={theme}
+                title="Параметры лекции"
+                subtitle="Предмет, семестр, уровень и видеоматериал."
+                style={isCompactLayout ? undefined : styles.editorCard}
+              >
+                <AppInput
+                  label="Предмет"
+                  theme={theme}
+                  value={metaSubject}
+                  onChangeText={setMetaSubject}
+                  placeholder="Предмет"
+                />
+
+                <AppInput
+                  label="Семестр"
+                  theme={theme}
+                  value={metaSemester}
+                  onChangeText={setMetaSemester}
+                  placeholder="Семестр"
+                />
+
+                <AppInput
+                  label="Уровень"
+                  theme={theme}
+                  value={metaLevel}
+                  onChangeText={setMetaLevel}
+                  placeholder="Уровень"
+                />
+
+                <AppInput
+                  label="Ссылка на видео"
+                  theme={theme}
+                  value={metaVideoUrl}
+                  onChangeText={setMetaVideoUrl}
+                  placeholder="https://..."
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+
+                {metaSuccess ? <Text style={styles.successText}>{fixText(metaSuccess)}</Text> : null}
+
+                <AppButton
+                  label="Сохранить параметры"
+                  onPress={handleSaveMeta}
+                  theme={theme}
+                  style={styles.actionTop}
+                />
+              </SectionCard>
+            );
+            const theorySection = (
+              <SectionCard
+                theme={theme}
+                title="Теория лекции"
+                subtitle="Предпросмотр основного материала."
+                style={isCompactLayout ? undefined : styles.editorCard}
+              >
+                <Text style={styles.theoryPreview}>
+                  {fixText(expandedTheory || "Теория пока не добавлена.")}
+                </Text>
+              </SectionCard>
+            );
+            const addQuestionSection = (
+              <SectionCard
+                theme={theme}
+                title="Добавить вопрос"
+                subtitle="Собери новый вопрос для проверочного блока."
+                style={isCompactLayout ? undefined : styles.editorCard}
+              >
+                <AppInput
+                  label="Текст вопроса"
+                  theme={theme}
+                  value={questionText}
+                  onChangeText={setQuestionText}
+                  placeholder="Введите вопрос"
+                  multiline
+                  numberOfLines={3}
+                />
+
+                <View style={styles.formRow}>
+                  <View style={styles.halfCol}>
+                    <AppInput
+                      label="Вариант A"
+                      theme={theme}
+                      value={optionA}
+                      onChangeText={setOptionA}
+                      placeholder="Первый вариант"
+                    />
+                  </View>
+                  <View style={styles.halfCol}>
+                    <AppInput
+                      label="Вариант B"
+                      theme={theme}
+                      value={optionB}
+                      onChangeText={setOptionB}
+                      placeholder="Второй вариант"
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.formRow}>
+                  <View style={styles.halfCol}>
+                    <AppInput
+                      label="Вариант C"
+                      theme={theme}
+                      value={optionC}
+                      onChangeText={setOptionC}
+                      placeholder="Третий вариант"
+                    />
+                  </View>
+                  <View style={styles.halfCol}>
+                    <AppInput
+                      label="Вариант D"
+                      theme={theme}
+                      value={optionD}
+                      onChangeText={setOptionD}
+                      placeholder="Четвёртый вариант"
+                    />
+                  </View>
+                </View>
+
+                <AnswerOptionSelector
+                  theme={theme}
+                  label="Правильный ответ"
+                  helperText="Выбери правильный вариант прямо по карточке ответа, чтобы на телефоне всё читалось и нажималось без промахов."
+                  options={[
+                    { key: "A", label: "Вариант A", text: optionA },
+                    { key: "B", label: "Вариант B", text: optionB },
+                    { key: "C", label: "Вариант C", text: optionC },
+                    { key: "D", label: "Вариант D", text: optionD }
+                  ]}
+                  selectedKey={correctOptionKey}
+                  onSelect={setCorrectOptionKey}
+                />
+
+                <AppInput
+                  label="Пояснение"
+                  theme={theme}
+                  value={questionExplanation}
+                  onChangeText={setQuestionExplanation}
+                  placeholder="Короткое пояснение к правильному ответу"
+                  multiline
+                  numberOfLines={3}
+                />
+
+                {questionError ? <Text style={styles.errorText}>{fixText(questionError)}</Text> : null}
+                {questionSuccess ? <Text style={styles.successText}>{fixText(questionSuccess)}</Text> : null}
+
+                <AppButton
+                  label="Добавить вопрос"
+                  onPress={handleAddQuestion}
+                  theme={theme}
+                  style={styles.actionTop}
+                />
+              </SectionCard>
+            );
+            const currentQuestionsSection = (
+              <SectionCard
+                theme={theme}
+                title="Текущие вопросы"
+                subtitle="Вопросы для этой лекции."
+                style={isCompactLayout ? undefined : styles.editorCard}
+              >
+                {expandedQuestions.length === 0 ? (
+                  <Text style={styles.emptyText}>{fixText("Пока нет вопросов.")}</Text>
+                ) : (
+                  expandedQuestions.map((question, index) => (
+                    <View key={question.id} style={styles.questionCard}>
+                      <Text style={styles.questionTitle}>
+                        {index + 1}. {fixText(question.text)}
+                      </Text>
+
+                      {question.options?.map((option) => (
+                        <Text key={option.id} style={styles.questionOption}>
+                          {option.id}. {fixText(option.text)}
+                        </Text>
+                      ))}
+
+                      {question.correctAnswerHint ? (
+                        <Text style={styles.questionHint}>{fixText(question.correctAnswerHint)}</Text>
+                      ) : null}
+
+                      <AppButton
+                        label="Удалить вопрос"
+                        onPress={() => onDeleteDraftQuestion(lecture.id, question.id)}
+                        theme={theme}
+                        variant="secondary"
+                        fullWidth={false}
+                        style={styles.inlineButton}
+                      />
+                    </View>
+                  ))
+                )}
+              </SectionCard>
+            );
 
             return (
               <View key={lecture.id} style={[styles.lectureCard, isExpanded ? styles.lectureCardExpanded : null]}>
@@ -534,201 +745,26 @@ export function TeacherHomeScreen({
 
                 {isExpanded ? (
                   <View style={styles.editorShell}>
-                    <View style={styles.editorRow}>
-                      <SectionCard
-                        theme={theme}
-                        title="Параметры лекции"
-                        subtitle="Предмет, семестр, уровень и видеоматериал."
-                        style={styles.editorCard}
-                      >
-                        <AppInput
-                          label="Предмет"
-                          theme={theme}
-                          value={metaSubject}
-                          onChangeText={setMetaSubject}
-                          placeholder="Предмет"
-                        />
-
-                        <AppInput
-                          label="Семестр"
-                          theme={theme}
-                          value={metaSemester}
-                          onChangeText={setMetaSemester}
-                          placeholder="Семестр"
-                        />
-
-                        <AppInput
-                          label="Уровень"
-                          theme={theme}
-                          value={metaLevel}
-                          onChangeText={setMetaLevel}
-                          placeholder="Уровень"
-                        />
-
-                        <AppInput
-                          label="Ссылка на видео"
-                          theme={theme}
-                          value={metaVideoUrl}
-                          onChangeText={setMetaVideoUrl}
-                          placeholder="https://..."
-                          autoCapitalize="none"
-                          autoCorrect={false}
-                        />
-
-                        {metaSuccess ? <Text style={styles.successText}>{fixText(metaSuccess)}</Text> : null}
-
-                        <AppButton
-                          label="Сохранить параметры"
-                          onPress={handleSaveMeta}
-                          theme={theme}
-                          style={styles.actionTop}
-                        />
-                      </SectionCard>
-
-                      <SectionCard
-                        theme={theme}
-                        title="Теория лекции"
-                        subtitle="Предпросмотр основного материала."
-                        style={styles.editorCard}
-                      >
-                        <Text style={styles.theoryPreview}>
-                          {fixText(expandedTheory || "Теория пока не добавлена.")}
-                        </Text>
-                      </SectionCard>
-                    </View>
-
-                    <View style={styles.editorRow}>
-                      <SectionCard
-                        theme={theme}
-                        title="Добавить вопрос"
-                        subtitle="Собери новый вопрос для проверочного блока."
-                        style={styles.editorCard}
-                      >
-                        <AppInput
-                          label="Текст вопроса"
-                          theme={theme}
-                          value={questionText}
-                          onChangeText={setQuestionText}
-                          placeholder="Введите вопрос"
-                          multiline
-                          numberOfLines={3}
-                        />
-
-                        <View style={styles.formRow}>
-                          <View style={styles.halfCol}>
-                            <AppInput
-                              label="Вариант A"
-                              theme={theme}
-                              value={optionA}
-                              onChangeText={setOptionA}
-                              placeholder="Первый вариант"
-                            />
-                          </View>
-                          <View style={styles.halfCol}>
-                            <AppInput
-                              label="Вариант B"
-                              theme={theme}
-                              value={optionB}
-                              onChangeText={setOptionB}
-                              placeholder="Второй вариант"
-                            />
-                          </View>
+                    {isCompactLayout ? (
+                      <>
+                        {lectureMetaSection}
+                        {theorySection}
+                        {addQuestionSection}
+                        {currentQuestionsSection}
+                      </>
+                    ) : (
+                      <>
+                        <View style={styles.editorRow}>
+                          {lectureMetaSection}
+                          {theorySection}
                         </View>
 
-                        <View style={styles.formRow}>
-                          <View style={styles.halfCol}>
-                            <AppInput
-                              label="Вариант C"
-                              theme={theme}
-                              value={optionC}
-                              onChangeText={setOptionC}
-                              placeholder="Третий вариант"
-                            />
-                          </View>
-                          <View style={styles.halfCol}>
-                            <AppInput
-                              label="Вариант D"
-                              theme={theme}
-                              value={optionD}
-                              onChangeText={setOptionD}
-                              placeholder="Четвёртый вариант"
-                            />
-                          </View>
+                        <View style={styles.editorRow}>
+                          {addQuestionSection}
+                          {currentQuestionsSection}
                         </View>
-
-                        <AnswerOptionSelector
-                          theme={theme}
-                          label="Правильный ответ"
-                          helperText="Выбери правильный вариант прямо по карточке ответа, чтобы на телефоне всё читалось и нажималось без промахов."
-                          options={[
-                            { key: "A", label: "Вариант A", text: optionA },
-                            { key: "B", label: "Вариант B", text: optionB },
-                            { key: "C", label: "Вариант C", text: optionC },
-                            { key: "D", label: "Вариант D", text: optionD }
-                          ]}
-                          selectedKey={correctOptionKey}
-                          onSelect={setCorrectOptionKey}
-                        />
-
-                        <AppInput
-                          label="Пояснение"
-                          theme={theme}
-                          value={questionExplanation}
-                          onChangeText={setQuestionExplanation}
-                          placeholder="Короткое пояснение к правильному ответу"
-                          multiline
-                          numberOfLines={3}
-                        />
-
-                        {questionError ? <Text style={styles.errorText}>{fixText(questionError)}</Text> : null}
-                        {questionSuccess ? <Text style={styles.successText}>{fixText(questionSuccess)}</Text> : null}
-
-                        <AppButton
-                          label="Добавить вопрос"
-                          onPress={handleAddQuestion}
-                          theme={theme}
-                          style={styles.actionTop}
-                        />
-                      </SectionCard>
-
-                      <SectionCard
-                        theme={theme}
-                        title="Текущие вопросы"
-                        subtitle="Вопросы для этой лекции."
-                        style={styles.editorCard}
-                      >
-                        {expandedQuestions.length === 0 ? (
-                          <Text style={styles.emptyText}>{fixText("РџРѕРєР° РЅРµС‚ РІРѕРїСЂРѕСЃРѕРІ.")}</Text>
-                        ) : (
-                          expandedQuestions.map((question, index) => (
-                            <View key={question.id} style={styles.questionCard}>
-                              <Text style={styles.questionTitle}>
-                                {index + 1}. {fixText(question.text)}
-                              </Text>
-
-                              {question.options?.map((option) => (
-                                <Text key={option.id} style={styles.questionOption}>
-                                  {option.id}. {fixText(option.text)}
-                                </Text>
-                              ))}
-
-                              {question.correctAnswerHint ? (
-                                <Text style={styles.questionHint}>{fixText(question.correctAnswerHint)}</Text>
-                              ) : null}
-
-                              <AppButton
-                                label="Удалить вопрос"
-                                onPress={() => onDeleteDraftQuestion(lecture.id, question.id)}
-                                theme={theme}
-                                variant="secondary"
-                                fullWidth={false}
-                                style={styles.inlineButton}
-                              />
-                            </View>
-                          ))
-                        )}
-                      </SectionCard>
-                    </View>
+                      </>
+                    )}
                   </View>
                 ) : null}
               </View>

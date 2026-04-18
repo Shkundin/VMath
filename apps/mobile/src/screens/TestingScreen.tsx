@@ -52,8 +52,6 @@ type TestingScreenProps = {
   onOpenGrades: () => void;
 };
 
-const ANSWER_KEYS: TestingAnswerKey[] = ["A", "B", "C", "D"];
-
 export function TestingScreen({
   theme,
   isTeacher,
@@ -68,6 +66,7 @@ export function TestingScreen({
 }: TestingScreenProps) {
   const { width } = useWindowDimensions();
   const styles = createStyles(theme, width);
+  const isCompactLayout = width < 980;
 
   const [testTitle, setTestTitle] = useState("Экспресс-тест");
   const [durationMin, setDurationMin] = useState("3");
@@ -207,6 +206,106 @@ export function TestingScreen({
     }));
   }
 
+  const testParametersCard = (
+    <SectionCard
+      theme={theme}
+      title="Параметры теста"
+      subtitle="Собери тест и запусти его для студентов."
+      style={isCompactLayout ? undefined : styles.dashboardWide}
+    >
+      <AppInput
+        label="Название теста"
+        theme={theme}
+        value={testTitle}
+        onChangeText={setTestTitle}
+        placeholder="Например: Быстрая проверка по пределам"
+      />
+
+      <AppInput
+        label="Длительность, минут"
+        theme={theme}
+        value={durationMin}
+        onChangeText={setDurationMin}
+        placeholder="3"
+        keyboardType="numeric"
+      />
+
+      {errorText ? <Text style={styles.errorText}>{fixText(errorText)}</Text> : null}
+
+      <AppButton
+        label="Запустить тест для студентов"
+        onPress={handleStart}
+        theme={theme}
+        style={styles.actionTop}
+      />
+    </SectionCard>
+  );
+
+  const addQuestionCard = (
+    <SectionCard
+      theme={theme}
+      title="Добавить вопрос"
+      subtitle="Один вопрос и 4 варианта ответа."
+      style={isCompactLayout ? undefined : styles.dashboardWide}
+    >
+      <AppInput
+        label="Текст вопроса"
+        theme={theme}
+        value={questionText}
+        onChangeText={setQuestionText}
+        placeholder="Введите вопрос"
+        multiline
+        numberOfLines={3}
+      />
+
+      <View style={styles.inputGrid}>
+        <View style={styles.inputCol}>
+          <AppInput label="Вариант A" theme={theme} value={optionA} onChangeText={setOptionA} placeholder="Ответ A" />
+        </View>
+        <View style={styles.inputCol}>
+          <AppInput label="Вариант B" theme={theme} value={optionB} onChangeText={setOptionB} placeholder="Ответ B" />
+        </View>
+        <View style={styles.inputCol}>
+          <AppInput label="Вариант C" theme={theme} value={optionC} onChangeText={setOptionC} placeholder="Ответ C" />
+        </View>
+        <View style={styles.inputCol}>
+          <AppInput label="Вариант D" theme={theme} value={optionD} onChangeText={setOptionD} placeholder="Ответ D" />
+        </View>
+      </View>
+
+      <AnswerOptionSelector
+        theme={theme}
+        label="Правильный ответ"
+        helperText="Выбери вариант, который должен считаться правильным. На телефоне это удобнее, чем маленькие чипы."
+        options={[
+          { key: "A", label: "Вариант A", text: optionA },
+          { key: "B", label: "Вариант B", text: optionB },
+          { key: "C", label: "Вариант C", text: optionC },
+          { key: "D", label: "Вариант D", text: optionD }
+        ]}
+        selectedKey={correctAnswerKey}
+        onSelect={setCorrectAnswerKey}
+      />
+
+      <AppInput
+        label="Пояснение"
+        theme={theme}
+        value={explanation}
+        onChangeText={setExplanation}
+        placeholder="Необязательно"
+        multiline
+        numberOfLines={3}
+      />
+
+      <AppButton
+        label="Добавить вопрос"
+        onPress={handleAddQuestion}
+        theme={theme}
+        style={styles.actionTop}
+      />
+    </SectionCard>
+  );
+
   if (isTeacher) {
     return (
       <Screen theme={theme}>
@@ -289,103 +388,17 @@ export function TestingScreen({
             </SectionCard>
           </>
         ) : (
-          <View style={styles.dashboardRow}>
-            <SectionCard
-              theme={theme}
-              title="Параметры теста"
-              subtitle="Собери тест и запусти его для студентов."
-              style={styles.dashboardWide}
-            >
-              <AppInput
-                label="Название теста"
-                theme={theme}
-                value={testTitle}
-                onChangeText={setTestTitle}
-                placeholder="Например: Быстрая проверка по пределам"
-              />
-
-              <AppInput
-                label="Длительность, минут"
-                theme={theme}
-                value={durationMin}
-                onChangeText={setDurationMin}
-                placeholder="3"
-                keyboardType="numeric"
-              />
-
-              {errorText ? <Text style={styles.errorText}>{fixText(errorText)}</Text> : null}
-
-              <AppButton
-                label="Запустить тест для студентов"
-                onPress={handleStart}
-                theme={theme}
-                style={styles.actionTop}
-              />
-            </SectionCard>
-
-            <SectionCard
-              theme={theme}
-              title="Добавить вопрос"
-              subtitle="Один вопрос и 4 варианта ответа."
-              style={styles.dashboardWide}
-            >
-              <AppInput
-                label="Текст вопроса"
-                theme={theme}
-                value={questionText}
-                onChangeText={setQuestionText}
-                placeholder="Введите вопрос"
-                multiline
-                numberOfLines={3}
-              />
-
-              <View style={styles.inputGrid}>
-                <View style={styles.inputCol}>
-                  <AppInput label="Вариант A" theme={theme} value={optionA} onChangeText={setOptionA} placeholder="Ответ A" />
-                </View>
-                <View style={styles.inputCol}>
-                  <AppInput label="Вариант B" theme={theme} value={optionB} onChangeText={setOptionB} placeholder="Ответ B" />
-                </View>
-                <View style={styles.inputCol}>
-                  <AppInput label="Вариант C" theme={theme} value={optionC} onChangeText={setOptionC} placeholder="Ответ C" />
-                </View>
-                <View style={styles.inputCol}>
-                  <AppInput label="Вариант D" theme={theme} value={optionD} onChangeText={setOptionD} placeholder="Ответ D" />
-                </View>
-              </View>
-
-              <AnswerOptionSelector
-                theme={theme}
-                label="Правильный ответ"
-                helperText="Выбери вариант, который должен считаться правильным. На телефоне это удобнее, чем маленькие чипы."
-                options={[
-                  { key: "A", label: "Вариант A", text: optionA },
-                  { key: "B", label: "Вариант B", text: optionB },
-                  { key: "C", label: "Вариант C", text: optionC },
-                  { key: "D", label: "Вариант D", text: optionD }
-                ]}
-                selectedKey={correctAnswerKey}
-                onSelect={setCorrectAnswerKey}
-              />
-
-              <AppInput
-                label="Пояснение"
-                theme={theme}
-                value={explanation}
-                onChangeText={setExplanation}
-                placeholder="Необязательно"
-                multiline
-                numberOfLines={3}
-              />
-
-              <AppButton
-                label="Добавить вопрос"
-                onPress={handleAddQuestion}
-                theme={theme}
-                style={styles.actionTop}
-              />
-            </SectionCard>
-          </View>
+          isCompactLayout ? (
+            <>
+              {testParametersCard}
+              {addQuestionCard}
+            </>
+          ) : (
+            <View style={styles.dashboardRow}>
+              {testParametersCard}
+              {addQuestionCard}
+            </View>
+          )
         )}
 
         {!activeSession ? (
