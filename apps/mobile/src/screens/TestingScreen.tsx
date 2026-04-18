@@ -8,6 +8,7 @@ import {
 } from "react-native";
 
 import { AppButton } from "../components/ui/AppButton";
+import { AnswerOptionSelector } from "../components/ui/AnswerOptionSelector";
 import { AppInput } from "../components/ui/AppInput";
 import { Screen } from "../components/ui/Screen";
 import { ScreenHeader } from "../components/ui/ScreenHeader";
@@ -353,35 +354,19 @@ export function TestingScreen({
                 </View>
               </View>
 
-              <Text style={styles.sectionLabel}>Правильный ответ</Text>
-              <View style={styles.answerKeyRow}>
-                {ANSWER_KEYS.map((answerKey) => {
-                  const isActive = correctAnswerKey === answerKey;
-
-                  return (
-                    <Pressable
-                      key={answerKey}
-                      onPress={() => setCorrectAnswerKey(answerKey)}
-                      style={[
-                        styles.answerKeyChip,
-                        {
-                          borderColor: isActive ? theme.colors.primary : theme.colors.border,
-                          backgroundColor: isActive ? theme.colors.primarySoft : theme.colors.surface
-                        }
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.answerKeyChipText,
-                          { color: isActive ? theme.colors.primary : theme.colors.text }
-                        ]}
-                      >
-                        {answerKey}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <AnswerOptionSelector
+                theme={theme}
+                label="Правильный ответ"
+                helperText="Выбери вариант, который должен считаться правильным. На телефоне это удобнее, чем маленькие чипы."
+                options={[
+                  { key: "A", label: "Вариант A", text: optionA },
+                  { key: "B", label: "Вариант B", text: optionB },
+                  { key: "C", label: "Вариант C", text: optionC },
+                  { key: "D", label: "Вариант D", text: optionD }
+                ]}
+                selectedKey={correctAnswerKey}
+                onSelect={setCorrectAnswerKey}
+              />
 
               <AppInput
                 label="Пояснение"
@@ -639,7 +624,8 @@ function createStyles(theme: AppTheme, width: number) {
       columnGap: theme.spacing.md
     },
     dashboardWide: {
-      flex: 1
+      flex: isCompact ? 0 : 1,
+      width: isCompact ? "100%" : undefined
     },
     infoGrid: {
       flexDirection: "row",
@@ -703,18 +689,6 @@ function createStyles(theme: AppTheme, width: number) {
       fontSize: theme.typography.body,
       lineHeight: 22,
       color: theme.colors.textSecondary
-    },
-    sectionLabel: {
-      fontSize: theme.typography.caption,
-      fontWeight: "700",
-      color: theme.colors.textSecondary,
-      marginBottom: theme.spacing.sm
-    },
-    answerKeyRow: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      marginBottom: theme.spacing.md,
-      gap: theme.spacing.sm
     },
     answerKeyChip: {
       minHeight: 42,

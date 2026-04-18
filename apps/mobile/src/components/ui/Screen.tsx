@@ -22,7 +22,7 @@ export function Screen({ theme, children }: ScreenProps) {
   const topPadding = isPhone ? theme.spacing.md : theme.spacing.md;
   const bottomPadding = isPhone
     ? Platform.OS === "web"
-      ? 160
+      ? 188
       : theme.spacing.xxxl * 4
     : theme.spacing.xxxl * 2;
 

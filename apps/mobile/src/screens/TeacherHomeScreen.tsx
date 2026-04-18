@@ -11,6 +11,7 @@ import {
 import type { LectureDetails, QuizQuestion } from "@vm/shared";
 
 import { AppButton } from "../components/ui/AppButton";
+import { AnswerOptionSelector } from "../components/ui/AnswerOptionSelector";
 import { AppInput } from "../components/ui/AppInput";
 import { Screen } from "../components/ui/Screen";
 import { ScreenHeader } from "../components/ui/ScreenHeader";
@@ -655,35 +656,19 @@ export function TeacherHomeScreen({
                           </View>
                         </View>
 
-                        <Text style={styles.sectionLabel}>Правильный ответ</Text>
-                        <View style={styles.answerRow}>
-                          {(["A", "B", "C", "D"] as const).map((key) => {
-                            const isActive = correctOptionKey === key;
-
-                            return (
-                              <Pressable
-                                key={key}
-                                onPress={() => setCorrectOptionKey(key)}
-                                style={[
-                                  styles.answerChip,
-                                  {
-                                    borderColor: isActive ? theme.colors.primary : theme.colors.border,
-                                    backgroundColor: isActive ? theme.colors.primarySoft : theme.colors.surface
-                                  }
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.answerChipText,
-                                    { color: isActive ? theme.colors.primary : theme.colors.text }
-                                  ]}
-                                >
-                                  {key}
-                                </Text>
-                              </Pressable>
-                            );
-                          })}
-                        </View>
+                        <AnswerOptionSelector
+                          theme={theme}
+                          label="Правильный ответ"
+                          helperText="Выбери правильный вариант прямо по карточке ответа, чтобы на телефоне всё читалось и нажималось без промахов."
+                          options={[
+                            { key: "A", label: "Вариант A", text: optionA },
+                            { key: "B", label: "Вариант B", text: optionB },
+                            { key: "C", label: "Вариант C", text: optionC },
+                            { key: "D", label: "Вариант D", text: optionD }
+                          ]}
+                          selectedKey={correctOptionKey}
+                          onSelect={setCorrectOptionKey}
+                        />
 
                         <AppInput
                           label="Пояснение"
@@ -985,10 +970,12 @@ function createStyles(theme: AppTheme, width: number) {
       columnGap: theme.spacing.md
     },
     dashboardWide: {
-      flex: 1.2
+      flex: isCompact ? 0 : 1.2,
+      width: isCompact ? "100%" : undefined
     },
     dashboardNarrow: {
-      flex: 0.8
+      flex: isCompact ? 0 : 0.8,
+      width: isCompact ? "100%" : undefined
     },
     quickActionsGrid: {
       flexDirection: "row",
@@ -1180,13 +1167,8 @@ function createStyles(theme: AppTheme, width: number) {
       columnGap: theme.spacing.md
     },
     editorCard: {
-      flex: 1
-    },
-    sectionLabel: {
-      fontSize: theme.typography.caption,
-      fontWeight: "700",
-      color: theme.colors.textSecondary,
-      marginBottom: theme.spacing.sm
+      flex: isCompact ? 0 : 1,
+      width: isCompact ? "100%" : undefined
     },
     theoryPreview: {
       fontSize: theme.typography.body,
@@ -1197,26 +1179,6 @@ function createStyles(theme: AppTheme, width: number) {
       borderWidth: 1,
       borderColor: theme.colors.border,
       padding: theme.spacing.md
-    },
-    answerRow: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      marginBottom: theme.spacing.md
-    },
-    answerChip: {
-      minWidth: 56,
-      minHeight: 42,
-      paddingHorizontal: theme.spacing.md,
-      borderRadius: theme.radius.pill,
-      borderWidth: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      marginRight: theme.spacing.sm,
-      marginBottom: theme.spacing.sm
-    },
-    answerChipText: {
-      fontSize: theme.typography.body,
-      fontWeight: "700"
     },
     questionCard: {
       borderRadius: theme.radius.lg,
