@@ -9,7 +9,7 @@ const VK_ID_SDK_SRC = "https://unpkg.com/@vkid/sdk@2.6.5/dist-sdk/umd/index.js";
 
 type VkIdWebWidgetsProps = {
   appId: string;
-  appName: string;
+  appName?: string;
   onSuccess: (identity: SocialIdentity) => Promise<void> | void;
   redirectUrl: string;
   theme: AppTheme;
@@ -40,15 +40,6 @@ type VkWidgetHandle = {
   on: (eventName: string, listener: (payload: unknown) => void) => VkWidgetHandle;
 };
 
-type VkFloatingOneTap = {
-  close?: () => void;
-  render: (params: {
-    appName: string;
-    oauthList?: string[];
-    showAlternativeLogin?: boolean;
-  }) => VkWidgetHandle;
-};
-
 type VkIdSdk = {
   Auth: {
     exchangeCode: (code: string, deviceId: string) => Promise<VkTokenResult>;
@@ -69,23 +60,9 @@ type VkIdSdk = {
   ConfigSource: {
     LOWCODE: string;
   };
-  FloatingOneTap: new () => VkFloatingOneTap;
-  FloatingOneTapInternalEvents: {
-    LOGIN_SUCCESS: string;
-  };
-  OAuthList: new () => {
-    render: (params: {
-      container: HTMLElement;
-      oauthList: string[];
-    }) => VkWidgetHandle;
-  };
-  OAuthListInternalEvents: {
-    LOGIN_SUCCESS: string;
-  };
   OAuthName?: {
     MAIL?: string;
     OK?: string;
-    VK?: string;
   };
   OneTap: new () => {
     render: (params: {
@@ -206,21 +183,12 @@ function toVkIdentity(
   };
 }
 
-function getVkOauthList(sdk: VkIdSdk): string[] {
-  return [
-    sdk.OAuthName?.VK ?? "vkid",
-    sdk.OAuthName?.MAIL ?? "mail_ru",
-    sdk.OAuthName?.OK ?? "ok_ru"
-  ];
-}
-
 function getVkAlternativeOauthList(sdk: VkIdSdk): string[] {
   return [sdk.OAuthName?.OK ?? "ok_ru", sdk.OAuthName?.MAIL ?? "mail_ru"];
 }
 
 export function VkIdWebWidgets({
   appId,
-  appName,
   onSuccess,
   redirectUrl,
   theme
@@ -228,10 +196,6 @@ export function VkIdWebWidgets({
   const styles = useMemo(() => createStyles(theme), [theme]);
   const oneTapContainerId = useMemo(
     () => `vkid-one-tap-${Math.random().toString(36).slice(2, 10)}`,
-    []
-  );
-  const oauthListContainerId = useMemo(
-    () => `vkid-oauth-list-${Math.random().toString(36).slice(2, 10)}`,
     []
   );
   const [error, setError] = useState("");
@@ -254,7 +218,6 @@ export function VkIdWebWidgets({
     }
 
     let isDisposed = false;
-    let floatingWidget: VkFloatingOneTap | null = null;
 
     const handleError = (reason: unknown) => {
       const message =
@@ -267,11 +230,7 @@ export function VkIdWebWidgets({
       }
     };
 
-    const handleLoginSuccess = async (
-      sdk: VkIdSdk,
-      payload: unknown,
-      afterSuccess?: () => void
-    ) => {
+    const handleLoginSuccess = async (sdk: VkIdSdk, payload: unknown) => {
       try {
         setError("");
 
@@ -294,7 +253,6 @@ export function VkIdWebWidgets({
         const identity = toVkIdentity(userInfo, tokenResult.user_id);
 
         await onSuccessRef.current(identity);
-        afterSuccess?.();
       } catch (reason: unknown) {
         handleError(reason);
       }
@@ -321,10 +279,8 @@ export function VkIdWebWidgets({
         });
 
         const oneTapContainer = document.getElementById(oneTapContainerId);
-        const oauthListContainer = document.getElementById(oauthListContainerId);
-
-        if (!oneTapContainer || !oauthListContainer) {
-          throw new Error("Не удалось подготовить контейнеры для VK ID виджетов.");
+        if (!oneTapContainer) {
+          throw new Error("Не удалось подготовить контейнер для VK ID виджета.");
         }
 
         const oneTap = new sdk.OneTap();
@@ -339,33 +295,6 @@ export function VkIdWebWidgets({
             void handleLoginSuccess(sdk, payload);
           });
 
-        floatingWidget = new sdk.FloatingOneTap();
-        floatingWidget
-          .render({
-            appName,
-            oauthList: getVkAlternativeOauthList(sdk),
-            showAlternativeLogin: true
-          })
-          .on(sdk.WidgetEvents.ERROR, handleError)
-          .on(sdk.FloatingOneTapInternalEvents.LOGIN_SUCCESS, (payload) => {
-            void handleLoginSuccess(sdk, payload, () => {
-              try {
-                floatingWidget?.close?.();
-              } catch {}
-            });
-          });
-
-        const oauthList = new sdk.OAuthList();
-        oauthList
-          .render({
-            container: oauthListContainer,
-            oauthList: getVkOauthList(sdk)
-          })
-          .on(sdk.WidgetEvents.ERROR, handleError)
-          .on(sdk.OAuthListInternalEvents.LOGIN_SUCCESS, (payload) => {
-            void handleLoginSuccess(sdk, payload);
-          });
-
         setIsLoading(false);
       } catch (reason: unknown) {
         setIsLoading(false);
@@ -375,12 +304,8 @@ export function VkIdWebWidgets({
 
     return () => {
       isDisposed = true;
-
-      try {
-        floatingWidget?.close?.();
-      } catch {}
     };
-  }, [appId, appName, oauthListContainerId, oneTapContainerId, redirectUrl]);
+  }, [appId, oneTapContainerId, redirectUrl]);
 
   if (Platform.OS !== "web") {
     return null;
@@ -401,7 +326,6 @@ export function VkIdWebWidgets({
       ) : null}
 
       <View nativeID={oneTapContainerId} style={styles.oneTapContainer} />
-      <View nativeID={oauthListContainerId} style={styles.oauthListContainer} />
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </View>
@@ -441,11 +365,7 @@ function createStyles(theme: AppTheme) {
       color: theme.colors.textSecondary
     },
     oneTapContainer: {
-      minHeight: 52
-    },
-    oauthListContainer: {
-      minHeight: 52,
-      marginTop: theme.spacing.sm
+      minHeight: 132
     },
     errorText: {
       marginTop: theme.spacing.sm,
