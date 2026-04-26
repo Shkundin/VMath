@@ -198,8 +198,10 @@ export function VkIdWebWidgets({
     () => `vkid-one-tap-${Math.random().toString(36).slice(2, 10)}`,
     []
   );
-  const [error, setError] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [initError, setInitError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const isReadyRef = useRef(false);
   const onSuccessRef = useRef(onSuccess);
 
   useEffect(() => {
@@ -213,26 +215,47 @@ export function VkIdWebWidgets({
 
     if (!appId.trim()) {
       setIsLoading(false);
-      setError("Для VK входа добавь EXPO_PUBLIC_VK_APP_ID в переменные окружения фронта.");
+      setInitError("Для VK входа добавь EXPO_PUBLIC_VK_APP_ID в переменные окружения фронта.");
       return;
     }
 
     let isDisposed = false;
 
-    const handleError = (reason: unknown) => {
+    setAuthError("");
+    setInitError("");
+    isReadyRef.current = false;
+
+    const getSafeMessage = (reason: unknown, fallback: string) =>
+      fixText(reason instanceof Error && reason.message ? reason.message : fallback);
+
+    const handleWidgetError = (reason: unknown) => {
+      const message = getSafeMessage(
+        reason,
+        "Не удалось подготовить VK ID виджет. Проверь APP ID и redirect URL."
+      );
+
+      if (!isDisposed && !isReadyRef.current) {
+        setInitError(message);
+        return;
+      }
+
+      console.warn("[VK ID widget error]", reason);
+    };
+
+    const handleAuthError = (reason: unknown) => {
       const message =
         reason instanceof Error && reason.message
           ? reason.message
           : "Не удалось выполнить вход через VK.";
 
       if (!isDisposed) {
-        setError(fixText(message));
+        setAuthError(fixText(message));
       }
     };
 
     const handleLoginSuccess = async (sdk: VkIdSdk, payload: unknown) => {
       try {
-        setError("");
+        setAuthError("");
 
         const safePayload = (payload ?? {}) as VkLoginSuccessPayload;
         const code = String(safePayload.code ?? "").trim();
@@ -254,7 +277,7 @@ export function VkIdWebWidgets({
 
         await onSuccessRef.current(identity);
       } catch (reason: unknown) {
-        handleError(reason);
+        handleAuthError(reason);
       }
     };
 
@@ -290,20 +313,24 @@ export function VkIdWebWidgets({
             showAlternativeLogin: true,
             oauthList: getVkAlternativeOauthList(sdk)
           })
-          .on(sdk.WidgetEvents.ERROR, handleError)
+          .on(sdk.WidgetEvents.ERROR, handleWidgetError)
           .on(sdk.OneTapInternalEvents.LOGIN_SUCCESS, (payload) => {
             void handleLoginSuccess(sdk, payload);
           });
 
+        isReadyRef.current = true;
+        setInitError("");
         setIsLoading(false);
       } catch (reason: unknown) {
+        isReadyRef.current = false;
         setIsLoading(false);
-        handleError(reason);
+        handleWidgetError(reason);
       }
     })();
 
     return () => {
       isDisposed = true;
+      isReadyRef.current = false;
     };
   }, [appId, oneTapContainerId, redirectUrl]);
 
@@ -327,7 +354,8 @@ export function VkIdWebWidgets({
 
       <View nativeID={oneTapContainerId} style={styles.oneTapContainer} />
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {initError ? <Text style={styles.errorText}>{initError}</Text> : null}
+      {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
     </View>
   );
 }
