@@ -17,6 +17,43 @@ const VK_DISCOVERY = {
   authorizationEndpoint: "https://id.vk.ru/authorize"
 };
 
+interface GoogleJwtPayload {
+  email?: string;
+  name?: string;
+  picture?: string;
+  sub?: string;
+}
+
+interface VkTokenResponse {
+  access_token?: string;
+  error?: string;
+  error_description?: string;
+  scope?: string;
+  user_id?: number | string;
+}
+
+interface VkUserInfo {
+  avatar?: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  user_id?: number | string;
+}
+
+interface VkUserInfoResponse {
+  error?: string;
+  error_description?: string;
+  user?: VkUserInfo;
+}
+
+export type SocialIdentity = {
+  provider: "google" | "vk";
+  subject: string;
+  email: string | null;
+  fullName: string;
+  avatarUrl: string | null;
+};
+
 let googleConfigured = false;
 
 function createNonce(): string {
@@ -28,6 +65,26 @@ function getRedirectUri(path: string): string {
     scheme: "visualmath",
     path
   });
+}
+
+function decodeJwtPayload<T>(token: string): T {
+  const payloadPart = token.split(".")[1]?.trim() || "";
+  const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = `${normalized}${"=".repeat((4 - (normalized.length % 4 || 4)) % 4)}`;
+
+  if (typeof globalThis.atob !== "function") {
+    throw new Error("Не удалось прочитать данные профиля Google в этом окружении.");
+  }
+
+  try {
+    const binary = globalThis.atob(padded);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    const json = new TextDecoder().decode(bytes);
+
+    return JSON.parse(json) as T;
+  } catch {
+    throw new Error("Google вернул некорректные данные профиля.");
+  }
 }
 
 export function isGoogleAuthConfigured(): boolean {
@@ -52,7 +109,7 @@ export function configureGoogleSignIn() {
   googleConfigured = true;
 }
 
-export async function signInWithGoogle(): Promise<{ idToken: string }> {
+export async function signInWithGoogle(): Promise<SocialIdentity> {
   if (!GOOGLE_WEB_CLIENT_ID) {
     throw new Error("Сначала укажи EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID.");
   }
@@ -64,7 +121,7 @@ export async function signInWithGoogle(): Promise<{ idToken: string }> {
   return signInWithGoogleWeb();
 }
 
-async function signInWithGoogleNative(): Promise<{ idToken: string }> {
+async function signInWithGoogleNative(): Promise<SocialIdentity> {
   configureGoogleSignIn();
 
   try {
@@ -75,19 +132,25 @@ async function signInWithGoogleNative(): Promise<{ idToken: string }> {
       throw new Error("Вход через Google отменен.");
     }
 
-    const idToken = response.data.idToken ?? (await GoogleSignin.getTokens()).idToken;
-    if (!idToken?.trim()) {
-      throw new Error("Google не вернул ID token для входа.");
+    const googleUser = response.data.user;
+    const subject = String(googleUser.id ?? googleUser.email ?? "").trim();
+    const email = String(googleUser.email ?? "").trim().toLowerCase() || null;
+    const fullName = String(googleUser.name ?? "").trim() || email || `Google user ${subject}`;
+
+    if (!subject) {
+      throw new Error("Google не вернул идентификатор пользователя.");
     }
 
     return {
-      idToken: idToken.trim()
+      provider: "google",
+      subject,
+      email,
+      fullName,
+      avatarUrl: googleUser.photo ?? null
     };
   } catch (error: unknown) {
-    if (error instanceof Error && error.message) {
-      if (!isErrorWithCode(error)) {
-        throw error;
-      }
+    if (error instanceof Error && error.message && !isErrorWithCode(error)) {
+      throw error;
     }
 
     if (isErrorWithCode(error)) {
@@ -105,7 +168,7 @@ async function signInWithGoogleNative(): Promise<{ idToken: string }> {
   }
 }
 
-async function signInWithGoogleWeb(): Promise<{ idToken: string }> {
+async function signInWithGoogleWeb(): Promise<SocialIdentity> {
   const request = new AuthRequest({
     clientId: GOOGLE_WEB_CLIENT_ID,
     redirectUri: getRedirectUri("auth/google"),
@@ -132,16 +195,25 @@ async function signInWithGoogleWeb(): Promise<{ idToken: string }> {
     throw new Error("Google не вернул ID token для входа.");
   }
 
-  return { idToken };
+  const payload = decodeJwtPayload<GoogleJwtPayload>(idToken);
+  const subject = String(payload.sub ?? "").trim();
+  const email = String(payload.email ?? "").trim().toLowerCase() || null;
+  const fullName = String(payload.name ?? "").trim() || email || `Google user ${subject}`;
+
+  if (!subject) {
+    throw new Error("Google не вернул идентификатор пользователя.");
+  }
+
+  return {
+    provider: "google",
+    subject,
+    email,
+    fullName,
+    avatarUrl: typeof payload.picture === "string" ? payload.picture.trim() || null : null
+  };
 }
 
-export async function signInWithVk(): Promise<{
-  code: string;
-  codeVerifier: string;
-  deviceId: string;
-  redirectUri: string;
-  state: string;
-}> {
+export async function signInWithVk(): Promise<SocialIdentity> {
   if (!VK_APP_ID) {
     throw new Error("Сначала укажи EXPO_PUBLIC_VK_APP_ID.");
   }
@@ -173,16 +245,100 @@ export async function signInWithVk(): Promise<{
   const code = result.params.code?.trim();
   const deviceId = result.params.device_id?.trim();
   const codeVerifier = request.codeVerifier?.trim();
+  const state = request.state?.trim();
 
-  if (!code || !deviceId || !codeVerifier) {
+  if (!code || !deviceId || !codeVerifier || !state) {
     throw new Error("VK не вернул данные для завершения авторизации.");
   }
 
-  return {
+  const tokenPayload = await exchangeVkCode({
     code,
     codeVerifier,
     deviceId,
     redirectUri,
-    state: request.state
+    state
+  });
+  const userInfoPayload = await getVkUserInfo(tokenPayload.access_token);
+  const vkUser = userInfoPayload.user ?? {};
+  const subject = String(vkUser.user_id ?? tokenPayload.user_id ?? "").trim();
+  const email =
+    typeof vkUser.email === "string" && vkUser.email.includes("@")
+      ? vkUser.email.trim().toLowerCase()
+      : null;
+  const fullName = [vkUser.first_name, vkUser.last_name]
+    .map((part) => String(part ?? "").trim())
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  if (!subject) {
+    throw new Error("VK не вернул идентификатор пользователя.");
+  }
+
+  return {
+    provider: "vk",
+    subject,
+    email,
+    fullName: fullName || email || `VK user ${subject}`,
+    avatarUrl: typeof vkUser.avatar === "string" ? vkUser.avatar.trim() || null : null
   };
+}
+
+async function exchangeVkCode(input: {
+  code: string;
+  codeVerifier: string;
+  deviceId: string;
+  redirectUri: string;
+  state: string;
+}): Promise<VkTokenResponse & { access_token: string }> {
+  const query = new URLSearchParams({
+    grant_type: "authorization_code",
+    redirect_uri: input.redirectUri,
+    client_id: VK_APP_ID,
+    code_verifier: input.codeVerifier,
+    state: input.state,
+    device_id: input.deviceId
+  });
+
+  const tokenResponse = await fetch(`https://id.vk.ru/oauth2/auth?${query.toString()}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded"
+    },
+    body: new URLSearchParams({
+      code: input.code
+    }).toString()
+  });
+
+  const tokenPayload = (await tokenResponse.json()) as VkTokenResponse;
+  if (!tokenResponse.ok || tokenPayload.error || !tokenPayload.access_token) {
+    throw new Error("VK не выдал access token для входа.");
+  }
+
+  return {
+    ...tokenPayload,
+    access_token: tokenPayload.access_token
+  };
+}
+
+async function getVkUserInfo(accessToken: string): Promise<VkUserInfoResponse> {
+  const userInfoResponse = await fetch(
+    `https://id.vk.ru/oauth2/user_info?client_id=${encodeURIComponent(VK_APP_ID)}`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded"
+      },
+      body: new URLSearchParams({
+        access_token: accessToken
+      }).toString()
+    }
+  );
+
+  const userInfoPayload = (await userInfoResponse.json()) as VkUserInfoResponse;
+  if (!userInfoResponse.ok || userInfoPayload.error) {
+    throw new Error("VK не вернул данные пользователя.");
+  }
+
+  return userInfoPayload;
 }

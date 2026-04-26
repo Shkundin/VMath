@@ -27,7 +27,8 @@ import {
   isGoogleAuthConfigured,
   isVkAuthConfigured,
   signInWithGoogle,
-  signInWithVk
+  signInWithVk,
+  type SocialIdentity
 } from "../auth/socialAuth";
 import { createMockSession, evaluateSubmission, type SessionData, type TaskResult, type TaskSubmission } from "../mocks/session";
 import { clearTeacherParticipants, createTeacherManagedSession, moveTeacherSessionBlock, updateTeacherSessionStatus, type TeacherManagedSession } from "../mocks/teacher";
@@ -66,6 +67,12 @@ import {
   readAuthMeta,
   writeAuthMeta
 } from "../storage/authStorage";
+import {
+  findTeacherAccount,
+  readStudentAccounts,
+  registerStudentAccount,
+  validateStudentCredentials
+} from "../storage/localUsersStorage";
 import {
   readCatalogSnapshot,
   readLastLectureId,
@@ -1119,70 +1126,87 @@ export function AppNavigation() {
         }
 
         if (storedAuthMeta?.userLogin) {
-          try {
-            const profile = await authApi.me();
+          const accessToken = await authApi.getAccessToken();
 
-            if (!isMounted) {
-              return;
-            }
-
-            const nextUser = mapApiProfileToMobileUser(profile);
-            setUser(nextUser);
-
-            await writeAuthMeta({
-              userLogin: nextUser.login,
-              role: nextUser.role,
-              fullName: nextUser.fullName,
-              group: nextUser.group
-            });
-
-            if (nextUser.role === "teacher") {
-              ensureTeacherBranch(nextUser.login, nextUser.fullName || nextUser.login);
-            }
-
-            setIsAuthenticated(true);
-            setActiveScreen(
-              nextUser.role === "teacher"
-                ? "teacherHome"
-                : storedSelectedTeacherLogin
-                  ? "catalog"
-                  : "teacherBranchSelect"
+          if (!accessToken) {
+            restoreLocalAuthenticatedUser(
+              mapStoredAuthMetaToUser(storedAuthMeta),
+              storedSelectedTeacherLogin
             );
+          } else {
+            try {
+              const profile = await authApi.me();
 
-            const summaries = await catalogApi.listLectures();
-            if (!isMounted) {
-              return;
+              if (!isMounted) {
+                return;
+              }
+
+              const nextUser = mapApiProfileToMobileUser(profile);
+              setUser(nextUser);
+
+              await writeAuthMeta({
+                userLogin: nextUser.login,
+                role: nextUser.role,
+                fullName: nextUser.fullName,
+                group: nextUser.group
+              });
+
+              if (nextUser.role === "teacher") {
+                ensureTeacherBranch(nextUser.login, nextUser.fullName || nextUser.login);
+              }
+
+              setIsAuthenticated(true);
+              setActiveScreen(
+                nextUser.role === "teacher"
+                  ? "teacherHome"
+                  : storedSelectedTeacherLogin
+                    ? "catalog"
+                    : "teacherBranchSelect"
+              );
+
+              const summaries = await catalogApi.listLectures();
+              if (!isMounted) {
+                return;
+              }
+
+              const nextLectures = summaries.map((summary) =>
+                mapLectureSummaryToLectureItem(
+                  summary,
+                  cachedLectures?.find((item) => item.id === summary.id)
+                )
+              );
+
+              const scopedLectures =
+                nextUser.role === "teacher"
+                  ? nextLectures.map((lecture) => ({
+                      ...lecture,
+                      teacherLogin: lecture.teacherLogin ?? nextUser.login
+                    }))
+                  : nextLectures;
+
+              const mergedLectures = mergeWithDraftsV4(scopedLectures, webDraftState.lectures);
+
+              setCatalogLectures(mergedLectures);
+              setLectureDetailsById((current) => ({
+                ...current,
+                ...webDraftState.lectureDetailsById
+              }));
+              setCatalogMode("online");
+              await writeCatalogSnapshot(mergedLectures);
+            } catch {
+              try {
+                await authApi.logout();
+              } catch {}
+
+              if (!isMounted) {
+                return;
+              }
+
+              restoreLocalAuthenticatedUser(
+                mapStoredAuthMetaToUser(storedAuthMeta),
+                storedSelectedTeacherLogin
+              );
             }
-
-            const nextLectures = summaries.map((summary) =>
-              mapLectureSummaryToLectureItem(
-                summary,
-                cachedLectures?.find((item) => item.id === summary.id)
-              )
-            );
-
-            const scopedLectures =
-              nextUser.role === "teacher"
-                ? nextLectures.map((lecture) => ({
-                    ...lecture,
-                    teacherLogin: lecture.teacherLogin ?? nextUser.login
-                  }))
-                : nextLectures;
-
-            const mergedLectures = mergeWithDraftsV4(scopedLectures, webDraftState.lectures);
-
-            setCatalogLectures(mergedLectures);
-            setLectureDetailsById((current) => ({
-              ...current,
-              ...webDraftState.lectureDetailsById
-            }));
-            setCatalogMode("online");
-            await writeCatalogSnapshot(mergedLectures);
-          } catch {
-            await clearAuthSession();
-            setIsAuthenticated(false);
-            setUser(DEFAULT_USER);
-            setCatalogMode(cachedLectures?.length ? "offline" : "error");
           }
         } else {
           setCatalogMode(cachedLectures?.length ? "offline" : "error");
@@ -1489,6 +1513,8 @@ export function AppNavigation() {
       group: nextUser.group
     });
 
+    setCatalogMode("offline");
+
     if (nextUser.role === "teacher") {
       ensureTeacherBranch(nextUser.login, nextUser.fullName || nextUser.login);
       adoptTeacherContent(nextUser.login);
@@ -1508,6 +1534,79 @@ export function AppNavigation() {
     } catch {}
   }
 
+  function mapStoredAuthMetaToUser(storedAuthMeta: {
+    userLogin: string;
+    role: "student" | "teacher";
+    fullName: string;
+    group: string;
+  }): UserProfile {
+    return {
+      fullName: storedAuthMeta.fullName,
+      login: storedAuthMeta.userLogin,
+      role: storedAuthMeta.role,
+      group: storedAuthMeta.group || DEFAULT_STUDENT_GROUP
+    };
+  }
+
+  function restoreLocalAuthenticatedUser(
+    nextUser: UserProfile,
+    storedTeacherLogin: string | null
+  ) {
+    setUser(nextUser);
+    setIsAuthenticated(true);
+    setCatalogMode("offline");
+
+    if (nextUser.role === "teacher") {
+      ensureTeacherBranch(nextUser.login, nextUser.fullName || nextUser.login);
+      adoptTeacherContent(nextUser.login);
+      setActiveScreen("teacherHome");
+      return;
+    }
+
+    setActiveScreen(storedTeacherLogin ? "catalog" : "teacherBranchSelect");
+  }
+
+  function getSocialStudentLogin(identity: SocialIdentity): string {
+    const normalizedEmail = identity.email?.trim().toLowerCase() || "";
+    if (normalizedEmail) {
+      return normalizedEmail;
+    }
+
+    return `${identity.provider}_${identity.subject}`.trim().toLowerCase();
+  }
+
+  async function persistLocalSocialStudent(identity: SocialIdentity): Promise<string | null> {
+    const socialLogin = getSocialStudentLogin(identity);
+    const existingAccount =
+      (await readStudentAccounts()).find((account) => account.login === socialLogin) ?? null;
+
+    let socialAccount = existingAccount;
+
+    if (!socialAccount) {
+      const registerResult = await registerStudentAccount({
+        login: socialLogin,
+        password: `${identity.provider}_oauth_${identity.subject}`,
+        fullName: identity.fullName.trim() || socialLogin,
+        group: DEFAULT_STUDENT_GROUP
+      });
+
+      if (!registerResult.ok) {
+        return fixText(registerResult.error);
+      }
+
+      socialAccount = registerResult.account;
+    }
+
+    await persistAuthenticatedUser({
+      fullName: socialAccount.fullName || identity.fullName || socialLogin,
+      login: socialAccount.login,
+      role: "student",
+      group: socialAccount.group || DEFAULT_STUDENT_GROUP
+    });
+
+    return null;
+  }
+
   async function handleLogin(input: {
     login: string;
     password: string;
@@ -1515,7 +1614,63 @@ export function AppNavigation() {
     mode: "login" | "register";
     fullName?: string;
   }): Promise<string | null> {
-    return handleBackendLogin(input);
+    const safeLogin = input.login.trim().toLowerCase();
+    const safePassword = input.password.trim();
+
+    if (!safeLogin || !safePassword) {
+      return fixText("Заполни логин и пароль.");
+    }
+
+    if (input.role === "teacher") {
+      if (input.mode === "register") {
+        return fixText("Регистрация преподавателя отключена. Используй логин teacher и пароль teacher.");
+      }
+
+      const teacherAccount = findTeacherAccount(safeLogin, safePassword);
+
+      if (!teacherAccount) {
+        return fixText("Неверный логин или пароль преподавателя.");
+      }
+
+      await persistAuthenticatedUser({
+        fullName: fixText(teacherAccount.fullName),
+        login: teacherAccount.login,
+        role: "teacher",
+        group: fixText(teacherAccount.group)
+      });
+
+      return null;
+    }
+
+    if (input.mode === "register") {
+      const registerResult = await registerStudentAccount({
+        login: safeLogin,
+        password: safePassword,
+        fullName: input.fullName?.trim() || safeLogin,
+        group: DEFAULT_STUDENT_GROUP
+      });
+
+      if (!registerResult.ok) {
+        return fixText(registerResult.error);
+      }
+
+      return `REGISTRATION_SUCCESS::${registerResult.account.login}`;
+    }
+
+    const studentAccount = await validateStudentCredentials(safeLogin, safePassword);
+
+    if (!studentAccount) {
+      return fixText("Студент с таким логином и паролем не найден. Сначала зарегистрируйся или проверь данные.");
+    }
+
+    await persistAuthenticatedUser({
+      fullName: studentAccount.fullName,
+      login: studentAccount.login,
+      role: "student",
+      group: studentAccount.group
+    });
+
+    return null;
     /*
     const safeLogin = input.login.trim().toLowerCase();
     const safePassword = input.password.trim();
@@ -1812,11 +1967,8 @@ export function AppNavigation() {
     }
 
     try {
-      const { idToken } = await signInWithGoogle();
-      await authApi.loginWithGoogleIdToken(idToken);
-      const profile = await authApi.me();
-      await persistAuthenticatedUser(mapApiProfileToMobileUser(profile));
-      return null;
+      const googleIdentity = await signInWithGoogle();
+      return persistLocalSocialStudent(googleIdentity);
     } catch (error: unknown) {
       if (error instanceof Error && error.message) {
         return fixText(error.message);
@@ -1832,11 +1984,8 @@ export function AppNavigation() {
     }
 
     try {
-      const vkAuth = await signInWithVk();
-      await authApi.loginWithVkCode(vkAuth);
-      const profile = await authApi.me();
-      await persistAuthenticatedUser(mapApiProfileToMobileUser(profile));
-      return null;
+      const vkIdentity = await signInWithVk();
+      return persistLocalSocialStudent(vkIdentity);
     } catch (error: unknown) {
       if (error instanceof Error && error.message) {
         return fixText(error.message);
@@ -2702,7 +2851,7 @@ export function AppNavigation() {
     return (
       <LoginScreen
         theme={theme}
-        onLogin={handleBackendLogin}
+        onLogin={handleLogin}
         onGoogleLogin={handleGoogleOAuthLogin}
         onVkLogin={handleVkOAuthLogin}
       />
