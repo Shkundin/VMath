@@ -42,3 +42,4 @@ pnpm build:backend
 - Render blueprint: [render.yaml](./render.yaml)
 - Backend deployment notes: [backend/DEPLOY_RENDER.md](./backend/DEPLOY_RENDER.md)
 - Environment template: [.env.example](./.env.example)
+- For an existing manually created Render Docker service, set `DATABASE_URL`, `JWT_ACCESS_SECRET`, and `JWT_REFRESH_SECRET` in the Render Dashboard before deploy.
