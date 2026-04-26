@@ -1,12 +1,13 @@
 services:
   - type: web
     name: visualmath-server
-    env: node
+    runtime: node
     plan: starter
     rootDir: .
-    autoDeploy: true
+    autoDeployTrigger: commit
     buildCommand: corepack enable && pnpm install --frozen-lockfile=false --prod=false && pnpm --filter @vm/shared build && pnpm --filter @vm/server build
-    startCommand: pnpm --filter @vm/server db:migrate && pnpm --filter @vm/server start
+    preDeployCommand: pnpm --filter @vm/server db:migrate
+    startCommand: pnpm --filter @vm/server start
     healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_ENV
@@ -17,11 +18,9 @@ services:
         sync: false
       - key: JWT_REFRESH_SECRET
         sync: false
-      - key: SUPABASE_URL
+      - key: GOOGLE_OAUTH_CLIENT_IDS
         sync: false
-      - key: SUPABASE_ANON_KEY
-        sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
+      - key: VK_APP_ID
         sync: false
       - key: APP_URL
         sync: false
@@ -31,3 +30,5 @@ services:
         sync: false
       - key: WS_CORS_ORIGIN
         sync: false
+      - key: TRUST_PROXY
+        value: "true"

@@ -5,6 +5,9 @@ export const APP_CONFIG = Symbol("APP_CONFIG");
 export interface AppConfig {
   port: number;
   nodeEnv: string;
+  isProduction?: boolean;
+  isRender?: boolean;
+  trustProxy?: boolean;
   appUrl: string;
   apiBaseUrl: string;
   corsOrigins: string[];
@@ -12,9 +15,11 @@ export interface AppConfig {
   jwtAccessSecret: string;
   jwtRefreshSecret: string;
   databaseUrl: string;
-  supabaseUrl: string;
-  supabaseAnonKey: string;
-  supabaseServiceRoleKey: string;
+  supabaseUrl?: string | null;
+  supabaseAnonKey?: string | null;
+  supabaseServiceRoleKey?: string | null;
+  googleOauthClientIds?: string[];
+  vkAppId?: string | null;
   accessTokenTtlSec: number;
   refreshTokenTtlSec: number;
 }
@@ -60,6 +65,35 @@ function parseOrigins(value: string | undefined, fallback: string): string[] {
     .filter(Boolean);
 }
 
+function parseOptional(name: string, fallback?: string): string | null {
+  const value = process.env[name]?.trim();
+  if (value) {
+    return value;
+  }
+
+  return fallback?.trim() || null;
+}
+
+function parseBoolean(name: string, fallback: boolean): boolean {
+  const raw = process.env[name]?.trim().toLowerCase();
+  if (!raw) {
+    return fallback;
+  }
+
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
+}
+
+function parseStringList(rawValue: string | undefined, fallback: string[] = []): string[] {
+  if (!rawValue?.trim()) {
+    return fallback;
+  }
+
+  return rawValue
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export function loadAppConfig(): AppConfig {
   const nodeEnv = process.env.NODE_ENV?.trim() || "development";
   const renderExternalUrl = process.env.RENDER_EXTERNAL_URL?.trim() || "";
@@ -75,6 +109,9 @@ export function loadAppConfig(): AppConfig {
   return {
     port: parseNumber("PORT", 8787),
     nodeEnv,
+    isProduction,
+    isRender,
+    trustProxy: parseBoolean("TRUST_PROXY", isRender),
     appUrl,
     apiBaseUrl,
     corsOrigins: parseOrigins(process.env.CORS_ORIGIN, "http://localhost:19006,http://127.0.0.1:19006"),
@@ -97,13 +134,17 @@ export function loadAppConfig(): AppConfig {
       isProduction,
       "postgres://postgres:postgres@127.0.0.1:54322/postgres"
     ),
-    supabaseUrl: parseRequired("SUPABASE_URL", isProduction, "http://127.0.0.1:54321"),
-    supabaseAnonKey: parseRequired("SUPABASE_ANON_KEY", isProduction, "vm-dev-anon-key"),
-    supabaseServiceRoleKey: parseRequired(
+    supabaseUrl: parseOptional("SUPABASE_URL", "http://127.0.0.1:54321"),
+    supabaseAnonKey: parseOptional("SUPABASE_ANON_KEY", "vm-dev-anon-key"),
+    supabaseServiceRoleKey: parseOptional(
       "SUPABASE_SERVICE_ROLE_KEY",
-      isProduction,
       "vm-dev-service-role-key"
     ),
+    googleOauthClientIds: parseStringList(
+      process.env.GOOGLE_OAUTH_CLIENT_IDS ?? process.env.GOOGLE_WEB_CLIENT_ID,
+      []
+    ),
+    vkAppId: parseOptional("VK_APP_ID"),
     accessTokenTtlSec: parseNumber("JWT_ACCESS_TTL_SEC", 900),
     refreshTokenTtlSec: parseNumber("JWT_REFRESH_TTL_SEC", 60 * 60 * 24 * 30)
   };

@@ -64,6 +64,28 @@ class RefreshDto {
   refreshToken!: string;
 }
 
+class GoogleSocialAuthDto {
+  @IsString()
+  idToken!: string;
+}
+
+class VkSocialAuthDto {
+  @IsString()
+  code!: string;
+
+  @IsString()
+  codeVerifier!: string;
+
+  @IsString()
+  deviceId!: string;
+
+  @IsString()
+  redirectUri!: string;
+
+  @IsString()
+  state!: string;
+}
+
 class LogoutDto {
   @IsOptional()
   @IsString()
@@ -131,6 +153,41 @@ export class AuthController {
     return this.authService.refresh(body.refreshToken, { ipAddress, userAgent });
   }
 
+  @Post("social/google")
+  @ApiOperation({ summary: "Login or register a student account using a Google ID token" })
+  @ApiBody({ type: GoogleSocialAuthDto })
+  @UseGuards(RateLimitGuard)
+  @RateLimit(8, 60_000)
+  async googleSocialAuth(
+    @Body() body: GoogleSocialAuthDto,
+    @Ip() ipAddress: string,
+    @Headers("user-agent") userAgent?: string
+  ) {
+    return this.authService.loginWithGoogleIdToken(body.idToken, { ipAddress, userAgent });
+  }
+
+  @Post("social/vk")
+  @ApiOperation({ summary: "Login or register a student account using VK ID OAuth" })
+  @ApiBody({ type: VkSocialAuthDto })
+  @UseGuards(RateLimitGuard)
+  @RateLimit(8, 60_000)
+  async vkSocialAuth(
+    @Body() body: VkSocialAuthDto,
+    @Ip() ipAddress: string,
+    @Headers("user-agent") userAgent?: string
+  ) {
+    return this.authService.loginWithVkCode(
+      {
+        code: body.code,
+        codeVerifier: body.codeVerifier,
+        deviceId: body.deviceId,
+        redirectUri: body.redirectUri,
+        state: body.state
+      },
+      { ipAddress, userAgent }
+    );
+  }
+
   @Post("logout")
   @HttpCode(200)
   @ApiOperation({ summary: "Invalidate refresh token or all user sessions" })
@@ -188,5 +245,36 @@ export class LegacyAuthController {
     @Headers("user-agent") userAgent?: string
   ) {
     return this.authService.refresh(body.refreshToken, { ipAddress, userAgent });
+  }
+
+  @Post("social/google")
+  @UseGuards(RateLimitGuard)
+  @RateLimit(8, 60_000)
+  async googleSocialAuth(
+    @Body() body: GoogleSocialAuthDto,
+    @Ip() ipAddress: string,
+    @Headers("user-agent") userAgent?: string
+  ) {
+    return this.authService.loginWithGoogleIdToken(body.idToken, { ipAddress, userAgent });
+  }
+
+  @Post("social/vk")
+  @UseGuards(RateLimitGuard)
+  @RateLimit(8, 60_000)
+  async vkSocialAuth(
+    @Body() body: VkSocialAuthDto,
+    @Ip() ipAddress: string,
+    @Headers("user-agent") userAgent?: string
+  ) {
+    return this.authService.loginWithVkCode(
+      {
+        code: body.code,
+        codeVerifier: body.codeVerifier,
+        deviceId: body.deviceId,
+        redirectUri: body.redirectUri,
+        state: body.state
+      },
+      { ipAddress, userAgent }
+    );
   }
 }

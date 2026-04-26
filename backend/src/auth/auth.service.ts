@@ -1,11 +1,16 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import type { Role, UserProfile } from "@vm/shared";
-import type { QueryResultRow } from "pg";
+import type { PoolClient, QueryResult, QueryResultRow } from "pg";
 import { AppException, type AuthenticatedUser } from "../common/http";
 import { DatabaseService } from "../database/database.service";
+import type { VerifiedExternalIdentity } from "./external-auth.types";
+import { GoogleIdentityService } from "./google-identity.service";
 import { JwtTokenService } from "./jwt-token.service";
 import { PasswordService } from "./password.service";
+import { VkIdentityService } from "./vk-identity.service";
+
+const DEFAULT_STUDENT_GROUP = "BPI-248";
 
 interface UserRow extends QueryResultRow {
   id: string;
@@ -55,7 +60,10 @@ interface UserAuthEventInsert {
 }
 
 type QueryRunner = {
-  query: (text: string, params?: unknown[]) => Promise<unknown>;
+  query: <T extends QueryResultRow = QueryResultRow>(
+    text: string,
+    params?: unknown[]
+  ) => Promise<QueryResult<T>>;
 };
 
 type AuthenticatedUserRecord = UserRow & {
@@ -63,12 +71,22 @@ type AuthenticatedUserRecord = UserRow & {
   auth_source: "users" | "teacher_credentials";
 };
 
+interface ExternalIdentityRow extends QueryResultRow {
+  user_id: string;
+  provider: "google" | "vk";
+  provider_subject: string;
+  email: string | null;
+  display_name: string | null;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
     private readonly database: DatabaseService,
     private readonly jwtTokenService: JwtTokenService,
-    private readonly passwordService: PasswordService
+    private readonly passwordService: PasswordService,
+    private readonly googleIdentityService: GoogleIdentityService,
+    private readonly vkIdentityService: VkIdentityService
   ) {}
 
   async login(params: {
@@ -264,6 +282,28 @@ export class AuthService {
       lastLoginAt: created.last_login_at,
       lastSeenAt: created.last_seen_at
     };
+  }
+
+  async loginWithGoogleIdToken(
+    idToken: string,
+    params: { ipAddress?: string; userAgent?: string }
+  ) {
+    const identity = await this.googleIdentityService.verifyIdToken(idToken);
+    return this.loginWithExternalIdentity(identity, params);
+  }
+
+  async loginWithVkCode(
+    input: {
+      code: string;
+      codeVerifier: string;
+      deviceId: string;
+      redirectUri: string;
+      state: string;
+    },
+    params: { ipAddress?: string; userAgent?: string }
+  ) {
+    const identity = await this.vkIdentityService.exchangeCode(input);
+    return this.loginWithExternalIdentity(identity, params);
   }
 
   async refresh(refreshToken: string, params: { ipAddress?: string; userAgent?: string }) {
@@ -483,6 +523,286 @@ export class AuthService {
       lastLoginAt: user.last_login_at,
       lastSeenAt: new Date().toISOString()
     };
+  }
+
+  private async loginWithExternalIdentity(
+    identity: VerifiedExternalIdentity,
+    params: { ipAddress?: string; userAgent?: string }
+  ) {
+    const normalizedIdentity = this.normalizeExternalIdentity(identity);
+
+    return this.database.tx(async (client) => {
+      let user = await this.findUserByExternalIdentity(
+        client,
+        normalizedIdentity.provider,
+        normalizedIdentity.subject
+      );
+
+      if (!user && normalizedIdentity.email) {
+        user = await this.findStudentUserByLogin(client, normalizedIdentity.email);
+      }
+
+      if (!user) {
+        user = await this.createStudentUserFromExternalIdentity(client, normalizedIdentity);
+      }
+
+      if (!user.is_active) {
+        throw new AppException("AUTH", HttpStatus.UNAUTHORIZED, "User is inactive");
+      }
+
+      await this.ensureProviderLinkAvailable(client, user.id, normalizedIdentity);
+      await this.upsertExternalIdentity(client, user.id, normalizedIdentity);
+
+      const issued = await this.issueTokens(
+        user,
+        params,
+        async (values) => {
+          await client.query(
+            `
+              insert into refresh_tokens (
+                id,
+                user_id,
+                token_hash,
+                user_agent,
+                ip_address,
+                expires_at,
+                replaced_by_token_id,
+                created_at,
+                updated_at
+              ) values ($1, $2, $3, $4, $5, $6, $7, now(), now())
+            `,
+            values
+          );
+        }
+      );
+
+      await this.touchUserActivity(client, user.id, { updateLoginAt: true });
+      await this.recordAuthEvent(client, {
+        userId: user.id,
+        login: user.login,
+        role: user.role,
+        fullName: user.full_name,
+        eventType: "login",
+        status: "success",
+        ipAddress: params.ipAddress,
+        userAgent: params.userAgent,
+        metadata: {
+          authMethod: "social",
+          provider: normalizedIdentity.provider,
+          providerSubject: normalizedIdentity.subject
+        }
+      });
+
+      return issued;
+    });
+  }
+
+  private normalizeExternalIdentity(identity: VerifiedExternalIdentity): VerifiedExternalIdentity {
+    const email = identity.email?.trim().toLowerCase() || null;
+    const fullName =
+      identity.fullName.trim() ||
+      email ||
+      `${identity.provider.toUpperCase()} user ${identity.subject}`;
+
+    return {
+      ...identity,
+      email,
+      fullName
+    };
+  }
+
+  private async findUserByExternalIdentity(
+    client: PoolClient,
+    provider: "google" | "vk",
+    subject: string
+  ): Promise<UserRow | null> {
+    const result = await client.query<UserRow>(
+      `
+        select
+          u.id,
+          u.login,
+          u.password_hash,
+          u.full_name,
+          u.role,
+          u.group_name,
+          u.is_active,
+          u.last_login_at,
+          u.last_seen_at
+        from external_identities ei
+        inner join users u on u.id = ei.user_id
+        where ei.provider = $1 and ei.provider_subject = $2
+        limit 1
+      `,
+      [provider, subject]
+    );
+
+    return result.rows[0] ?? null;
+  }
+
+  private async findStudentUserByLogin(client: PoolClient, login: string): Promise<UserRow | null> {
+    const result = await client.query<UserRow>(
+      `
+        select id, login, password_hash, full_name, role, group_name, is_active, last_login_at, last_seen_at
+        from users
+        where lower(login) = lower($1)
+          and role = 'student'
+        limit 1
+      `,
+      [login]
+    );
+
+    return result.rows[0] ?? null;
+  }
+
+  private async createStudentUserFromExternalIdentity(
+    client: PoolClient,
+    identity: VerifiedExternalIdentity
+  ): Promise<UserRow> {
+    const loginBase = identity.email || `${identity.provider}_${identity.subject}`;
+    const resolvedLogin = await this.resolveAvailableLogin(client, loginBase);
+    const passwordHash = await this.passwordService.hashPassword(randomUUID());
+
+    const created = await client.query<UserRow>(
+      `
+        insert into users (
+          id,
+          login,
+          password_hash,
+          full_name,
+          role,
+          group_name,
+          is_active,
+          created_at,
+          updated_at
+        )
+        values ($1, $2, $3, $4, 'student', $5, true, now(), now())
+        returning id, login, password_hash, full_name, role, group_name, is_active, last_login_at, last_seen_at
+      `,
+      [
+        randomUUID(),
+        resolvedLogin,
+        passwordHash,
+        identity.fullName,
+        DEFAULT_STUDENT_GROUP
+      ]
+    );
+
+    return created.rows[0] as UserRow;
+  }
+
+  private async ensureProviderLinkAvailable(
+    client: PoolClient,
+    userId: string,
+    identity: VerifiedExternalIdentity
+  ) {
+    const existing = await client.query<ExternalIdentityRow>(
+      `
+        select user_id, provider, provider_subject, email, display_name
+        from external_identities
+        where user_id = $1 and provider = $2
+        limit 1
+      `,
+      [userId, identity.provider]
+    );
+
+    const currentLink = existing.rows[0] ?? null;
+    if (currentLink && currentLink.provider_subject !== identity.subject) {
+      throw new AppException(
+        "CONFLICT",
+        HttpStatus.CONFLICT,
+        `This ${identity.provider} account is already linked to another profile`
+      );
+    }
+  }
+
+  private async upsertExternalIdentity(
+    client: PoolClient,
+    userId: string,
+    identity: VerifiedExternalIdentity
+  ) {
+    await client.query(
+      `
+        insert into external_identities (
+          id,
+          user_id,
+          provider,
+          provider_subject,
+          email,
+          display_name,
+          profile_json,
+          created_at,
+          updated_at
+        )
+        values ($1, $2, $3, $4, $5, $6, $7::jsonb, now(), now())
+        on conflict (provider, provider_subject) do update
+        set
+          email = excluded.email,
+          display_name = excluded.display_name,
+          profile_json = excluded.profile_json,
+          updated_at = now()
+      `,
+      [
+        randomUUID(),
+        userId,
+        identity.provider,
+        identity.subject,
+        identity.email ?? null,
+        identity.fullName,
+        JSON.stringify(identity.profile)
+      ]
+    );
+  }
+
+  private async resolveAvailableLogin(client: PoolClient, rawBase: string): Promise<string> {
+    const base = this.sanitizeLoginCandidate(rawBase);
+
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const suffix = attempt === 0 ? "" : `-${attempt + 1}`;
+      const candidate = `${base}${suffix}`.slice(0, 120);
+
+      if (!(await this.isLoginTaken(client, candidate))) {
+        return candidate;
+      }
+    }
+
+    const fallback = `${base.slice(0, 111)}-${randomUUID().slice(0, 8)}`;
+    if (await this.isLoginTaken(client, fallback)) {
+      throw new AppException("CONFLICT", HttpStatus.CONFLICT, "Could not allocate a login");
+    }
+
+    return fallback;
+  }
+
+  private sanitizeLoginCandidate(value: string): string {
+    const normalized = value.trim().toLowerCase();
+    const sanitized = normalized
+      .replace(/[^a-z0-9@._-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .replace(/-{2,}/g, "-");
+
+    if (sanitized.length >= 3) {
+      return sanitized.slice(0, 120);
+    }
+
+    return `user-${randomUUID().slice(0, 8)}`;
+  }
+
+  private async isLoginTaken(client: PoolClient, login: string): Promise<boolean> {
+    const result = await client.query<{ exists: number }>(
+      `
+        select 1 as exists
+        from users
+        where lower(login) = lower($1)
+        union all
+        select 1 as exists
+        from teacher_credentials
+        where lower(login) = lower($1)
+        limit 1
+      `,
+      [login]
+    );
+
+    return result.rows.length > 0;
   }
 
   private async touchUserActivity(

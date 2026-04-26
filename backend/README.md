@@ -12,7 +12,7 @@ It lives inside the existing `pnpm` monorepo and deliberately reuses the current
 ## Delivered scope
 
 - versioned REST API under `/api/v1`
-- JWT auth with refresh token rotation and server-side refresh session storage
+- JWT auth with refresh token rotation, Google sign-in, VK ID sign-in, and server-side refresh session storage
 - RBAC for `student`, `teacher`, and `admin`
 - lectures, lecture blocks, and normalized subjects
 - module library and lecture composition APIs

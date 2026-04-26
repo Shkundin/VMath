@@ -15,6 +15,14 @@ export interface RegisterStudentInput {
   groupName?: string;
 }
 
+export interface VkCodeLoginInput {
+  code: string;
+  codeVerifier: string;
+  deviceId: string;
+  redirectUri: string;
+  state: string;
+}
+
 export class AuthService {
   constructor(
     private readonly http: HttpClient,
@@ -101,5 +109,39 @@ export class AuthService {
     }
 
     return this.http.postJson<UserProfile>("/api/v1/auth/register/student", input);
+  }
+
+  async loginWithGoogleIdToken(idToken: string): Promise<void> {
+    if (!idToken.trim()) {
+      throw err("VALIDATION", "Google ID token is required");
+    }
+
+    const response = await this.http.postJson<LoginResponse>("/api/v1/auth/social/google", {
+      idToken
+    });
+
+    const nextTokens: TokenPair = {
+      accessToken: response.accessToken,
+      refreshToken: response.refreshToken,
+      expiresAt: Date.now() + response.expiresInSec * 1000
+    };
+
+    await this.storage.set(nextTokens);
+  }
+
+  async loginWithVkCode(input: VkCodeLoginInput): Promise<void> {
+    if (!input.code || !input.codeVerifier || !input.deviceId || !input.redirectUri || !input.state) {
+      throw err("VALIDATION", "VK auth payload is incomplete");
+    }
+
+    const response = await this.http.postJson<LoginResponse>("/api/v1/auth/social/vk", input);
+
+    const nextTokens: TokenPair = {
+      accessToken: response.accessToken,
+      refreshToken: response.refreshToken,
+      expiresAt: Date.now() + response.expiresInSec * 1000
+    };
+
+    await this.storage.set(nextTokens);
   }
 }

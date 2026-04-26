@@ -14,11 +14,18 @@ async function bootstrap() {
 
   const config = app.get(AppConfigService).value;
   const reflector = app.get(Reflector);
+  const httpAdapter = app.getHttpAdapter();
 
   app.enableCors({
     origin: config.corsOrigins,
     credentials: false
   });
+  if (config.trustProxy) {
+    const instance = httpAdapter.getInstance() as {
+      set?: (name: string, value: unknown) => void;
+    };
+    instance.set?.("trust proxy", 1);
+  }
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -41,7 +48,7 @@ async function bootstrap() {
     ignoreGlobalPrefix: true
   });
   SwaggerModule.setup("api/docs", app, document);
-  app.getHttpAdapter().get("/api/v1/openapi.json", (_req: unknown, res: { json: (body: unknown) => void }) =>
+  httpAdapter.get("/api/v1/openapi.json", (_req: unknown, res: { json: (body: unknown) => void }) =>
     res.json(document)
   );
 

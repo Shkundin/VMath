@@ -72,11 +72,15 @@ export class DatabaseService implements OnModuleDestroy {
 export function createPgPool(config: AppConfig): Pool {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { Pool } = require("pg") as typeof import("pg");
+  const shouldUseSsl =
+    config.isProduction === true ||
+    config.nodeEnv === "production" ||
+    /sslmode=require/i.test(config.databaseUrl);
 
   return new Pool({
     connectionString: config.databaseUrl,
     ssl:
-      config.nodeEnv === "production"
+      shouldUseSsl
         ? {
             rejectUnauthorized: false
           }

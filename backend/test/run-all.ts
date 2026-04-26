@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { createSign, generateKeyPairSync } from "node:crypto";
 import { JwtTokenService } from "../src/auth/jwt-token.service";
+import { GoogleIdentityService } from "../src/auth/google-identity.service";
 import { PasswordService } from "../src/auth/password.service";
 import { AppConfigService } from "../src/config/app-config";
 import {
@@ -98,6 +100,83 @@ async function main() {
       refreshSessionId: "session-1"
     });
     assert.equal(jwt.verifyAccessToken(accessToken).userId, "user-1");
+  });
+
+  await run("unit: google identity verification", async () => {
+    const { privateKey, publicKey } = generateKeyPairSync("rsa", {
+      modulusLength: 2048
+    });
+    const publicJwk = publicKey.export({ format: "jwk" }) as Record<string, unknown>;
+    publicJwk.kid = "test-google-kid";
+    publicJwk.alg = "RS256";
+    publicJwk.use = "sig";
+
+    const encode = (value: unknown) =>
+      Buffer.from(JSON.stringify(value)).toString("base64url");
+
+    const payload = {
+      aud: "google-client-id.apps.googleusercontent.com",
+      email: "student@example.com",
+      email_verified: true,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      iss: "https://accounts.google.com",
+      name: "Google Student",
+      sub: "google-user-1"
+    };
+
+    const unsignedToken = `${encode({
+      alg: "RS256",
+      kid: "test-google-kid",
+      typ: "JWT"
+    })}.${encode(payload)}`;
+    const signer = createSign("RSA-SHA256");
+    signer.update(unsignedToken);
+    signer.end();
+    const token = `${unsignedToken}.${signer.sign(privateKey).toString("base64url")}`;
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ keys: [publicJwk] }), {
+        status: 200,
+        headers: {
+          "cache-control": "public, max-age=3600",
+          "content-type": "application/json"
+        }
+      })) as typeof fetch;
+
+    try {
+      const service = new GoogleIdentityService(
+        new AppConfigService({
+          port: 8787,
+          nodeEnv: "test",
+          isProduction: false,
+          isRender: false,
+          trustProxy: false,
+          appUrl: "http://localhost",
+          apiBaseUrl: "http://localhost/api/v1",
+          corsOrigins: ["http://localhost"],
+          wsCorsOrigins: ["http://localhost"],
+          jwtAccessSecret: "test-access",
+          jwtRefreshSecret: "test-refresh",
+          databaseUrl: "postgres://test",
+          supabaseUrl: "http://localhost",
+          supabaseAnonKey: "anon",
+          supabaseServiceRoleKey: "service",
+          googleOauthClientIds: ["google-client-id.apps.googleusercontent.com"],
+          vkAppId: "1",
+          accessTokenTtlSec: 900,
+          refreshTokenTtlSec: 3600
+        })
+      );
+
+      const identity = await service.verifyIdToken(token);
+      assert.equal(identity.provider, "google");
+      assert.equal(identity.subject, "google-user-1");
+      assert.equal(identity.email, "student@example.com");
+      assert.equal(identity.fullName, "Google Student");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   await run("unit: permission logic", () => {

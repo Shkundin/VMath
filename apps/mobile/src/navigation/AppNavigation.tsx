@@ -22,6 +22,13 @@ import type {
   TextBlock,
   UserProfile as ApiUserProfile
 } from "@vm/shared";
+import {
+  configureGoogleSignIn,
+  isGoogleAuthConfigured,
+  isVkAuthConfigured,
+  signInWithGoogle,
+  signInWithVk
+} from "../auth/socialAuth";
 import { createMockSession, evaluateSubmission, type SessionData, type TaskResult, type TaskSubmission } from "../mocks/session";
 import { clearTeacherParticipants, createTeacherManagedSession, moveTeacherSessionBlock, updateTeacherSessionStatus, type TeacherManagedSession } from "../mocks/teacher";
 import { mockLectures, type LectureItem } from "../mocks/lectures";
@@ -135,7 +142,7 @@ type LoginRole = "student" | "teacher";
 type AuthMode = "login" | "register";
 type DemoDataMode = "online" | "offline" | "loading" | "error";
 
-const GOOGLE_WEB_CLIENT_ID = "PASTE_YOUR_WEB_CLIENT_ID_HERE.apps.googleusercontent.com";
+const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim() || "";
 const DEFAULT_STUDENT_GROUP = "BPI-248";
 const DEFAULT_USER: UserProfile = {
   fullName: "",
@@ -975,10 +982,7 @@ export function AppNavigation() {
     );
   }, [testingSubmissions, visibleActiveTestingSession]);
   useEffect(() => {
-    GoogleSignin.configure({
-      webClientId: GOOGLE_WEB_CLIENT_ID,
-      offlineAccess: false
-    });
+    configureGoogleSignIn();
   }, []);
 
   useEffect(() => {
@@ -1799,6 +1803,46 @@ export function AppNavigation() {
       }
 
       return fixText("Не удалось выполнить вход через Google.");
+    }
+  }
+
+  async function handleGoogleOAuthLogin(_payload: GoogleLoginPayload): Promise<string | null> {
+    if (!isGoogleAuthConfigured()) {
+      return fixText("Сначала укажи EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID и GOOGLE_OAUTH_CLIENT_IDS.");
+    }
+
+    try {
+      const { idToken } = await signInWithGoogle();
+      await authApi.loginWithGoogleIdToken(idToken);
+      const profile = await authApi.me();
+      await persistAuthenticatedUser(mapApiProfileToMobileUser(profile));
+      return null;
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message) {
+        return fixText(error.message);
+      }
+
+      return fixText("Не удалось выполнить вход через Google.");
+    }
+  }
+
+  async function handleVkOAuthLogin(_payload: VkLoginPayload): Promise<string | null> {
+    if (!isVkAuthConfigured()) {
+      return fixText("Сначала укажи EXPO_PUBLIC_VK_APP_ID и VK_APP_ID.");
+    }
+
+    try {
+      const vkAuth = await signInWithVk();
+      await authApi.loginWithVkCode(vkAuth);
+      const profile = await authApi.me();
+      await persistAuthenticatedUser(mapApiProfileToMobileUser(profile));
+      return null;
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message) {
+        return fixText(error.message);
+      }
+
+      return fixText("Не удалось выполнить вход через VK.");
     }
   }
 
@@ -2659,8 +2703,8 @@ export function AppNavigation() {
       <LoginScreen
         theme={theme}
         onLogin={handleBackendLogin}
-        onGoogleLogin={handleBackendGoogleLogin}
-        onVkLogin={handleVkLogin}
+        onGoogleLogin={handleGoogleOAuthLogin}
+        onVkLogin={handleVkOAuthLogin}
       />
     );
   }
