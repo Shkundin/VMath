@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import type { AppTheme } from "../../theme";
@@ -35,35 +35,13 @@ export function ScreenHeader({
       ]}
     >
       <View style={styles.left}>
-        <View
-          style={[
-            styles.kicker,
-            {
-              backgroundColor: theme.colors.primarySoft
-            }
-          ]}
-        >
-          <Text
-            style={[
-              styles.kickerText,
-              {
-                color: theme.colors.primary,
-                fontFamily: theme.fonts.body
-              }
-            ]}
-          >
-            VisualMath
-          </Text>
-        </View>
-
         <Text
           style={[
             styles.title,
             {
               color: theme.colors.text,
-              fontFamily: theme.fonts.display,
               fontSize: titleSize,
-              lineHeight: titleSize + 6
+              lineHeight: titleSize + 4
             }
           ]}
         >
@@ -76,7 +54,6 @@ export function ScreenHeader({
               styles.subtitle,
               {
                 color: theme.colors.textSecondary,
-                fontFamily: theme.fonts.body,
                 fontSize: theme.typography.body,
                 lineHeight: isPhone ? 22 : 24
               }
@@ -118,22 +95,8 @@ const styles = StyleSheet.create({
   right: {
     minWidth: 0
   },
-  kicker: {
-    alignSelf: "flex-start",
-    minHeight: 28,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    justifyContent: "center",
-    marginBottom: 10
-  },
-  kickerText: {
-    fontSize: 11.5,
-    fontWeight: "800",
-    letterSpacing: 0.45,
-    textTransform: "uppercase"
-  },
   title: {
-    fontWeight: "700",
+    fontWeight: "900",
     marginBottom: 8
   },
   subtitle: {

@@ -259,62 +259,6 @@ function getNavigationOrder(screen: MenuScreenKey): number {
   return 10;
 }
 
-function getTopBarSubtitle(
-  screen: ScreenKey,
-  isTeacher: boolean,
-  selectedTeacherName: string | null
-): string {
-  if (screen === "profile") {
-    return "Настройки и личный кабинет";
-  }
-
-  if (screen === "teacherBranchSelect") {
-    return "Подключение к преподавателю";
-  }
-
-  if (screen === "teacherHome" || screen === "teacherSession") {
-    return "Панель преподавателя";
-  }
-
-  if (screen === "solver") {
-    return "Решение задач и формулы";
-  }
-
-  if (screen === "videoLessons") {
-    return "Видео и разборы";
-  }
-
-  if (screen === "photoMaterials") {
-    return "Материалы и фото";
-  }
-
-  if (screen === "meetings") {
-    return "Встречи и расписание";
-  }
-
-  if (screen === "homework") {
-    return "Домашние задания";
-  }
-
-  if (screen === "grades") {
-    return "Итоги и успеваемость";
-  }
-
-  if (screen === "testing") {
-    return "Тестирование";
-  }
-
-  if (screen === "latex") {
-    return "LaTeX-конспекты";
-  }
-
-  if (isTeacher) {
-    return "Учебный кабинет";
-  }
-
-  return selectedTeacherName ? `Курс преподавателя ${selectedTeacherName}` : "Учебный кабинет";
-}
-
 function nextMode(currentMode: DemoDataMode): DemoDataMode {
   if (currentMode === "online") {
     return "offline";
@@ -930,10 +874,6 @@ export function AppNavigation() {
   );
   const displayRoleBadgeLabel = fixText(
     isTeacher ? "Преподаватель" : selectedTeacherBranch?.teacherName || "Ветка"
-  );
-
-  const topBarSubtitle = fixText(
-    getTopBarSubtitle(activeScreen, isTeacher, selectedTeacherBranch?.teacherName ?? null)
   );
 
   const roleBadgeLabel = isTeacher
@@ -2983,14 +2923,7 @@ export function AppNavigation() {
               borderRadius: 21,
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: isMenuOpen ? theme.colors.primary : theme.colors.primarySoft,
-              borderWidth: 1,
-              borderColor: isMenuOpen ? theme.colors.primary : "transparent",
-              shadowColor: theme.colors.shadow,
-              shadowOpacity: isMenuOpen ? 0.12 : 0,
-              shadowRadius: 10,
-              shadowOffset: { width: 0, height: 4 },
-              elevation: isMenuOpen ? 3 : 0,
+              backgroundColor: theme.colors.primarySoft,
               marginRight: theme.spacing.sm
             }}
           >
@@ -2999,7 +2932,7 @@ export function AppNavigation() {
                 fontSize: 22,
                 lineHeight: 22,
                 fontWeight: "700",
-                color: isMenuOpen ? "#FFFFFF" : theme.colors.primary
+                color: theme.colors.primary
               }}
             >
               ≡
@@ -3011,7 +2944,6 @@ export function AppNavigation() {
               numberOfLines={1}
               style={{
                 flexShrink: 1,
-                fontFamily: theme.fonts.display,
                 fontSize: isPhoneLayout ? 24 : headerTitleSize,
                 fontWeight: "700",
                 color: theme.colors.text
@@ -3023,13 +2955,12 @@ export function AppNavigation() {
               <Text
                 numberOfLines={1}
                 style={{
-                  fontFamily: theme.fonts.body,
                   fontSize: theme.typography.caption,
                   color: theme.colors.textSecondary,
                   marginTop: 2
                 }}
               >
-                {topBarSubtitle}
+                Учебный кабинет
               </Text>
             ) : null}
           </View>
@@ -3053,9 +2984,8 @@ export function AppNavigation() {
               <Text
                 numberOfLines={1}
                 style={{
-                  fontFamily: theme.fonts.body,
                   fontSize: theme.typography.caption,
-                  fontWeight: "800",
+                  fontWeight: "700",
                   color: theme.colors.text
                 }}
               >
@@ -3116,7 +3046,6 @@ export function AppNavigation() {
           >
             <Text
               style={{
-                fontFamily: theme.fonts.display,
                 fontSize: theme.typography.sectionTitle,
                 fontWeight: "700",
                 color: theme.colors.text
@@ -3127,7 +3056,6 @@ export function AppNavigation() {
 
             <Text
               style={{
-                fontFamily: theme.fonts.body,
                 fontSize: theme.typography.caption,
                 color: theme.colors.textSecondary,
                 marginTop: 2
@@ -3191,7 +3119,6 @@ export function AppNavigation() {
               >
                 <Text
                   style={{
-                    fontFamily: isActive ? theme.fonts.display : theme.fonts.body,
                     fontSize: theme.typography.body,
                     fontWeight: isActive ? "800" : "700",
                     color: isActive ? theme.colors.primary : theme.colors.text
@@ -3471,15 +3398,15 @@ function BottomTabs({
         {
           backgroundColor: theme.colors.surfaceElevated,
           borderColor: theme.colors.border,
-          borderRadius: 24,
+          borderRadius: 22,
           marginHorizontal: 12,
           marginTop: 10,
           marginBottom: bottomInset,
-          paddingBottom: bottomInset + 2,
+          paddingBottom: bottomInset,
           shadowColor: "#0F172A",
-          shadowOpacity: 0.12,
-          shadowRadius: 22,
-          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.08,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 6 },
           elevation: 10
         }
       ]}
@@ -3525,12 +3452,7 @@ function TabButton({ theme, label, isActive, onPress }: TabButtonProps) {
         styles.tabButton,
         {
           backgroundColor: isActive ? theme.colors.primarySoft : "transparent",
-          borderColor: isActive ? theme.colors.primarySoft : "transparent",
-          shadowColor: isActive ? theme.colors.shadow : "transparent",
-          shadowOpacity: isActive ? 0.08 : 0,
-          shadowRadius: 10,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: isActive ? 2 : 0
+          borderColor: isActive ? theme.colors.primarySoft : "transparent"
         }
       ]}
     >
@@ -3538,7 +3460,6 @@ function TabButton({ theme, label, isActive, onPress }: TabButtonProps) {
         style={[
           styles.tabLabel,
           {
-            fontFamily: isActive ? theme.fonts.display : theme.fonts.body,
             color: isActive ? theme.colors.primary : theme.colors.textSecondary
           }
         ]}

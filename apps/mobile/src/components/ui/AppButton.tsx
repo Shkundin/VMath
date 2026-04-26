@@ -1,9 +1,8 @@
-import React, { useState } from "react";
+import React from "react";
 import {
-  Platform,
-  Pressable,
   StyleSheet,
   Text,
+  TouchableOpacity,
   type ViewStyle
 } from "react-native";
 
@@ -31,23 +30,17 @@ export function AppButton({
   disabled = false,
   style
 }: AppButtonProps) {
-  const [isHovered, setIsHovered] = useState(false);
-  const styles = createStyles(theme, variant, disabled, fullWidth, isHovered);
+  const styles = createStyles(theme, variant, disabled, fullWidth);
 
   return (
-    <Pressable
+    <TouchableOpacity
+      activeOpacity={0.92}
       disabled={disabled}
       onPress={onPress}
-      onHoverIn={Platform.OS === "web" ? () => setIsHovered(true) : undefined}
-      onHoverOut={Platform.OS === "web" ? () => setIsHovered(false) : undefined}
-      style={({ pressed }) => [
-        styles.button,
-        pressed ? styles.buttonPressed : null,
-        style
-      ]}
+      style={[styles.button, style]}
     >
       <Text style={styles.label}>{fixText(label)}</Text>
-    </Pressable>
+    </TouchableOpacity>
   );
 }
 
@@ -55,8 +48,7 @@ function createStyles(
   theme: AppTheme,
   variant: ButtonVariant,
   disabled: boolean,
-  fullWidth: boolean,
-  isHovered: boolean
+  fullWidth: boolean
 ) {
   const isPrimary = variant === "primary";
   const isSecondary = variant === "secondary";
@@ -66,37 +58,28 @@ function createStyles(
     button: {
       width: fullWidth ? "100%" : undefined,
       maxWidth: "100%",
-      minHeight: 52,
-      borderRadius: theme.radius.lg,
+      minHeight: 46,
+      borderRadius: theme.radius.md,
       paddingHorizontal: theme.spacing.lg,
-      paddingVertical: theme.spacing.sm + 1,
+      paddingVertical: theme.spacing.sm,
       alignItems: "center",
       justifyContent: "center",
       alignSelf: fullWidth ? "stretch" : "flex-start",
       backgroundColor: isPrimary
-        ? isHovered
-          ? "#1F52E6"
-          : theme.colors.primary
+        ? theme.colors.primary
         : isSecondary
-          ? isHovered
-            ? theme.colors.surfaceMuted
-            : theme.colors.surface
+          ? theme.colors.surface
           : "transparent",
       borderWidth: isGhost ? 0 : 1,
       borderColor: isPrimary ? theme.colors.primary : theme.colors.border,
-      opacity: disabled ? 0.5 : 1,
-      transform: [{ translateY: isHovered && !disabled ? -1 : 0 }],
-      ...(isPrimary ? theme.shadow.md : isSecondary ? theme.shadow.sm : {})
-    },
-    buttonPressed: {
-      transform: [{ translateY: 0.5 }]
+      opacity: disabled ? 0.55 : 1,
+      ...(isPrimary ? theme.shadow.sm : {})
     },
     label: {
       color: isPrimary ? "#FFFFFF" : theme.colors.text,
-      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
-      fontWeight: isPrimary ? "800" : "700",
-      letterSpacing: isPrimary ? 0.2 : 0.1,
+      fontWeight: "700",
+      letterSpacing: 0.1,
       textAlign: "center",
       flexShrink: 1
     }

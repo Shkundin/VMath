@@ -3,12 +3,12 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
   useWindowDimensions
 } from "react-native";
 
 import { AppButton } from "../components/ui/AppButton";
-import { AppInput } from "../components/ui/AppInput";
 import { Screen } from "../components/ui/Screen";
 import { ScreenHeader } from "../components/ui/ScreenHeader";
 import { SectionCard } from "../components/ui/SectionCard";
@@ -83,9 +83,6 @@ export function CatalogScreen({
       />
 
       <View style={styles.heroCard}>
-        <View pointerEvents="none" style={styles.heroGlowPrimary} />
-        <View pointerEvents="none" style={styles.heroGlowSecondary} />
-
         <View style={styles.heroMain}>
           <Text style={styles.heroEyebrow}>Учебный кабинет</Text>
           <Text style={styles.heroTitle}>
@@ -98,12 +95,6 @@ export function CatalogScreen({
               ? "Последняя лекция всегда под рукой. Продолжай с того места, где остановился."
               : "Здесь собраны лекции, визуальные блоки, задания и материалы преподавателя."}
           </Text>
-
-          <View style={styles.signalRow}>
-            <HeroSignal theme={theme} label="Лекции" />
-            <HeroSignal theme={theme} label="Практика" />
-            <HeroSignal theme={theme} label="Материалы" />
-          </View>
 
           <View style={styles.heroActions}>
             {lastOpenedLecture ? (
@@ -165,12 +156,12 @@ export function CatalogScreen({
         subtitle="Ищи по названию, предмету, автору, описанию и тегам."
         theme={theme}
       >
-        <AppInput
-          label="Поисковый запрос"
-          theme={theme}
+        <TextInput
           value={query}
           onChangeText={setQuery}
           placeholder="Например: производная, матанализ, пределы..."
+          placeholderTextColor={theme.colors.textSecondary}
+          style={styles.searchInput}
         />
 
         <View style={styles.searchMetaRow}>
@@ -335,21 +326,6 @@ function InfoPill({ theme, text, tone }: InfoPillProps) {
   );
 }
 
-type HeroSignalProps = {
-  theme: AppTheme;
-  label: string;
-};
-
-function HeroSignal({ theme, label }: HeroSignalProps) {
-  const styles = createStyles(theme, 1200);
-
-  return (
-    <View style={styles.heroSignal}>
-      <Text style={styles.heroSignalText}>{label}</Text>
-    </View>
-  );
-}
-
 function createStyles(theme: AppTheme, width: number) {
   const isPhone = width < 560;
   const isCompact = width < 920;
@@ -366,132 +342,76 @@ function createStyles(theme: AppTheme, width: number) {
       borderColor: theme.colors.primarySoft
     },
     headerBadgeText: {
-      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
-      fontWeight: "800",
+      fontWeight: "700",
       color: theme.colors.primary
     },
     heroCard: {
-      position: "relative",
-      overflow: "hidden",
       flexDirection: isCompact ? "column" : "row",
       borderRadius: theme.radius.xl,
       padding: isPhone ? theme.spacing.lg : theme.spacing.xl,
       backgroundColor: theme.colors.surface,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      marginBottom: theme.spacing.lg,
-      ...theme.shadow.lg
-    },
-    heroGlowPrimary: {
-      position: "absolute",
-      top: -70,
-      right: -40,
-      width: 220,
-      height: 220,
-      borderRadius: 999,
-      backgroundColor: "rgba(39, 93, 245, 0.10)"
-    },
-    heroGlowSecondary: {
-      position: "absolute",
-      bottom: -90,
-      left: -50,
-      width: 220,
-      height: 220,
-      borderRadius: 999,
-      backgroundColor: "rgba(216, 139, 31, 0.12)"
+      marginBottom: theme.spacing.lg
     },
     heroMain: {
-      position: "relative",
-      zIndex: 1,
       flex: 1,
       minWidth: 0,
       paddingRight: isCompact ? 0 : theme.spacing.lg,
       marginBottom: isCompact ? theme.spacing.md : 0
     },
     heroEyebrow: {
-      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
-      fontWeight: "800",
+      fontWeight: "700",
       color: theme.colors.primary,
-      letterSpacing: 0.5,
+      letterSpacing: 0.3,
       marginBottom: theme.spacing.sm,
       textTransform: "uppercase"
     },
     heroTitle: {
-      fontFamily: theme.fonts.display,
       fontSize: isPhone ? 24 : theme.typography.title,
-      lineHeight: isPhone ? 31 : theme.typography.title + 6,
+      lineHeight: isPhone ? 30 : theme.typography.title + 4,
       fontWeight: "700",
       color: theme.colors.text,
       marginBottom: theme.spacing.sm
     },
     heroText: {
-      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
-      lineHeight: 24,
+      lineHeight: 22,
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.lg,
       maxWidth: 760
     },
-    signalRow: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      marginBottom: theme.spacing.lg
-    },
-    heroSignal: {
-      minHeight: 34,
-      paddingHorizontal: theme.spacing.md,
-      borderRadius: theme.radius.pill,
-      justifyContent: "center",
-      backgroundColor: "rgba(255, 255, 255, 0.82)",
-      borderWidth: 1,
-      borderColor: "#DCE6F8",
-      marginRight: theme.spacing.sm,
-      marginBottom: theme.spacing.sm
-    },
-    heroSignalText: {
-      fontFamily: theme.fonts.body,
-      fontSize: theme.typography.caption,
-      fontWeight: "800",
-      color: theme.colors.text
-    },
     heroActions: {
       flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "center"
+      flexWrap: "wrap"
     },
     heroButton: {
-      width: isPhone ? "100%" : undefined,
       marginRight: theme.spacing.sm,
       marginBottom: theme.spacing.sm
     },
     statsRail: {
-      position: "relative",
-      zIndex: 1,
       width: isCompact ? "100%" : 230
     },
     statCard: {
       borderRadius: theme.radius.lg,
       padding: theme.spacing.lg,
-      backgroundColor: theme.colors.surfaceElevated,
+      backgroundColor: theme.colors.surfaceMuted,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      marginBottom: theme.spacing.sm,
-      ...theme.shadow.sm
+      marginBottom: theme.spacing.sm
     },
     statValue: {
-      fontFamily: theme.fonts.display,
       fontSize: 26,
       fontWeight: "700",
       color: theme.colors.text,
       marginBottom: theme.spacing.xs
     },
     statLabel: {
-      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       color: theme.colors.textSecondary,
-      fontWeight: "800"
+      fontWeight: "700"
     },
     bannerInfo: {
       borderRadius: theme.radius.lg,
@@ -502,14 +422,12 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.md
     },
     bannerInfoTitle: {
-      fontFamily: theme.fonts.display,
       fontSize: theme.typography.body,
       fontWeight: "700",
       color: theme.colors.text,
       marginBottom: theme.spacing.xs
     },
     bannerInfoText: {
-      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       lineHeight: 20,
       color: theme.colors.textSecondary
@@ -532,29 +450,36 @@ function createStyles(theme: AppTheme, width: number) {
       paddingRight: theme.spacing.md
     },
     bannerErrorTitle: {
-      fontFamily: theme.fonts.display,
       fontSize: theme.typography.body,
       fontWeight: "700",
       color: theme.colors.danger,
       marginBottom: theme.spacing.xs
     },
     bannerErrorText: {
-      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       lineHeight: 20,
       color: theme.colors.textSecondary
     },
+    searchInput: {
+      minHeight: 48,
+      borderRadius: theme.radius.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.input,
+      color: theme.colors.text,
+      paddingHorizontal: theme.spacing.md,
+      fontSize: theme.typography.body
+    },
     searchMetaRow: {
-      marginTop: theme.spacing.xs,
+      marginTop: theme.spacing.sm,
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
       flexWrap: "wrap"
     },
     searchMetaText: {
-      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
-      fontWeight: "800",
+      fontWeight: "700",
       color: theme.colors.textSecondary
     },
     clearChip: {
@@ -568,9 +493,8 @@ function createStyles(theme: AppTheme, width: number) {
       justifyContent: "center"
     },
     clearChipText: {
-      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
-      fontWeight: "800",
+      fontWeight: "700",
       color: theme.colors.text
     },
     grid: {
@@ -591,13 +515,11 @@ function createStyles(theme: AppTheme, width: number) {
       padding: theme.spacing.lg,
       backgroundColor: theme.colors.surface,
       borderWidth: 1,
-      borderColor: theme.colors.border,
-      ...theme.shadow.sm
+      borderColor: theme.colors.border
     },
     lectureCardHighlighted: {
       borderColor: theme.colors.primary,
-      backgroundColor: "#F8FBFF",
-      ...theme.shadow.md
+      backgroundColor: "#F8FBFF"
     },
     cardTopRow: {
       marginBottom: theme.spacing.md
@@ -629,9 +551,8 @@ function createStyles(theme: AppTheme, width: number) {
       borderColor: "#E6F4EA"
     },
     infoPillText: {
-      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
-      fontWeight: "800",
+      fontWeight: "700",
       color: theme.colors.text
     },
     infoPillTextPrimary: {
@@ -641,24 +562,21 @@ function createStyles(theme: AppTheme, width: number) {
       color: theme.colors.success
     },
     lectureTitle: {
-      fontFamily: theme.fonts.display,
       fontSize: theme.typography.sectionTitle,
-      lineHeight: 28,
+      lineHeight: 26,
       fontWeight: "700",
       color: theme.colors.text,
       marginBottom: theme.spacing.sm
     },
     lectureMeta: {
-      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.md,
-      fontWeight: "800"
+      fontWeight: "700"
     },
     lectureDescription: {
-      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
-      lineHeight: 23,
+      lineHeight: 22,
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.md
     },
@@ -677,9 +595,8 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.xs
     },
     tagChipText: {
-      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
-      fontWeight: "800",
+      fontWeight: "700",
       color: theme.colors.textSecondary
     },
     footerInfoGrid: {
@@ -695,19 +612,17 @@ function createStyles(theme: AppTheme, width: number) {
       marginHorizontal: 0,
       marginBottom: theme.spacing.sm,
       borderRadius: theme.radius.md,
-      backgroundColor: theme.colors.surfaceElevated,
+      backgroundColor: theme.colors.surfaceMuted,
       borderWidth: 1,
       borderColor: theme.colors.border
     },
     footerTileLabel: {
-      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
-      fontWeight: "800",
+      fontWeight: "700",
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.xs
     },
     footerTileValue: {
-      fontFamily: theme.fonts.display,
       fontSize: theme.typography.body,
       fontWeight: "700",
       color: theme.colors.text
