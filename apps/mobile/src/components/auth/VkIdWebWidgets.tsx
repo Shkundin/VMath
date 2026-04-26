@@ -340,10 +340,22 @@ export function VkIdWebWidgets({
 
   return (
     <View style={styles.card}>
+      <View style={styles.headerRow}>
+        <View style={styles.headerChip}>
+          <Text style={styles.headerChipText}>Официальный вход</Text>
+        </View>
+      </View>
+
       <Text style={styles.title}>VK ID</Text>
       <Text style={styles.subtitle}>
         Официальный вход через VK ID, Mail.ru и Одноклассники для сайта VisualMath.
       </Text>
+
+      <View style={styles.providersRow}>
+        <ProviderPill theme={theme} label="VK ID" />
+        <ProviderPill theme={theme} label="Mail.ru" />
+        <ProviderPill theme={theme} label="OK" />
+      </View>
 
       {isLoading ? (
         <View style={styles.loadingRow}>
@@ -360,6 +372,21 @@ export function VkIdWebWidgets({
   );
 }
 
+type ProviderPillProps = {
+  theme: AppTheme;
+  label: string;
+};
+
+function ProviderPill({ theme, label }: ProviderPillProps) {
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
+  return (
+    <View style={styles.providerPill}>
+      <Text style={styles.providerPillText}>{label}</Text>
+    </View>
+  );
+}
+
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     card: {
@@ -368,9 +395,30 @@ function createStyles(theme: AppTheme) {
       borderRadius: theme.radius.lg,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      backgroundColor: theme.colors.surfaceMuted
+      backgroundColor: theme.colors.surface,
+      ...theme.shadow.sm
+    },
+    headerRow: {
+      flexDirection: "row",
+      marginBottom: theme.spacing.sm
+    },
+    headerChip: {
+      minHeight: 30,
+      paddingHorizontal: theme.spacing.sm + 2,
+      borderRadius: theme.radius.pill,
+      backgroundColor: theme.colors.primarySoft,
+      borderWidth: 1,
+      borderColor: theme.colors.primarySoft,
+      justifyContent: "center"
+    },
+    headerChipText: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.helper,
+      fontWeight: "800",
+      color: theme.colors.primary
     },
     title: {
+      fontFamily: theme.fonts.display,
       fontSize: theme.typography.body,
       fontWeight: "800",
       color: theme.colors.text
@@ -379,8 +427,30 @@ function createStyles(theme: AppTheme) {
       marginTop: theme.spacing.xs,
       marginBottom: theme.spacing.md,
       fontSize: theme.typography.caption,
-      lineHeight: 18,
+      lineHeight: 20,
       color: theme.colors.textSecondary
+    },
+    providersRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      marginBottom: theme.spacing.md
+    },
+    providerPill: {
+      minHeight: 30,
+      paddingHorizontal: theme.spacing.sm + 2,
+      borderRadius: theme.radius.pill,
+      backgroundColor: theme.colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      justifyContent: "center",
+      marginRight: theme.spacing.xs,
+      marginBottom: theme.spacing.xs
+    },
+    providerPillText: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.helper,
+      fontWeight: "800",
+      color: theme.colors.text
     },
     loadingRow: {
       flexDirection: "row",
@@ -389,6 +459,7 @@ function createStyles(theme: AppTheme) {
     },
     loadingText: {
       marginLeft: theme.spacing.sm,
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       color: theme.colors.textSecondary
     },
@@ -398,6 +469,7 @@ function createStyles(theme: AppTheme) {
     errorText: {
       marginTop: theme.spacing.sm,
       color: theme.colors.danger,
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700"
     }

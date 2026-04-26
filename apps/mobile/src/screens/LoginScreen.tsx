@@ -246,6 +246,13 @@ export function LoginScreen({
               fullWidth={width < 640}
               style={styles.introButton}
             />
+
+            <View style={styles.partnerRow}>
+              <PartnerChip theme={theme} label="Google" />
+              <PartnerChip theme={theme} label="VK ID" />
+              <PartnerChip theme={theme} label="Mail.ru" />
+              <PartnerChip theme={theme} label="OK" />
+            </View>
           </View>
         </View>
       </Screen>
@@ -257,7 +264,7 @@ export function LoginScreen({
       <View style={styles.page}>
         <View style={styles.authTopRow}>
           <Pressable onPress={() => setStage("intro")} style={styles.backChip}>
-            <Text style={styles.backChipText}>Эмблема</Text>
+            <Text style={styles.backChipText}>К эмблеме</Text>
           </Pressable>
 
           <View style={styles.authBrandRow}>
@@ -279,6 +286,12 @@ export function LoginScreen({
             <Text style={styles.heroSubtitle}>
               Курсы, материалы, встречи, тестирование и домашние задания в аккуратном интерфейсе учебного кабинета.
             </Text>
+
+            <View style={styles.heroSignals}>
+              <HeroSignal theme={theme} title="Курсы" subtitle="Лекции и материалы" />
+              <HeroSignal theme={theme} title="Сессии" subtitle="Общие занятия онлайн" />
+              <HeroSignal theme={theme} title="Контроль" subtitle="Тесты и результаты" />
+            </View>
 
             <View style={styles.roleGrid}>
               <RoleCard
@@ -377,28 +390,42 @@ export function LoginScreen({
                   <View style={styles.dividerLine} />
                 </View>
 
-                <AppButton
-                  label={isGoogleSubmitting ? "Подключаем Google..." : "Продолжить через Google"}
-                  onPress={() => {
-                    void handleGoogle();
-                  }}
-                  theme={theme}
-                  variant="secondary"
-                  style={styles.socialButton}
-                />
+                <View style={styles.socialSection}>
+                  <Text style={styles.socialSectionTitle}>Быстрый вход</Text>
+                  <Text style={styles.socialSectionSubtitle}>
+                    Официальный вход через Google и VK ID без отдельного пароля для соцсети.
+                  </Text>
 
-                {vkWebWidget ? (
-                  vkWebWidget
-                ) : (
                   <AppButton
-                    label={isVkSubmitting ? "Подключаем VK..." : "Продолжить через VK"}
+                    label={isGoogleSubmitting ? "Подключаем Google..." : "Продолжить через Google"}
                     onPress={() => {
-                      void handleVk();
+                      void handleGoogle();
                     }}
                     theme={theme}
                     variant="secondary"
+                    style={styles.socialButton}
                   />
-                )}
+
+                  {vkWebWidget ? (
+                    vkWebWidget
+                  ) : (
+                    <AppButton
+                      label={isVkSubmitting ? "Подключаем VK..." : "Продолжить через VK"}
+                      onPress={() => {
+                        void handleVk();
+                      }}
+                      theme={theme}
+                      variant="secondary"
+                    />
+                  )}
+
+                  <View style={styles.socialTrustRow}>
+                    <PartnerChip theme={theme} label="Google" compact />
+                    <PartnerChip theme={theme} label="VK ID" compact />
+                    <PartnerChip theme={theme} label="Mail.ru" compact />
+                    <PartnerChip theme={theme} label="OK" compact />
+                  </View>
+                </View>
               </>
             ) : null}
 
@@ -516,6 +543,7 @@ function createBrandMarkStyles(theme: AppTheme, compact: boolean) {
     },
     symbol: {
       color: "#FFFFFF",
+      fontFamily: theme.fonts.display,
       fontSize: compact ? 16 : 34,
       fontWeight: "900",
       letterSpacing: compact ? 0.8 : 1.2
@@ -555,6 +583,7 @@ function createFeatureTileStyles(theme: AppTheme) {
       borderColor: "#D6E3FF"
     },
     code: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.helper,
       fontWeight: "800",
       color: theme.colors.primary,
@@ -562,12 +591,99 @@ function createFeatureTileStyles(theme: AppTheme) {
       letterSpacing: 0.6
     },
     title: {
+      fontFamily: theme.fonts.display,
       fontSize: theme.typography.body,
       fontWeight: "800",
       color: theme.colors.text,
       marginBottom: theme.spacing.xs
     },
     subtitle: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      lineHeight: 18,
+      color: theme.colors.textSecondary
+    }
+  });
+}
+
+type PartnerChipProps = {
+  theme: AppTheme;
+  label: string;
+  compact?: boolean;
+};
+
+function PartnerChip({ theme, label, compact = false }: PartnerChipProps) {
+  const styles = createPartnerChipStyles(theme, compact);
+
+  return (
+    <View style={styles.shell}>
+      <Text style={styles.label}>{label}</Text>
+    </View>
+  );
+}
+
+function createPartnerChipStyles(theme: AppTheme, compact: boolean) {
+  return StyleSheet.create({
+    shell: {
+      minHeight: compact ? 30 : 34,
+      paddingHorizontal: compact ? theme.spacing.sm + 2 : theme.spacing.md,
+      borderRadius: theme.radius.pill,
+      borderWidth: 1,
+      borderColor: compact ? theme.colors.border : "#D6E3FF",
+      backgroundColor: compact ? theme.colors.surfaceMuted : "rgba(255, 255, 255, 0.88)",
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: theme.spacing.xs,
+      marginBottom: theme.spacing.xs
+    },
+    label: {
+      fontFamily: theme.fonts.body,
+      fontSize: compact ? theme.typography.helper : theme.typography.caption,
+      fontWeight: "800",
+      color: compact ? theme.colors.text : theme.colors.primary
+    }
+  });
+}
+
+type HeroSignalProps = {
+  theme: AppTheme;
+  title: string;
+  subtitle: string;
+};
+
+function HeroSignal({ theme, title, subtitle }: HeroSignalProps) {
+  const styles = createHeroSignalStyles(theme);
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.subtitle}>{subtitle}</Text>
+    </View>
+  );
+}
+
+function createHeroSignalStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    card: {
+      flexBasis: 156,
+      flexGrow: 1,
+      minHeight: 72,
+      borderRadius: theme.radius.md,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.md,
+      backgroundColor: "rgba(255, 255, 255, 0.72)",
+      borderWidth: 1,
+      borderColor: "#D6E3FF"
+    },
+    title: {
+      fontFamily: theme.fonts.display,
+      fontSize: theme.typography.body,
+      fontWeight: "700",
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs
+    },
+    subtitle: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       lineHeight: 18,
       color: theme.colors.textSecondary
@@ -625,17 +741,20 @@ function createRoleCardStyles(theme: AppTheme, isActive: boolean, isStacked: boo
       marginBottom: theme.spacing.sm
     },
     iconText: {
+      fontFamily: theme.fonts.display,
       color: isActive ? "#FFFFFF" : theme.colors.text,
       fontSize: 16,
       fontWeight: "700"
     },
     title: {
+      fontFamily: theme.fonts.display,
       fontSize: theme.typography.sectionTitle,
       fontWeight: "800",
       color: theme.colors.text,
       marginBottom: theme.spacing.xs
     },
     subtitle: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       lineHeight: 18,
       color: theme.colors.textSecondary
@@ -673,6 +792,7 @@ function createModeChipStyles(theme: AppTheme, isActive: boolean) {
       justifyContent: "center"
     },
     label: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
       fontWeight: "800",
       color: isActive ? theme.colors.primary : theme.colors.text
@@ -700,7 +820,8 @@ function createStyles(theme: AppTheme, width: number) {
       borderColor: "#D7E4FF",
       minHeight: isPhone ? 620 : 680,
       alignItems: "center",
-      justifyContent: "space-between"
+      justifyContent: "space-between",
+      ...theme.shadow.lg
     },
     introGlowPrimary: {
       position: "absolute",
@@ -726,6 +847,7 @@ function createStyles(theme: AppTheme, width: number) {
       paddingTop: isPhone ? theme.spacing.lg : theme.spacing.xxl
     },
     introTitle: {
+      fontFamily: theme.fonts.display,
       marginTop: theme.spacing.lg,
       fontSize: isPhone ? 30 : 44,
       lineHeight: isPhone ? 36 : 50,
@@ -733,6 +855,7 @@ function createStyles(theme: AppTheme, width: number) {
       color: theme.colors.text
     },
     introSubtitle: {
+      fontFamily: theme.fonts.body,
       marginTop: theme.spacing.sm,
       fontSize: isPhone ? theme.typography.body : theme.typography.sectionTitle,
       lineHeight: isPhone ? 22 : 28,
@@ -747,6 +870,13 @@ function createStyles(theme: AppTheme, width: number) {
     },
     introButton: {
       marginTop: theme.spacing.xl
+    },
+    partnerRow: {
+      width: "100%",
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "center",
+      marginTop: theme.spacing.lg
     },
     authTopRow: {
       flexDirection: isPhone ? "column" : "row",
@@ -767,8 +897,9 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: isPhone ? theme.spacing.md : 0
     },
     backChipText: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
-      fontWeight: "700",
+      fontWeight: "800",
       color: theme.colors.text
     },
     authBrandRow: {
@@ -779,11 +910,13 @@ function createStyles(theme: AppTheme, width: number) {
       marginLeft: theme.spacing.sm
     },
     authBrandTitle: {
+      fontFamily: theme.fonts.display,
       fontSize: theme.typography.body,
       fontWeight: "800",
       color: theme.colors.text
     },
     authBrandSubtitle: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       color: theme.colors.textSecondary
     },
@@ -800,7 +933,8 @@ function createStyles(theme: AppTheme, width: number) {
       borderWidth: 1,
       borderColor: "#D7E4FF",
       marginBottom: isStacked ? theme.spacing.lg : 0,
-      marginRight: isStacked ? 0 : theme.spacing.lg
+      marginRight: isStacked ? 0 : theme.spacing.lg,
+      ...theme.shadow.lg
     },
     formPanel: {
       width: "100%",
@@ -810,11 +944,7 @@ function createStyles(theme: AppTheme, width: number) {
       backgroundColor: theme.colors.surface,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      shadowColor: theme.colors.shadow,
-      shadowOpacity: 0.08,
-      shadowRadius: 18,
-      shadowOffset: { width: 0, height: 8 },
-      elevation: 4
+      ...theme.shadow.lg
     },
     heroBadge: {
       alignSelf: "flex-start",
@@ -826,11 +956,13 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.md
     },
     heroBadgeText: {
+      fontFamily: theme.fonts.body,
       color: theme.colors.primary,
       fontSize: theme.typography.caption,
-      fontWeight: "700"
+      fontWeight: "800"
     },
     heroTitle: {
+      fontFamily: theme.fonts.display,
       fontSize: isPhone ? 24 : theme.typography.hero,
       lineHeight: isPhone ? 30 : theme.typography.hero + 6,
       fontWeight: "900",
@@ -838,11 +970,18 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.sm
     },
     heroSubtitle: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
-      lineHeight: 22,
+      lineHeight: 24,
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.xl,
       maxWidth: 520
+    },
+    heroSignals: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: theme.spacing.sm,
+      marginBottom: theme.spacing.xl
     },
     roleGrid: {
       flexDirection: width < 860 ? "column" : "row",
@@ -855,6 +994,7 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.lg
     },
     formTitle: {
+      fontFamily: theme.fonts.display,
       fontSize: isPhone ? 22 : theme.typography.screenTitle,
       lineHeight: isPhone ? 28 : theme.typography.screenTitle + 4,
       fontWeight: "700",
@@ -862,18 +1002,21 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.xs
     },
     formSubtitle: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
       lineHeight: 22,
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.lg
     },
     errorText: {
+      fontFamily: theme.fonts.body,
       color: theme.colors.danger,
       fontSize: theme.typography.caption,
       marginBottom: theme.spacing.sm,
       fontWeight: "700"
     },
     successText: {
+      fontFamily: theme.fonts.body,
       color: theme.colors.success,
       fontSize: theme.typography.caption,
       marginBottom: theme.spacing.sm,
@@ -894,16 +1037,44 @@ function createStyles(theme: AppTheme, width: number) {
       backgroundColor: theme.colors.border
     },
     dividerText: {
+      fontFamily: theme.fonts.body,
       marginHorizontal: theme.spacing.md,
       color: theme.colors.textSecondary,
       fontSize: theme.typography.caption,
-      fontWeight: "700"
+      fontWeight: "800"
     },
     socialButton: {
       marginBottom: theme.spacing.sm
     },
+    socialSection: {
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.md,
+      backgroundColor: theme.colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: theme.colors.border
+    },
+    socialSectionTitle: {
+      fontFamily: theme.fonts.display,
+      fontSize: theme.typography.sectionTitle,
+      fontWeight: "700",
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs
+    },
+    socialSectionSubtitle: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      lineHeight: 20,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.md
+    },
+    socialTrustRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      marginTop: theme.spacing.sm
+    },
     helperText: {
       marginTop: theme.spacing.lg,
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       color: theme.colors.textSecondary,
       textAlign: "center"
