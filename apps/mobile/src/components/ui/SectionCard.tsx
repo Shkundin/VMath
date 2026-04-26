@@ -37,17 +37,31 @@ export function SectionCard({
           backgroundColor: theme.colors.surface,
           borderColor: theme.colors.border,
           borderRadius: isPhone ? theme.radius.lg : theme.radius.xl,
-          padding: isPhone ? theme.spacing.md : theme.spacing.lg
+          padding: isPhone ? theme.spacing.md : theme.spacing.lg,
+          shadowColor: theme.colors.shadow,
+          shadowOpacity: theme.mode === "dark" ? 0.22 : 0.08,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 8 },
+          elevation: 4
         },
         style
       ]}
     >
+      <View
+        pointerEvents="none"
+        style={[
+          styles.highlight,
+          { backgroundColor: theme.colors.primarySoft }
+        ]}
+      />
+
       {title ? (
         <Text
           style={[
             styles.title,
             {
               color: theme.colors.text,
+              fontFamily: theme.fonts.display,
               fontSize: theme.typography.sectionTitle
             }
           ]}
@@ -62,6 +76,7 @@ export function SectionCard({
             styles.subtitle,
             {
               color: theme.colors.textSecondary,
+              fontFamily: theme.fonts.body,
               fontSize: theme.typography.body
             }
           ]}
@@ -85,6 +100,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     alignSelf: "stretch",
     overflow: "hidden"
+  },
+  highlight: {
+    position: "absolute",
+    top: -12,
+    right: -16,
+    width: 104,
+    height: 104,
+    borderRadius: 999,
+    opacity: 0.7
   },
   title: {
     fontWeight: "900",

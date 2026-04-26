@@ -2386,7 +2386,7 @@ export function AppNavigation() {
     setActiveScreen("session");
   }
 
-  async function handleOpenManageTeacherSession(lecture: LectureItem) {
+  function createTeacherSessionForLecture(lecture: LectureItem) {
     const details = lectureDetailsById[lecture.id];
 
     const quizQuestions =
@@ -2396,8 +2396,30 @@ export function AppNavigation() {
           block.type === "quiz" ? block.payload.questions : []
         ) ?? [];
 
+    return createTeacherManagedSession(lecture, quizQuestions);
+  }
+
+  async function handleOpenManageTeacherSession(lecture: LectureItem) {
     setSelectedLecture(lecture);
-    setCurrentTeacherSession(createTeacherManagedSession(lecture, quizQuestions));
+    setCurrentTeacherSession(createTeacherSessionForLecture(lecture));
+    setActiveScreen("teacherSession");
+  }
+
+  function handleLaunchSharedTeacherSession(lecture: LectureItem) {
+    if (
+      currentTeacherSession &&
+      currentTeacherSession.lectureId === lecture.id &&
+      currentTeacherSession.status === "active"
+    ) {
+      setSelectedLecture(lecture);
+      setActiveScreen("teacherSession");
+      return;
+    }
+
+    const nextSession = createTeacherSessionForLecture(lecture);
+    resetTeacherSessionStats(nextSession.lectureId);
+    setSelectedLecture(lecture);
+    setCurrentTeacherSession(updateTeacherSessionStatus(nextSession, "active"));
     setActiveScreen("teacherSession");
   }
 
@@ -3206,6 +3228,17 @@ export function AppNavigation() {
             teacherJoinCode={ownTeacherBranch?.joinCode ?? createTeacherJoinCode(user.login)}
             lectures={visibleLectures}
             lectureDetailsById={lectureDetailsById}
+            activeSession={
+              currentTeacherSession
+                ? {
+                    lectureId: currentTeacherSession.lectureId,
+                    lectureTitle: currentTeacherSession.lectureTitle,
+                    sessionCode: currentTeacherSession.sessionCode,
+                    status: currentTeacherSession.status
+                  }
+                : null
+            }
+            onLaunchSharedSession={handleLaunchSharedTeacherSession}
             onOpenManageSession={(lecture) => void handleOpenManageTeacherSession(lecture)}
             onCreateDraftLecture={handleCreateDraftLecture}
             onUpdateDraftLectureMeta={handleUpdateDraftLectureMeta}

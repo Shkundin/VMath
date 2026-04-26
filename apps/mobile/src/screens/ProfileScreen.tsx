@@ -88,6 +88,9 @@ export function ProfileScreen({
       />
 
       <View style={styles.heroCard}>
+        <View style={styles.heroGlowPrimary} />
+        <View style={styles.heroGlowSecondary} />
+
         <View style={styles.heroLeft}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initials}</Text>
@@ -404,18 +407,41 @@ function createStyles(theme: AppTheme, width: number) {
       borderColor: theme.colors.primarySoft
     },
     roleChipText: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.primary
     },
     heroCard: {
+      position: "relative",
+      overflow: "hidden",
       flexDirection: isCompact ? "column" : "row",
       borderRadius: theme.radius.xl,
       padding: isPhone ? theme.spacing.lg : theme.spacing.xl,
-      backgroundColor: theme.colors.surface,
+      backgroundColor: theme.colors.surfaceElevated,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      marginBottom: theme.spacing.lg
+      marginBottom: theme.spacing.lg,
+      ...theme.shadow.md
+    },
+    heroGlowPrimary: {
+      position: "absolute",
+      top: -40,
+      right: -22,
+      width: isPhone ? 150 : 210,
+      height: isPhone ? 150 : 210,
+      borderRadius: 999,
+      backgroundColor: theme.colors.primarySoft,
+      opacity: 0.86
+    },
+    heroGlowSecondary: {
+      position: "absolute",
+      bottom: -54,
+      left: -38,
+      width: isPhone ? 150 : 230,
+      height: isPhone ? 150 : 230,
+      borderRadius: 999,
+      backgroundColor: "rgba(19, 121, 91, 0.09)"
     },
     heroLeft: {
       flex: 1,
@@ -433,9 +459,11 @@ function createStyles(theme: AppTheme, width: number) {
       justifyContent: "center",
       backgroundColor: theme.colors.primary,
       marginRight: isPhone ? 0 : theme.spacing.lg,
-      marginBottom: isPhone ? theme.spacing.md : 0
+      marginBottom: isPhone ? theme.spacing.md : 0,
+      ...theme.shadow.sm
     },
     avatarText: {
+      fontFamily: theme.fonts.display,
       fontSize: 30,
       fontWeight: "700",
       color: "#FFFFFF"
@@ -444,6 +472,7 @@ function createStyles(theme: AppTheme, width: number) {
       flex: 1
     },
     heroEyebrow: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.primary,
@@ -452,6 +481,7 @@ function createStyles(theme: AppTheme, width: number) {
       letterSpacing: 0.3
     },
     heroName: {
+      fontFamily: theme.fonts.display,
       fontSize: isPhone ? 24 : theme.typography.title,
       lineHeight: isPhone ? 30 : theme.typography.title + 4,
       fontWeight: "700",
@@ -459,6 +489,7 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.xs
     },
     heroSubtitle: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
       lineHeight: 22,
       color: theme.colors.textSecondary,
@@ -480,6 +511,7 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.sm
     },
     infoBadgeText: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.text
@@ -490,18 +522,21 @@ function createStyles(theme: AppTheme, width: number) {
     miniStatCard: {
       borderRadius: theme.radius.lg,
       padding: theme.spacing.lg,
-      backgroundColor: theme.colors.surfaceMuted,
+      backgroundColor: theme.colors.surface,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      marginBottom: theme.spacing.sm
+      marginBottom: theme.spacing.sm,
+      ...theme.shadow.sm
     },
     miniStatValue: {
+      fontFamily: theme.fonts.display,
       fontSize: 24,
       fontWeight: "700",
       color: theme.colors.text,
       marginBottom: theme.spacing.xs
     },
     miniStatLabel: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.textSecondary
@@ -532,17 +567,20 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.sm,
       padding: theme.spacing.md,
       borderRadius: theme.radius.md,
-      backgroundColor: theme.colors.surfaceMuted,
+      backgroundColor: theme.colors.surfaceElevated,
       borderWidth: 1,
-      borderColor: theme.colors.border
+      borderColor: theme.colors.border,
+      ...theme.shadow.sm
     },
     infoTileLabel: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.helper,
       fontWeight: "700",
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.xs
     },
     infoTileValue: {
+      fontFamily: theme.fonts.display,
       fontSize: theme.typography.body,
       fontWeight: "700",
       color: theme.colors.text
@@ -562,12 +600,14 @@ function createStyles(theme: AppTheme, width: number) {
       paddingRight: theme.spacing.md
     },
     settingTitle: {
+      fontFamily: theme.fonts.display,
       fontSize: theme.typography.body,
       fontWeight: "700",
       color: theme.colors.text,
       marginBottom: theme.spacing.xs
     },
     settingDescription: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       lineHeight: 20,
       color: theme.colors.textSecondary

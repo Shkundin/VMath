@@ -48,12 +48,21 @@ export type DraftQuestionInput = {
   explanation: string;
 };
 
+type TeacherSessionSummary = {
+  lectureId: string;
+  lectureTitle: string;
+  sessionCode: string;
+  status: "draft" | "active" | "stopped";
+};
+
 type TeacherHomeScreenProps = {
   theme: AppTheme;
   user: UserProfile;
   teacherJoinCode: string;
   lectures: LectureItem[];
   lectureDetailsById: Record<string, LectureDetails>;
+  activeSession?: TeacherSessionSummary | null;
+  onLaunchSharedSession: (lecture: LectureItem) => void;
   onOpenManageSession: (lecture: LectureItem) => void;
   onCreateDraftLecture: (input: DraftLectureInput) => string | null;
   onUpdateDraftLectureMeta: (lectureId: string, input: DraftLectureMetaInput) => void;
@@ -69,6 +78,8 @@ export function TeacherHomeScreen({
   teacherJoinCode,
   lectures,
   lectureDetailsById,
+  activeSession,
+  onLaunchSharedSession,
   onOpenManageSession,
   onCreateDraftLecture,
   onUpdateDraftLectureMeta,
@@ -133,6 +144,24 @@ export function TeacherHomeScreen({
     () => lectures.filter((lecture) => lecture.id.startsWith("draft-lecture-")).length,
     [lectures]
   );
+
+  const sharedSessionLecture = useMemo(() => {
+    if (activeSession) {
+      return lectures.find((lecture) => lecture.id === activeSession.lectureId) ?? null;
+    }
+
+    return expandedLecture ?? lectures[0] ?? null;
+  }, [activeSession, expandedLecture, lectures]);
+
+  const sharedSessionLabel = activeSession?.status === "active"
+    ? "Открыть общую сессию"
+    : "Запустить общую сессию";
+
+  const sharedSessionHint = activeSession
+    ? `Сейчас активна лекция «${fixText(activeSession.lectureTitle)}» • код ${fixText(activeSession.sessionCode)}`
+    : sharedSessionLecture
+      ? `Сессия запустится для лекции «${fixText(sharedSessionLecture.title)}».`
+      : "Сначала создай хотя бы одну лекцию, чтобы запустить общую сессию.";
 
   const normalizedTeacherName = fixText(user.fullName || "");
   const teacherDisplayName = normalizedTeacherName.trim().length > 0
@@ -434,6 +463,9 @@ export function TeacherHomeScreen({
       />
 
       <View style={styles.heroCard}>
+        <View style={styles.heroGlowPrimary} />
+        <View style={styles.heroGlowSecondary} />
+
         <View style={styles.heroMain}>
           <Text style={styles.heroEyebrow}>Рабочее пространство</Text>
           <Text style={styles.heroTitle}>{teacherDisplayName}</Text>
@@ -449,6 +481,18 @@ export function TeacherHomeScreen({
 
           <View style={styles.heroActionRow}>
             <AppButton
+              label={sharedSessionLabel}
+              onPress={() => {
+                if (sharedSessionLecture) {
+                  onLaunchSharedSession(sharedSessionLecture);
+                }
+              }}
+              theme={theme}
+              fullWidth={false}
+              disabled={!sharedSessionLecture}
+              style={styles.heroPrimaryButton}
+            />
+            <AppButton
               label="Выйти из аккаунта"
               onPress={onLogout}
               theme={theme}
@@ -457,6 +501,8 @@ export function TeacherHomeScreen({
               style={styles.inlineButton}
             />
           </View>
+
+          <Text style={styles.heroHelperText}>{sharedSessionHint}</Text>
         </View>
 
         <View style={styles.heroStats}>
@@ -911,13 +957,35 @@ function createStyles(theme: AppTheme, width: number) {
 
   return StyleSheet.create({
     heroCard: {
+      position: "relative",
+      overflow: "hidden",
       flexDirection: isCompact ? "column" : "row",
       borderRadius: theme.radius.xl,
       padding: isPhone ? theme.spacing.lg : theme.spacing.xl,
-      backgroundColor: theme.colors.surface,
+      backgroundColor: theme.colors.surfaceElevated,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      marginBottom: theme.spacing.lg
+      marginBottom: theme.spacing.lg,
+      ...theme.shadow.md
+    },
+    heroGlowPrimary: {
+      position: "absolute",
+      top: -46,
+      right: -24,
+      width: isPhone ? 160 : 230,
+      height: isPhone ? 160 : 230,
+      borderRadius: 999,
+      backgroundColor: theme.colors.primarySoft,
+      opacity: 0.84
+    },
+    heroGlowSecondary: {
+      position: "absolute",
+      bottom: -58,
+      left: -42,
+      width: isPhone ? 170 : 240,
+      height: isPhone ? 170 : 240,
+      borderRadius: 999,
+      backgroundColor: "rgba(19, 121, 91, 0.10)"
     },
     heroMain: {
       flex: 1,
@@ -926,6 +994,7 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: isCompact ? theme.spacing.md : 0
     },
     heroEyebrow: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.primary,
@@ -934,6 +1003,7 @@ function createStyles(theme: AppTheme, width: number) {
       letterSpacing: 0.3
     },
     heroTitle: {
+      fontFamily: theme.fonts.display,
       fontSize: isPhone ? 24 : theme.typography.title,
       lineHeight: isPhone ? 30 : theme.typography.title + 4,
       fontWeight: "700",
@@ -941,6 +1011,7 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.sm
     },
     heroSubtitle: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
       lineHeight: 22,
       color: theme.colors.textSecondary,
@@ -964,6 +1035,7 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.sm
     },
     infoBadgeText: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.text
@@ -971,6 +1043,18 @@ function createStyles(theme: AppTheme, width: number) {
     heroActionRow: {
       flexDirection: "row",
       flexWrap: "wrap"
+    },
+    heroPrimaryButton: {
+      marginRight: theme.spacing.sm,
+      marginBottom: theme.spacing.sm
+    },
+    heroHelperText: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      lineHeight: 20,
+      color: theme.colors.textSecondary,
+      marginTop: theme.spacing.xs,
+      maxWidth: 760
     },
     heroStats: {
       width: isCompact ? "100%" : 250,
@@ -984,18 +1068,21 @@ function createStyles(theme: AppTheme, width: number) {
       minWidth: isPhone ? 92 : undefined,
       borderRadius: theme.radius.lg,
       padding: isPhone ? theme.spacing.md : theme.spacing.lg,
-      backgroundColor: theme.colors.surfaceMuted,
+      backgroundColor: theme.colors.surface,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      marginBottom: isPhone ? 0 : theme.spacing.sm
+      marginBottom: isPhone ? 0 : theme.spacing.sm,
+      ...theme.shadow.sm
     },
     statValue: {
+      fontFamily: theme.fonts.display,
       fontSize: 26,
       fontWeight: "700",
       color: theme.colors.text,
       marginBottom: theme.spacing.xs
     },
     statLabel: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.textSecondary
@@ -1026,18 +1113,21 @@ function createStyles(theme: AppTheme, width: number) {
     actionMiniCard: {
       borderRadius: theme.radius.md,
       padding: isPhone ? theme.spacing.sm + 2 : theme.spacing.md,
-      backgroundColor: theme.colors.surfaceMuted,
+      backgroundColor: theme.colors.surfaceElevated,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      marginBottom: theme.spacing.sm
+      marginBottom: theme.spacing.sm,
+      ...theme.shadow.sm
     },
     actionMiniTitle: {
+      fontFamily: theme.fonts.display,
       fontSize: theme.typography.body,
       fontWeight: "700",
       color: theme.colors.text,
       marginBottom: theme.spacing.xs
     },
     actionMiniSubtitle: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       lineHeight: 18,
       color: theme.colors.textSecondary
@@ -1079,10 +1169,11 @@ function createStyles(theme: AppTheme, width: number) {
     lectureCard: {
       borderRadius: theme.radius.xl,
       padding: isPhone ? theme.spacing.md : theme.spacing.lg,
-      backgroundColor: theme.colors.surfaceElevated,
+      backgroundColor: theme.colors.surface,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      marginBottom: theme.spacing.md
+      marginBottom: theme.spacing.md,
+      ...theme.shadow.sm
     },
     lectureCardExpanded: {
       borderColor: theme.colors.primary
@@ -1120,6 +1211,7 @@ function createStyles(theme: AppTheme, width: number) {
       borderColor: "#E6F4EA"
     },
     tinyPillText: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.text
@@ -1131,6 +1223,7 @@ function createStyles(theme: AppTheme, width: number) {
       color: theme.colors.success
     },
     lectureTitle: {
+      fontFamily: theme.fonts.display,
       fontSize: theme.typography.sectionTitle,
       lineHeight: 26,
       fontWeight: "700",
@@ -1138,12 +1231,14 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.sm
     },
     lectureMeta: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.sm
     },
     lectureDescription: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
       lineHeight: 22,
       color: theme.colors.textSecondary
@@ -1173,6 +1268,7 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.xs
     },
     metaItemValue: {
+      fontFamily: theme.fonts.display,
       fontSize: theme.typography.body,
       fontWeight: "700",
       color: theme.colors.text
@@ -1207,6 +1303,7 @@ function createStyles(theme: AppTheme, width: number) {
       width: isCompact ? "100%" : undefined
     },
     theoryPreview: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
       lineHeight: 24,
       color: theme.colors.text,
@@ -1225,6 +1322,7 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.md
     },
     questionTitle: {
+      fontFamily: theme.fonts.display,
       fontSize: theme.typography.body,
       lineHeight: 22,
       fontWeight: "700",
@@ -1232,12 +1330,14 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.sm
     },
     questionOption: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
       lineHeight: 22,
       color: theme.colors.text,
       marginBottom: theme.spacing.xs
     },
     questionHint: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       lineHeight: 20,
       color: theme.colors.textSecondary,

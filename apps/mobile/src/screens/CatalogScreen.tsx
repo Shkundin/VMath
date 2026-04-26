@@ -83,6 +83,9 @@ export function CatalogScreen({
       />
 
       <View style={styles.heroCard}>
+        <View style={styles.heroGlowPrimary} />
+        <View style={styles.heroGlowSecondary} />
+
         <View style={styles.heroMain}>
           <Text style={styles.heroEyebrow}>Учебный кабинет</Text>
           <Text style={styles.heroTitle}>
@@ -342,18 +345,41 @@ function createStyles(theme: AppTheme, width: number) {
       borderColor: theme.colors.primarySoft
     },
     headerBadgeText: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.primary
     },
     heroCard: {
+      position: "relative",
+      overflow: "hidden",
       flexDirection: isCompact ? "column" : "row",
       borderRadius: theme.radius.xl,
       padding: isPhone ? theme.spacing.lg : theme.spacing.xl,
-      backgroundColor: theme.colors.surface,
+      backgroundColor: theme.colors.surfaceElevated,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      marginBottom: theme.spacing.lg
+      marginBottom: theme.spacing.lg,
+      ...theme.shadow.md
+    },
+    heroGlowPrimary: {
+      position: "absolute",
+      top: -36,
+      right: -16,
+      width: isPhone ? 140 : 210,
+      height: isPhone ? 140 : 210,
+      borderRadius: 999,
+      backgroundColor: theme.colors.primarySoft,
+      opacity: 0.82
+    },
+    heroGlowSecondary: {
+      position: "absolute",
+      bottom: -60,
+      left: -42,
+      width: isPhone ? 160 : 220,
+      height: isPhone ? 160 : 220,
+      borderRadius: 999,
+      backgroundColor: "rgba(197, 138, 23, 0.10)"
     },
     heroMain: {
       flex: 1,
@@ -362,6 +388,7 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: isCompact ? theme.spacing.md : 0
     },
     heroEyebrow: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.primary,
@@ -370,6 +397,7 @@ function createStyles(theme: AppTheme, width: number) {
       textTransform: "uppercase"
     },
     heroTitle: {
+      fontFamily: theme.fonts.display,
       fontSize: isPhone ? 24 : theme.typography.title,
       lineHeight: isPhone ? 30 : theme.typography.title + 4,
       fontWeight: "700",
@@ -377,6 +405,7 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.sm
     },
     heroText: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
       lineHeight: 22,
       color: theme.colors.textSecondary,
@@ -397,18 +426,21 @@ function createStyles(theme: AppTheme, width: number) {
     statCard: {
       borderRadius: theme.radius.lg,
       padding: theme.spacing.lg,
-      backgroundColor: theme.colors.surfaceMuted,
+      backgroundColor: theme.colors.surface,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      marginBottom: theme.spacing.sm
+      marginBottom: theme.spacing.sm,
+      ...theme.shadow.sm
     },
     statValue: {
+      fontFamily: theme.fonts.display,
       fontSize: 26,
       fontWeight: "700",
       color: theme.colors.text,
       marginBottom: theme.spacing.xs
     },
     statLabel: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       color: theme.colors.textSecondary,
       fontWeight: "700"
@@ -416,18 +448,21 @@ function createStyles(theme: AppTheme, width: number) {
     bannerInfo: {
       borderRadius: theme.radius.lg,
       padding: theme.spacing.lg,
-      backgroundColor: theme.colors.surface,
+      backgroundColor: theme.colors.surfaceElevated,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      marginBottom: theme.spacing.md
+      marginBottom: theme.spacing.md,
+      ...theme.shadow.sm
     },
     bannerInfoTitle: {
+      fontFamily: theme.fonts.display,
       fontSize: theme.typography.body,
       fontWeight: "700",
       color: theme.colors.text,
       marginBottom: theme.spacing.xs
     },
     bannerInfoText: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       lineHeight: 20,
       color: theme.colors.textSecondary
@@ -435,14 +470,15 @@ function createStyles(theme: AppTheme, width: number) {
     bannerError: {
       borderRadius: theme.radius.lg,
       padding: theme.spacing.lg,
-      backgroundColor: theme.colors.surface,
+      backgroundColor: theme.colors.surfaceElevated,
       borderWidth: 1,
       borderColor: theme.colors.danger,
       marginBottom: theme.spacing.md,
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
-      flexWrap: "wrap"
+      flexWrap: "wrap",
+      ...theme.shadow.sm
     },
     bannerErrorTextWrap: {
       flex: 1,
@@ -450,25 +486,29 @@ function createStyles(theme: AppTheme, width: number) {
       paddingRight: theme.spacing.md
     },
     bannerErrorTitle: {
+      fontFamily: theme.fonts.display,
       fontSize: theme.typography.body,
       fontWeight: "700",
       color: theme.colors.danger,
       marginBottom: theme.spacing.xs
     },
     bannerErrorText: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       lineHeight: 20,
       color: theme.colors.textSecondary
     },
     searchInput: {
       minHeight: 48,
-      borderRadius: theme.radius.md,
+      borderRadius: theme.radius.lg,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      backgroundColor: theme.colors.input,
+      backgroundColor: theme.colors.surfaceElevated,
       color: theme.colors.text,
       paddingHorizontal: theme.spacing.md,
-      fontSize: theme.typography.body
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.body,
+      ...theme.shadow.sm
     },
     searchMetaRow: {
       marginTop: theme.spacing.sm,
@@ -478,6 +518,7 @@ function createStyles(theme: AppTheme, width: number) {
       flexWrap: "wrap"
     },
     searchMetaText: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.textSecondary
@@ -493,6 +534,7 @@ function createStyles(theme: AppTheme, width: number) {
       justifyContent: "center"
     },
     clearChipText: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.text
@@ -513,9 +555,10 @@ function createStyles(theme: AppTheme, width: number) {
       minHeight: 320,
       borderRadius: theme.radius.xl,
       padding: theme.spacing.lg,
-      backgroundColor: theme.colors.surface,
+      backgroundColor: theme.colors.surfaceElevated,
       borderWidth: 1,
-      borderColor: theme.colors.border
+      borderColor: theme.colors.border,
+      ...theme.shadow.sm
     },
     lectureCardHighlighted: {
       borderColor: theme.colors.primary,
@@ -551,6 +594,7 @@ function createStyles(theme: AppTheme, width: number) {
       borderColor: "#E6F4EA"
     },
     infoPillText: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.text
@@ -562,6 +606,7 @@ function createStyles(theme: AppTheme, width: number) {
       color: theme.colors.success
     },
     lectureTitle: {
+      fontFamily: theme.fonts.display,
       fontSize: theme.typography.sectionTitle,
       lineHeight: 26,
       fontWeight: "700",
@@ -569,12 +614,14 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.sm
     },
     lectureMeta: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.md,
       fontWeight: "700"
     },
     lectureDescription: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
       lineHeight: 22,
       color: theme.colors.textSecondary,
@@ -595,6 +642,7 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.xs
     },
     tagChipText: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.textSecondary
@@ -617,12 +665,14 @@ function createStyles(theme: AppTheme, width: number) {
       borderColor: theme.colors.border
     },
     footerTileLabel: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.xs
     },
     footerTileValue: {
+      fontFamily: theme.fonts.display,
       fontSize: theme.typography.body,
       fontWeight: "700",
       color: theme.colors.text
@@ -639,11 +689,12 @@ function createStyles(theme: AppTheme, width: number) {
       minHeight: 280,
       borderRadius: theme.radius.xl,
       padding: theme.spacing.lg,
-      backgroundColor: theme.colors.surface,
+      backgroundColor: theme.colors.surfaceElevated,
       borderWidth: 1,
       borderColor: theme.colors.border,
       marginHorizontal: 0,
-      marginBottom: theme.spacing.md
+      marginBottom: theme.spacing.md,
+      ...theme.shadow.sm
     },
     skeletonTitle: {
       width: "72%",

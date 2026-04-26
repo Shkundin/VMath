@@ -35,11 +35,18 @@ export function ScreenHeader({
       ]}
     >
       <View style={styles.left}>
+        <View
+          style={[
+            styles.accent,
+            { backgroundColor: theme.colors.primarySoft }
+          ]}
+        />
         <Text
           style={[
             styles.title,
             {
               color: theme.colors.text,
+              fontFamily: theme.fonts.display,
               fontSize: titleSize,
               lineHeight: titleSize + 4
             }
@@ -54,6 +61,7 @@ export function ScreenHeader({
               styles.subtitle,
               {
                 color: theme.colors.textSecondary,
+                fontFamily: theme.fonts.body,
                 fontSize: theme.typography.body,
                 lineHeight: isPhone ? 22 : 24
               }
@@ -91,6 +99,12 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     width: "100%",
     minWidth: 0
+  },
+  accent: {
+    width: 74,
+    height: 8,
+    borderRadius: 999,
+    marginBottom: 14
   },
   right: {
     minWidth: 0

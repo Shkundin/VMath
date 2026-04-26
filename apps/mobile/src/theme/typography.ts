@@ -1,9 +1,9 @@
 export const typography = {
-  hero: 34,
-  title: 28,
-  screenTitle: 24,
-  sectionTitle: 18,
-  body: 15,
+  hero: 38,
+  title: 30,
+  screenTitle: 26,
+  sectionTitle: 19,
+  body: 16,
   caption: 13,
   helper: 12
 };
