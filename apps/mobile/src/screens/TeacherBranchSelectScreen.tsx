@@ -64,7 +64,7 @@ export function TeacherBranchSelectScreen({
       <ScreenHeader
         theme={theme}
         title="Подключение к курсу"
-        subtitle="Введи код преподавателя и открой его лекции, материалы, задания и встречи."
+        subtitle="Подключись по коду преподавателя и открой лекции, материалы, задания и встречи нужного курса."
         rightSlot={
           <View style={styles.headerChip}>
             <Text style={styles.headerChipText}>{sortedBranches.length} курсов</Text>
@@ -73,10 +73,10 @@ export function TeacherBranchSelectScreen({
       />
 
       <View style={styles.heroCard}>
-        <Text style={styles.heroEyebrow}>Classroom</Text>
+        <Text style={styles.heroEyebrow}>Код доступа</Text>
         <Text style={styles.heroTitle}>Подключись по коду преподавателя</Text>
         <Text style={styles.heroSubtitle}>
-          Как в Google Classroom: преподаватель делится кодом, а студент по нему открывает свою учебную ветку.
+          Преподаватель выдаёт код курса, а студент по нему открывает свою учебную ветку и получает доступ к материалам.
         </Text>
       </View>
 
@@ -135,7 +135,7 @@ export function TeacherBranchSelectScreen({
         title="Доступные курсы"
         subtitle={
           sortedBranches.length > 0
-            ? "Для быстрого теста можно нажать на карточку и подключиться по готовому коду."
+            ? "Выбери нужный курс из списка и подключись к нему в один клик."
             : "Пока ни один преподаватель не создал свою учебную ветку."
         }
       >
@@ -227,25 +227,29 @@ function createStyles(theme: AppTheme, width: number) {
       borderWidth: 1,
       borderColor: theme.colors.border,
       marginBottom: theme.spacing.lg,
-      ...theme.shadow.md
+      ...theme.shadow.lg
     },
     heroEyebrow: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "800",
       color: theme.colors.primary,
       marginBottom: theme.spacing.sm,
-      textTransform: "uppercase"
+      textTransform: "uppercase",
+      letterSpacing: 0.45
     },
     heroTitle: {
+      fontFamily: theme.fonts.display,
       fontSize: isPhone ? 24 : theme.typography.title,
       lineHeight: isPhone ? 30 : theme.typography.title + 4,
-      fontWeight: "900",
+      fontWeight: "700",
       color: theme.colors.text,
       marginBottom: theme.spacing.sm
     },
     heroSubtitle: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
-      lineHeight: 22,
+      lineHeight: 24,
       color: theme.colors.textSecondary
     },
     emptyText: {
@@ -261,7 +265,8 @@ function createStyles(theme: AppTheme, width: number) {
       padding: isPhone ? theme.spacing.md : theme.spacing.lg,
       marginBottom: theme.spacing.md,
       borderColor: theme.colors.border,
-      backgroundColor: theme.colors.surface
+      backgroundColor: theme.colors.surface,
+      ...theme.shadow.sm
     },
     branchCardActive: {
       borderColor: theme.colors.primary,
@@ -291,17 +296,20 @@ function createStyles(theme: AppTheme, width: number) {
       paddingRight: theme.spacing.sm
     },
     branchTitle: {
+      fontFamily: theme.fonts.display,
       fontSize: theme.typography.sectionTitle,
-      fontWeight: "900",
+      fontWeight: "700",
       color: theme.colors.text,
       marginBottom: theme.spacing.xs
     },
     branchMeta: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       color: theme.colors.textSecondary,
       marginBottom: 2
     },
     branchCode: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "800",
       color: theme.colors.primary,
@@ -336,6 +344,7 @@ function createStyles(theme: AppTheme, width: number) {
       fontWeight: "800"
     },
     branchDescription: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
       lineHeight: 22,
       color: theme.colors.textSecondary

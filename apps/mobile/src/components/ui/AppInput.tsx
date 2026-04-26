@@ -80,15 +80,17 @@ function createStyles(
       marginBottom: theme.spacing.md
     },
     label: {
-      fontSize: theme.typography.caption,
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.helper,
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.sm,
-      fontWeight: "700",
-      letterSpacing: 0.2
+      fontWeight: "800",
+      letterSpacing: 0.45,
+      textTransform: "uppercase"
     },
     input: {
-      minHeight: isMultiline ? 120 : 56,
-      borderRadius: theme.radius.md,
+      minHeight: isMultiline ? 132 : 58,
+      borderRadius: theme.radius.lg,
       borderWidth: 1,
       borderColor: hasError
         ? theme.colors.danger
@@ -98,16 +100,19 @@ function createStyles(
       backgroundColor: theme.colors.input,
       color: theme.colors.text,
       paddingHorizontal: theme.spacing.md,
-      paddingVertical: isMultiline ? theme.spacing.md : useReadableMobileSizing ? 11 : theme.spacing.sm,
+      paddingVertical: isMultiline ? theme.spacing.md : useReadableMobileSizing ? 12 : theme.spacing.sm + 1,
+      fontFamily: theme.fonts.body,
       fontSize: useReadableMobileSizing ? 16 : theme.typography.body,
+      lineHeight: isMultiline ? 24 : undefined,
       textAlignVertical: isMultiline ? "top" : "center",
-      ...(isFocused ? theme.shadow.sm : {})
+      ...(isFocused ? theme.shadow.md : theme.shadow.sm)
     },
     error: {
       marginTop: theme.spacing.xs,
       color: theme.colors.danger,
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
-      fontWeight: "600"
+      fontWeight: "700"
     }
   });
 }

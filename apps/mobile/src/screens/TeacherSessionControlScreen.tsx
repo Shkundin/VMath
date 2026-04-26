@@ -1,13 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
+
 import { AppButton } from "../components/ui/AppButton";
 import { Screen } from "../components/ui/Screen";
+import { ScreenHeader } from "../components/ui/ScreenHeader";
 import { SectionCard } from "../components/ui/SectionCard";
 import {
   getTeacherCurrentBlock,
   type TeacherManagedSession
 } from "../mocks/teacher";
 import type { AppTheme } from "../theme";
+import { fixTextSafe as fixText } from "../utils/fixTextSafe";
 
 type TeacherSessionControlScreenProps = {
   theme: AppTheme;
@@ -56,7 +59,8 @@ export function TeacherSessionControlScreen({
   onPrevBlock,
   onNextBlock
 }: TeacherSessionControlScreenProps) {
-  const styles = createStyles(theme);
+  const { width } = useWindowDimensions();
+  const styles = createStyles(theme, width);
   const currentBlock = getTeacherCurrentBlock(session);
 
   const [storedStats, setStoredStats] = useState<StoredTeacherStats | null>(
@@ -106,59 +110,98 @@ export function TeacherSessionControlScreen({
     () =>
       session.participants.map((participant) => {
         const scoreLabel = participant.score === null ? "—" : String(participant.score);
-        return `${participant.name} · ${participant.status} · баллы: ${scoreLabel}`;
+        return {
+          key: participant.id,
+          name: participant.name,
+          status: participant.status,
+          scoreLabel
+        };
       }),
     [session.participants]
   );
 
   return (
     <Screen theme={theme}>
-      <Text style={styles.title}>Управление сессией</Text>
-      <Text style={styles.subtitle}>{session.lectureTitle}</Text>
+      <ScreenHeader
+        theme={theme}
+        title="Пульт общей сессии"
+        subtitle="Управляй ходом занятия, переключай блоки и отслеживай прогресс группы в реальном времени."
+        rightSlot={
+          <View style={styles.headerBadge}>
+            <Text style={styles.headerBadgeText}>{fixText(session.lectureTitle)}</Text>
+          </View>
+        }
+      />
+
+      <View style={styles.statsRow}>
+        <SessionStatCard theme={theme} label="Статус" value={fixText(session.status)} />
+        <SessionStatCard theme={theme} label="Онлайн" value={String(participantStats.online)} />
+        <SessionStatCard theme={theme} label="Завершили" value={String(completedCount)} />
+        <SessionStatCard theme={theme} label="Сумма баллов" value={String(totalScore)} />
+      </View>
 
       <SectionCard
         title="Состояние сессии"
-        subtitle="Текущий блок и статистика ответов"
+        subtitle="Основная информация по коду сессии, активному блоку и учебному потоку."
         theme={theme}
       >
-        <Text style={styles.metaText}>Код сессии: {session.sessionCode}</Text>
-        <Text style={styles.metaText}>Статус: {session.status}</Text>
-        <Text style={styles.metaText}>Текущий блок: {currentBlock}</Text>
-        <Text style={styles.metaText}>
-          Позиция блока: {session.currentBlockIndex + 1} / {session.blocks.length}
-        </Text>
-        <Text style={styles.metaText}>
-          Вопросов в проверочном блоке: {session.questionPreview.length}
-        </Text>
-        <Text style={styles.metaText}>Ответило: {completedCount}</Text>
-        <Text style={styles.metaText}>В процессе: {participantStats.inProgress}</Text>
-        <Text style={styles.metaText}>Онлайн: {participantStats.online}</Text>
-        <Text style={styles.metaText}>Оффлайн: {participantStats.offline}</Text>
-        <Text style={styles.metaText}>Сумма баллов: {totalScore}</Text>
-        <Text style={styles.metaText}>
-          Последний результат: {lastCorrectCount === null ? "ещё нет ответов" : `${lastCorrectCount} правильных`}
-        </Text>
+        <View style={styles.metaGrid}>
+          <SessionMetaItem theme={theme} label="Код сессии" value={session.sessionCode} />
+          <SessionMetaItem theme={theme} label="Текущий блок" value={currentBlock} />
+          <SessionMetaItem
+            theme={theme}
+            label="Позиция"
+            value={`${session.currentBlockIndex + 1} / ${session.blocks.length}`}
+          />
+          <SessionMetaItem
+            theme={theme}
+            label="Вопросов"
+            value={String(session.questionPreview.length)}
+          />
+          <SessionMetaItem
+            theme={theme}
+            label="В процессе"
+            value={String(participantStats.inProgress)}
+          />
+          <SessionMetaItem
+            theme={theme}
+            label="Последний результат"
+            value={
+              lastCorrectCount === null ? "Пока нет ответов" : `${lastCorrectCount} правильных`
+            }
+          />
+        </View>
       </SectionCard>
 
       <SectionCard
         title="Участники"
-        subtitle="Текущее состояние участников"
+        subtitle="Кто уже в сессии, кто отвечает сейчас и какой текущий результат у каждого."
         theme={theme}
       >
-        {participantLines.map((line, index) => (
-          <Text key={`${line}-${index}`} style={styles.metaText}>
-            {line}
-          </Text>
-        ))}
+        {participantLines.length === 0 ? (
+          <Text style={styles.emptyText}>Пока никто не подключился к общей сессии.</Text>
+        ) : (
+          participantLines.map((participant) => (
+            <View key={participant.key} style={styles.participantCard}>
+              <View style={styles.participantTop}>
+                <Text style={styles.participantName}>{fixText(participant.name)}</Text>
+                <View style={styles.statusPill}>
+                  <Text style={styles.statusPillText}>{fixText(participant.status)}</Text>
+                </View>
+              </View>
+              <Text style={styles.participantMeta}>Баллы: {participant.scoreLabel}</Text>
+            </View>
+          ))
+        )}
       </SectionCard>
 
       <SectionCard
-        title="Управление"
-        subtitle="Действия преподавателя"
+        title="Действия преподавателя"
+        subtitle="Запускай и останавливай общую сессию, затем шагай по блокам лекции."
         theme={theme}
       >
         <View style={styles.actionGroup}>
-          <AppButton label="Запустить сессию" onPress={onStart} theme={theme} />
+          <AppButton label="Запустить общую сессию" onPress={onStart} theme={theme} />
         </View>
 
         <View style={styles.actionGroup}>
@@ -190,36 +233,183 @@ export function TeacherSessionControlScreen({
         </View>
 
         <View style={styles.actionGroup}>
-          <AppButton label="Назад" onPress={onBack} theme={theme} variant="secondary" />
+          <AppButton label="Вернуться в кабинет" onPress={onBack} theme={theme} variant="ghost" />
         </View>
       </SectionCard>
     </Screen>
   );
 }
 
-function createStyles(theme: AppTheme) {
+type SessionStatCardProps = {
+  theme: AppTheme;
+  label: string;
+  value: string;
+};
+
+function SessionStatCard({ theme, label, value }: SessionStatCardProps) {
+  const { width } = useWindowDimensions();
+  const styles = createStyles(theme, width);
+
+  return (
+    <View style={styles.statCard}>
+      <Text style={styles.statValue}>{fixText(value)}</Text>
+      <Text style={styles.statLabel}>{fixText(label)}</Text>
+    </View>
+  );
+}
+
+type SessionMetaItemProps = {
+  theme: AppTheme;
+  label: string;
+  value: string;
+};
+
+function SessionMetaItem({ theme, label, value }: SessionMetaItemProps) {
+  const { width } = useWindowDimensions();
+  const styles = createStyles(theme, width);
+
+  return (
+    <View style={styles.metaCard}>
+      <Text style={styles.metaLabel}>{fixText(label)}</Text>
+      <Text style={styles.metaValue}>{fixText(value)}</Text>
+    </View>
+  );
+}
+
+function createStyles(theme: AppTheme, width: number) {
+  const isPhone = width < 720;
+
   return StyleSheet.create({
-    title: {
-      fontSize: theme.typography.screenTitle,
+    headerBadge: {
+      alignSelf: "flex-start",
+      minHeight: 34,
+      maxWidth: isPhone ? "100%" : 320,
+      paddingHorizontal: theme.spacing.md,
+      borderRadius: theme.radius.pill,
+      justifyContent: "center",
+      backgroundColor: theme.colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: theme.colors.border
+    },
+    headerBadgeText: {
+      color: theme.colors.text,
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      fontWeight: "800"
+    },
+    statsRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      marginBottom: theme.spacing.sm
+    },
+    statCard: {
+      flexBasis: isPhone ? "48%" : 170,
+      flexGrow: 1,
+      minHeight: 112,
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.lg,
+      marginRight: theme.spacing.sm,
+      marginBottom: theme.spacing.sm,
+      backgroundColor: theme.colors.surfaceElevated,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      ...theme.shadow.sm
+    },
+    statValue: {
+      fontFamily: theme.fonts.display,
+      fontSize: 28,
+      fontWeight: "700",
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs
+    },
+    statLabel: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
       fontWeight: "800",
-      color: theme.colors.text,
-      marginBottom: theme.spacing.xs
+      color: theme.colors.textSecondary
     },
-    subtitle: {
-      fontSize: theme.typography.body,
+    metaGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap"
+    },
+    metaCard: {
+      flexBasis: isPhone ? "100%" : "47%",
+      flexGrow: 1,
+      minHeight: 92,
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.md,
+      marginRight: theme.spacing.sm,
+      marginBottom: theme.spacing.sm,
+      backgroundColor: theme.colors.surfaceElevated,
+      borderWidth: 1,
+      borderColor: theme.colors.border
+    },
+    metaLabel: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.helper,
+      fontWeight: "800",
       color: theme.colors.textSecondary,
-      marginBottom: theme.spacing.lg
-    },
-    metaText: {
-      fontSize: theme.typography.body,
-      color: theme.colors.text,
+      letterSpacing: 0.35,
+      textTransform: "uppercase",
       marginBottom: theme.spacing.xs
+    },
+    metaValue: {
+      fontFamily: theme.fonts.display,
+      fontSize: theme.typography.body + 1,
+      fontWeight: "700",
+      color: theme.colors.text
+    },
+    participantCard: {
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
+      backgroundColor: theme.colors.surfaceElevated,
+      borderWidth: 1,
+      borderColor: theme.colors.border
+    },
+    participantTop: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: theme.spacing.xs
+    },
+    participantName: {
+      flex: 1,
+      minWidth: 0,
+      marginRight: theme.spacing.sm,
+      color: theme.colors.text,
+      fontFamily: theme.fonts.display,
+      fontSize: theme.typography.sectionTitle,
+      fontWeight: "700"
+    },
+    statusPill: {
+      minHeight: 30,
+      paddingHorizontal: theme.spacing.sm,
+      borderRadius: theme.radius.pill,
+      justifyContent: "center",
+      backgroundColor: theme.colors.primarySoft
+    },
+    statusPillText: {
+      color: theme.colors.primary,
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      fontWeight: "800"
+    },
+    participantMeta: {
+      color: theme.colors.textSecondary,
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.body
+    },
+    emptyText: {
+      color: theme.colors.textSecondary,
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.body
     },
     actionGroup: {
       marginBottom: theme.spacing.md
     },
     doubleActionRow: {
-      flexDirection: "row",
+      flexDirection: isPhone ? "column" : "row",
       gap: theme.spacing.sm,
       marginBottom: theme.spacing.md
     },

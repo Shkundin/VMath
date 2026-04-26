@@ -37,31 +37,67 @@ export function SectionCard({
           backgroundColor: theme.colors.surface,
           borderColor: theme.colors.border,
           borderRadius: isPhone ? theme.radius.lg : theme.radius.xl,
-          padding: isPhone ? theme.spacing.md : theme.spacing.lg
+          padding: isPhone ? theme.spacing.md : theme.spacing.lg,
+          ...theme.shadow.md
         },
         style
       ]}
     >
       {title ? (
-        <Text
-          style={[
-            styles.title,
-            {
-              color: theme.colors.text,
-              fontSize: theme.typography.sectionTitle
-            }
-          ]}
-        >
-          {fixText(title)}
-        </Text>
+        <View style={styles.header}>
+          <View
+            style={[
+              styles.accent,
+              { backgroundColor: theme.colors.primarySoft }
+            ]}
+          >
+            <View
+              style={[
+                styles.accentCore,
+                { backgroundColor: theme.colors.primary }
+              ]}
+            />
+          </View>
+
+          <View style={styles.headerText}>
+            <Text
+              style={[
+                styles.title,
+                {
+                  color: theme.colors.text,
+                  fontFamily: theme.fonts.display,
+                  fontSize: theme.typography.sectionTitle
+                }
+              ]}
+            >
+              {fixText(title)}
+            </Text>
+
+            {subtitle ? (
+              <Text
+                style={[
+                  styles.subtitle,
+                  {
+                    color: theme.colors.textSecondary,
+                    fontFamily: theme.fonts.body,
+                    fontSize: theme.typography.body
+                  }
+                ]}
+              >
+                {fixText(subtitle)}
+              </Text>
+            ) : null}
+          </View>
+        </View>
       ) : null}
 
-      {subtitle ? (
+      {!title && subtitle ? (
         <Text
           style={[
-            styles.subtitle,
+            styles.subtitleStandalone,
             {
               color: theme.colors.textSecondary,
+              fontFamily: theme.fonts.body,
               fontSize: theme.typography.body
             }
           ]}
@@ -86,12 +122,37 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
     overflow: "hidden"
   },
+  header: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 16
+  },
+  accent: {
+    width: 16,
+    height: 44,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12
+  },
+  accentCore: {
+    width: 5,
+    height: 24,
+    borderRadius: 999
+  },
+  headerText: {
+    flex: 1,
+    minWidth: 0
+  },
   title: {
-    fontWeight: "900",
-    marginBottom: 8
+    fontWeight: "700",
+    marginBottom: 6
   },
   subtitle: {
-    lineHeight: 24,
+    lineHeight: 23
+  },
+  subtitleStandalone: {
+    lineHeight: 23,
     marginBottom: 16
   },
   body: {

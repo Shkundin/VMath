@@ -142,6 +142,15 @@ export function TeacherHomeScreen({
   const teacherVideoUrl =
     expandedLecture ? ((expandedLecture as LectureItem & { videoUrl?: string }).videoUrl ?? "") : "";
 
+  const sessionLaunchLecture = useMemo(
+    () => expandedLecture ?? lectures[0] ?? null,
+    [expandedLecture, lectures]
+  );
+
+  const sessionLaunchSubtitle = sessionLaunchLecture
+    ? `Общая сессия будет открыта для лекции: ${fixText(sessionLaunchLecture.title)}.`
+    : "Создай первую лекцию, чтобы открыть общую сессию для группы.";
+
   useEffect(() => {
     if (!expandedLecture) {
       setMetaSubject("");
@@ -392,21 +401,21 @@ export function TeacherHomeScreen({
   const focusDaySection = (
     <SectionCard
       theme={theme}
-      title="Фокус дня"
-      subtitle="Быстрый доступ к главным действиям преподавателя."
+      title="Панель действий"
+      subtitle="Самые важные сценарии преподавателя: запуск общей сессии, работа с лекциями и быстрый контроль группы."
       style={isCompactLayout ? undefined : styles.dashboardNarrow}
     >
       <View style={styles.quickActionsGrid}>
         <ActionMiniCard
           theme={theme}
-          title="Лекции"
-          subtitle="Открывай редактор и дополняй структуру курса."
+          title="Общая сессия"
+          subtitle="Открывай единый поток занятия для всей группы и управляй блоками в реальном времени."
           style={styles.quickActionItem}
         />
         <ActionMiniCard
           theme={theme}
-          title="Сессии"
-          subtitle="Запускай занятие и переключай учебные блоки."
+          title="Лекции"
+          subtitle="Собирай структуру курса, теорию, видео и контрольные блоки в одном редакторе."
           style={styles.quickActionItem}
         />
         <ActionMiniCard
@@ -430,7 +439,7 @@ export function TeacherHomeScreen({
       <ScreenHeader
         theme={theme}
         title="Кабинет преподавателя"
-        subtitle="Создавай лекции, управляй материалами, проверочными блоками и быстрыми сессиями."
+        subtitle="Создавай лекции, запускай общие сессии и управляй материалами, вопросами и результатами из одного рабочего пространства."
       />
 
       <View style={styles.heroCard}>
@@ -438,7 +447,7 @@ export function TeacherHomeScreen({
           <Text style={styles.heroEyebrow}>Рабочее пространство</Text>
           <Text style={styles.heroTitle}>{teacherDisplayName}</Text>
           <Text style={styles.heroSubtitle}>
-            Всё важное в одном месте: создание лекций, редактор вопросов, запуск тестов и проверка результатов.
+            Собери курс, подготовь проверочные блоки и одним нажатием запускай общую сессию для всей группы.
           </Text>
 
           <View style={styles.infoRow}>
@@ -449,6 +458,18 @@ export function TeacherHomeScreen({
 
           <View style={styles.heroActionRow}>
             <AppButton
+              label={sessionLaunchLecture ? "Запустить общую сессию" : "Сначала создай лекцию"}
+              onPress={() => {
+                if (sessionLaunchLecture) {
+                  onOpenManageSession(sessionLaunchLecture);
+                }
+              }}
+              disabled={!sessionLaunchLecture}
+              theme={theme}
+              fullWidth={false}
+              style={styles.heroPrimaryButton}
+            />
+            <AppButton
               label="Выйти из аккаунта"
               onPress={onLogout}
               theme={theme}
@@ -457,6 +478,8 @@ export function TeacherHomeScreen({
               style={styles.inlineButton}
             />
           </View>
+
+          <Text style={styles.sessionLaunchHint}>{sessionLaunchSubtitle}</Text>
         </View>
 
         <View style={styles.heroStats}>
@@ -481,7 +504,7 @@ export function TeacherHomeScreen({
       <SectionCard
         theme={theme}
         title="Лекции преподавателя"
-        subtitle="Запуск сессии, редактор и управление вопросами прямо из карточки лекции."
+        subtitle="Открывай пульт общей сессии, редактируй содержимое лекции и управляй вопросами прямо из карточки."
       >
         {lectures.length === 0 ? (
           <Text style={styles.emptyText}>{fixText("РџРѕРєР° РЅРµС‚ Р»РµРєС†РёР№. РЎРѕР·РґР°Р№ РїРµСЂРІСѓСЋ Р»РµРєС†РёСЋ РІС‹С€Рµ.")}</Text>
@@ -719,7 +742,7 @@ export function TeacherHomeScreen({
 
                 <View style={styles.actionsRow}>
                   <AppButton
-                    label="Запустить сессию"
+                    label="Открыть пульт сессии"
                     onPress={() => onOpenManageSession(lecture)}
                     theme={theme}
                     fullWidth={false}
@@ -917,7 +940,8 @@ function createStyles(theme: AppTheme, width: number) {
       backgroundColor: theme.colors.surface,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      marginBottom: theme.spacing.lg
+      marginBottom: theme.spacing.lg,
+      ...theme.shadow.lg
     },
     heroMain: {
       flex: 1,
@@ -926,14 +950,16 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: isCompact ? theme.spacing.md : 0
     },
     heroEyebrow: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
-      fontWeight: "700",
+      fontWeight: "800",
       color: theme.colors.primary,
       marginBottom: theme.spacing.sm,
       textTransform: "uppercase",
-      letterSpacing: 0.3
+      letterSpacing: 0.55
     },
     heroTitle: {
+      fontFamily: theme.fonts.display,
       fontSize: isPhone ? 24 : theme.typography.title,
       lineHeight: isPhone ? 30 : theme.typography.title + 4,
       fontWeight: "700",
@@ -941,8 +967,9 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.sm
     },
     heroSubtitle: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
-      lineHeight: 22,
+      lineHeight: 24,
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.lg,
       maxWidth: 760
@@ -970,7 +997,20 @@ function createStyles(theme: AppTheme, width: number) {
     },
     heroActionRow: {
       flexDirection: "row",
-      flexWrap: "wrap"
+      flexWrap: "wrap",
+      alignItems: "center"
+    },
+    heroPrimaryButton: {
+      width: isPhone ? "100%" : undefined,
+      marginRight: isPhone ? 0 : theme.spacing.sm,
+      marginBottom: theme.spacing.sm
+    },
+    sessionLaunchHint: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      lineHeight: 20,
+      color: theme.colors.textSecondary,
+      marginTop: theme.spacing.xs
     },
     heroStats: {
       width: isCompact ? "100%" : 250,
@@ -990,14 +1030,16 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: isPhone ? 0 : theme.spacing.sm
     },
     statValue: {
+      fontFamily: theme.fonts.display,
       fontSize: 26,
       fontWeight: "700",
       color: theme.colors.text,
       marginBottom: theme.spacing.xs
     },
     statLabel: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
-      fontWeight: "700",
+      fontWeight: "800",
       color: theme.colors.textSecondary
     },
     dashboardRow: {
@@ -1026,18 +1068,21 @@ function createStyles(theme: AppTheme, width: number) {
     actionMiniCard: {
       borderRadius: theme.radius.md,
       padding: isPhone ? theme.spacing.sm + 2 : theme.spacing.md,
-      backgroundColor: theme.colors.surfaceMuted,
+      backgroundColor: theme.colors.surfaceElevated,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      marginBottom: theme.spacing.sm
+      marginBottom: theme.spacing.sm,
+      ...theme.shadow.sm
     },
     actionMiniTitle: {
+      fontFamily: theme.fonts.display,
       fontSize: theme.typography.body,
       fontWeight: "700",
       color: theme.colors.text,
       marginBottom: theme.spacing.xs
     },
     actionMiniSubtitle: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       lineHeight: 18,
       color: theme.colors.textSecondary
@@ -1082,7 +1127,8 @@ function createStyles(theme: AppTheme, width: number) {
       backgroundColor: theme.colors.surfaceElevated,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      marginBottom: theme.spacing.md
+      marginBottom: theme.spacing.md,
+      ...theme.shadow.sm
     },
     lectureCardExpanded: {
       borderColor: theme.colors.primary
@@ -1131,6 +1177,7 @@ function createStyles(theme: AppTheme, width: number) {
       color: theme.colors.success
     },
     lectureTitle: {
+      fontFamily: theme.fonts.display,
       fontSize: theme.typography.sectionTitle,
       lineHeight: 26,
       fontWeight: "700",
@@ -1138,12 +1185,14 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.sm
     },
     lectureMeta: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
-      fontWeight: "700",
+      fontWeight: "800",
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.sm
     },
     lectureDescription: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
       lineHeight: 22,
       color: theme.colors.textSecondary
