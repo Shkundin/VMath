@@ -24,6 +24,9 @@ export interface AppConfig {
   refreshTokenTtlSec: number;
 }
 
+const LOCAL_CORS_FALLBACK =
+  "http://localhost:19006,http://127.0.0.1:19006,http://localhost:3000,http://127.0.0.1:3000,http://localhost:8081,http://127.0.0.1:8081";
+
 function parseRequired(name: string, isProduction: boolean, fallback?: string): string {
   const value = process.env[name]?.trim();
   if (value) {
@@ -105,6 +108,7 @@ export function loadAppConfig(): AppConfig {
   const isProduction = nodeEnv === "production" || isRender;
   const appUrl = process.env.APP_URL?.trim() || renderExternalUrl || "http://localhost:8787";
   const apiBaseUrl = process.env.API_BASE_URL?.trim() || `${appUrl.replace(/\/+$/, "")}/api/v1`;
+  const defaultCorsOrigins = isProduction ? "*" : LOCAL_CORS_FALLBACK;
 
   return {
     port: parseNumber("PORT", 8787),
@@ -114,11 +118,8 @@ export function loadAppConfig(): AppConfig {
     trustProxy: parseBoolean("TRUST_PROXY", isRender),
     appUrl,
     apiBaseUrl,
-    corsOrigins: parseOrigins(process.env.CORS_ORIGIN, "http://localhost:19006,http://127.0.0.1:19006"),
-    wsCorsOrigins: parseOrigins(
-      process.env.WS_CORS_ORIGIN,
-      "http://localhost:19006,http://127.0.0.1:19006"
-    ),
+    corsOrigins: parseOrigins(process.env.CORS_ORIGIN, defaultCorsOrigins),
+    wsCorsOrigins: parseOrigins(process.env.WS_CORS_ORIGIN, defaultCorsOrigins),
     jwtAccessSecret: parseRequired(
       "JWT_ACCESS_SECRET",
       isProduction,

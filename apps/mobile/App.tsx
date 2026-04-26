@@ -1,7 +1,24 @@
-﻿import React from "react";
+import React from "react";
+import { Platform } from "react-native";
 
 import { AppNavigation } from "./src/navigation/AppNavigation";
 
+function VercelAnalytics() {
+  if (Platform.OS !== "web") {
+    return null;
+  }
+
+  const { Analytics } =
+    require("@vercel/analytics/react") as typeof import("@vercel/analytics/react");
+
+  return <Analytics />;
+}
+
 export default function App() {
-  return <AppNavigation />;
+  return (
+    <>
+      <AppNavigation />
+      <VercelAnalytics />
+    </>
+  );
 }

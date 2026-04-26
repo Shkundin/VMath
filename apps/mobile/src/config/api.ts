@@ -1,5 +1,8 @@
 import { Platform } from "react-native";
 
+const LOCAL_API_BASE_URL = "http://127.0.0.1:8787";
+const DEFAULT_PRODUCTION_API_BASE_URL = "https://visualmath-server.onrender.com";
+
 const envBaseUrl =
   process.env.EXPO_PUBLIC_VM_API_BASE_URL?.trim() ||
   process.env.EXPO_PUBLIC_API_URL?.trim() ||
@@ -26,13 +29,16 @@ function getDefaultBaseUrl(): string {
       hostname === "0.0.0.0";
 
     if (isLocalHost) {
-      return "http://127.0.0.1:8787";
+      return LOCAL_API_BASE_URL;
     }
 
-    return origin;
+    const normalizedHost = hostname.trim().toLowerCase();
+    const looksLikeBackendHost = normalizedHost.endsWith(".onrender.com");
+
+    return looksLikeBackendHost ? origin : DEFAULT_PRODUCTION_API_BASE_URL;
   }
 
-  return "http://127.0.0.1:8787";
+  return LOCAL_API_BASE_URL;
 }
 
 export const API_BASE_URL = getDefaultBaseUrl().replace(/\/+$/, "");

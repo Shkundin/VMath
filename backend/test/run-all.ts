@@ -3,7 +3,7 @@ import { createSign, generateKeyPairSync } from "node:crypto";
 import { JwtTokenService } from "../src/auth/jwt-token.service";
 import { GoogleIdentityService } from "../src/auth/google-identity.service";
 import { PasswordService } from "../src/auth/password.service";
-import { AppConfigService } from "../src/config/app-config";
+import { AppConfigService, loadAppConfig } from "../src/config/app-config";
 import {
   canManageTeacherOwnedResource,
   canReadLectureByRole
@@ -19,6 +19,32 @@ async function run(name: string, fn: () => Promise<void> | void) {
   } catch (error) {
     console.error(`FAIL ${name}`);
     throw error;
+  }
+}
+
+function withTemporaryEnv<T>(patch: Record<string, string | undefined>, fn: () => T): T {
+  const snapshot = { ...process.env };
+
+  for (const [key, value] of Object.entries(patch)) {
+    if (typeof value === "undefined") {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+
+  try {
+    return fn();
+  } finally {
+    for (const key of Object.keys(process.env)) {
+      if (!(key in snapshot)) {
+        delete process.env[key];
+      }
+    }
+
+    for (const [key, value] of Object.entries(snapshot)) {
+      process.env[key] = value;
+    }
   }
 }
 
@@ -100,6 +126,25 @@ async function main() {
       refreshSessionId: "session-1"
     });
     assert.equal(jwt.verifyAccessToken(accessToken).userId, "user-1");
+  });
+
+  await run("unit: production config enables public CORS fallback", () => {
+    const config = withTemporaryEnv(
+      {
+        NODE_ENV: "production",
+        CORS_ORIGIN: undefined,
+        WS_CORS_ORIGIN: undefined,
+        APP_URL: "https://visualmath-server.onrender.com",
+        API_BASE_URL: "https://visualmath-server.onrender.com/api/v1",
+        JWT_ACCESS_SECRET: "prod-access-secret",
+        JWT_REFRESH_SECRET: "prod-refresh-secret",
+        DATABASE_URL: "postgres://prod-db"
+      },
+      () => loadAppConfig()
+    );
+
+    assert.deepEqual(config.corsOrigins, ["*"]);
+    assert.deepEqual(config.wsCorsOrigins, ["*"]);
   });
 
   await run("unit: google identity verification", async () => {

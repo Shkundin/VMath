@@ -15,9 +15,10 @@ async function bootstrap() {
   const config = app.get(AppConfigService).value;
   const reflector = app.get(Reflector);
   const httpAdapter = app.getHttpAdapter();
+  const allowAnyCorsOrigin = config.corsOrigins.includes("*");
 
   app.enableCors({
-    origin: config.corsOrigins,
+    origin: allowAnyCorsOrigin ? true : config.corsOrigins,
     credentials: false
   });
   if (config.trustProxy) {
