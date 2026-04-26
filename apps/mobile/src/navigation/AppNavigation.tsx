@@ -62,6 +62,7 @@ import { TaskResultScreen } from "../screens/TaskResultScreen";
 import { TaskScreen } from "../screens/TaskScreen";
 import { TeacherHomeScreen, type DraftLectureInput, type DraftLectureMetaInput, type DraftQuestionInput } from "../screens/TeacherHomeScreen";
 import { TeacherSessionControlScreen } from "../screens/TeacherSessionControlScreen";
+import { VkIdWebWidgets } from "../components/auth/VkIdWebWidgets";
 import {
   clearAuthSession,
   readAuthMeta,
@@ -157,6 +158,17 @@ const DEFAULT_USER: UserProfile = {
   role: "student",
   group: DEFAULT_STUDENT_GROUP
 };
+
+function getVkWebRedirectUrl(): string {
+  if (Platform.OS === "web" && typeof window !== "undefined") {
+    const safeOrigin = String(window.location.origin ?? "").trim().replace(/\/+$/, "");
+    if (safeOrigin) {
+      return `${safeOrigin}/auth/vk`;
+    }
+  }
+
+  return "https://vmath.xyz/auth/vk";
+}
 
 function mapApiProfileToMobileUser(profile: ApiUserProfile): UserProfile {
   return {
@@ -1607,6 +1619,13 @@ export function AppNavigation() {
     return null;
   }
 
+  async function handleVkWidgetSuccess(identity: SocialIdentity) {
+    const nextError = await persistLocalSocialStudent(identity);
+    if (nextError) {
+      throw new Error(nextError);
+    }
+  }
+
   async function handleLogin(input: {
     login: string;
     password: string;
@@ -1963,7 +1982,7 @@ export function AppNavigation() {
 
   async function handleGoogleOAuthLogin(_payload: GoogleLoginPayload): Promise<string | null> {
     if (!isGoogleAuthConfigured()) {
-      return fixText("Сначала укажи EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID и GOOGLE_OAUTH_CLIENT_IDS.");
+      return fixText("Сначала укажи EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID.");
     }
 
     try {
@@ -1980,7 +1999,7 @@ export function AppNavigation() {
 
   async function handleVkOAuthLogin(_payload: VkLoginPayload): Promise<string | null> {
     if (!isVkAuthConfigured()) {
-      return fixText("Сначала укажи EXPO_PUBLIC_VK_APP_ID и VK_APP_ID.");
+      return fixText("Сначала укажи EXPO_PUBLIC_VK_APP_ID.");
     }
 
     try {
@@ -2854,6 +2873,17 @@ export function AppNavigation() {
         onLogin={handleLogin}
         onGoogleLogin={handleGoogleOAuthLogin}
         onVkLogin={handleVkOAuthLogin}
+        vkWebWidget={
+          Platform.OS === "web" ? (
+            <VkIdWebWidgets
+              theme={theme}
+              appId={process.env.EXPO_PUBLIC_VK_APP_ID?.trim() || ""}
+              appName="VisualMath"
+              redirectUrl={getVkWebRedirectUrl()}
+              onSuccess={handleVkWidgetSuccess}
+            />
+          ) : undefined
+        }
       />
     );
   }

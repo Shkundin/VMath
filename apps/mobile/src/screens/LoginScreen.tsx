@@ -42,13 +42,15 @@ type LoginScreenProps = {
   }) => Promise<string | null>;
   onGoogleLogin: (payload: GoogleLoginPayload) => Promise<string | null>;
   onVkLogin: (payload: VkLoginPayload) => Promise<string | null>;
+  vkWebWidget?: React.ReactNode;
 };
 
 export function LoginScreen({
   theme,
   onLogin,
   onGoogleLogin,
-  onVkLogin
+  onVkLogin,
+  vkWebWidget
 }: LoginScreenProps) {
   const { width } = useWindowDimensions();
   const styles = createStyles(theme, width);
@@ -385,14 +387,18 @@ export function LoginScreen({
                   style={styles.socialButton}
                 />
 
-                <AppButton
-                  label={isVkSubmitting ? "Подключаем VK..." : "Продолжить через VK"}
-                  onPress={() => {
-                    void handleVk();
-                  }}
-                  theme={theme}
-                  variant="secondary"
-                />
+                {vkWebWidget ? (
+                  vkWebWidget
+                ) : (
+                  <AppButton
+                    label={isVkSubmitting ? "Подключаем VK..." : "Продолжить через VK"}
+                    onPress={() => {
+                      void handleVk();
+                    }}
+                    theme={theme}
+                    variant="secondary"
+                  />
+                )}
               </>
             ) : null}
 

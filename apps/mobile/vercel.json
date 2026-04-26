@@ -1,4 +1,14 @@
-﻿{
+{
   "buildCommand": "pnpm exec expo export --platform web",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/auth/google",
+      "destination": "/"
+    },
+    {
+      "source": "/auth/vk",
+      "destination": "/"
+    }
+  ]
 }
