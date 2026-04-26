@@ -80,27 +80,25 @@ function createStyles(
       marginBottom: theme.spacing.md
     },
     label: {
-      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.sm,
       fontWeight: "700",
-      letterSpacing: 0.3
+      letterSpacing: 0.2
     },
     input: {
-      minHeight: isMultiline ? 128 : 58,
-      borderRadius: theme.radius.lg,
+      minHeight: isMultiline ? 120 : 56,
+      borderRadius: theme.radius.md,
       borderWidth: 1,
       borderColor: hasError
         ? theme.colors.danger
         : isFocused
           ? theme.colors.primary
           : theme.colors.border,
-      backgroundColor: theme.colors.surfaceElevated,
+      backgroundColor: theme.colors.input,
       color: theme.colors.text,
       paddingHorizontal: theme.spacing.md,
       paddingVertical: isMultiline ? theme.spacing.md : useReadableMobileSizing ? 11 : theme.spacing.sm,
-      fontFamily: theme.fonts.body,
       fontSize: useReadableMobileSizing ? 16 : theme.typography.body,
       textAlignVertical: isMultiline ? "top" : "center",
       ...(isFocused ? theme.shadow.sm : {})
@@ -108,7 +106,6 @@ function createStyles(
     error: {
       marginTop: theme.spacing.xs,
       color: theme.colors.danger,
-      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "600"
     }

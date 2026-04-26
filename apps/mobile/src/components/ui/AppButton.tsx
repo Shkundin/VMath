@@ -3,7 +3,6 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  type StyleProp,
   type ViewStyle
 } from "react-native";
 
@@ -19,7 +18,7 @@ type AppButtonProps = {
   variant?: ButtonVariant;
   fullWidth?: boolean;
   disabled?: boolean;
-  style?: StyleProp<ViewStyle>;
+  style?: ViewStyle;
 };
 
 export function AppButton({
@@ -59,33 +58,28 @@ function createStyles(
     button: {
       width: fullWidth ? "100%" : undefined,
       maxWidth: "100%",
-      minHeight: 52,
-      borderRadius: theme.radius.lg,
+      minHeight: 46,
+      borderRadius: theme.radius.md,
       paddingHorizontal: theme.spacing.lg,
-      paddingVertical: theme.spacing.sm + 1,
+      paddingVertical: theme.spacing.sm,
       alignItems: "center",
       justifyContent: "center",
       alignSelf: fullWidth ? "stretch" : "flex-start",
       backgroundColor: isPrimary
         ? theme.colors.primary
         : isSecondary
-          ? theme.colors.surfaceElevated
-          : theme.colors.surfaceMuted,
-      borderWidth: 1,
-      borderColor: isPrimary
-        ? theme.colors.primary
-        : isSecondary
-          ? theme.colors.border
-          : theme.colors.surfaceMuted,
+          ? theme.colors.surface
+          : "transparent",
+      borderWidth: isGhost ? 0 : 1,
+      borderColor: isPrimary ? theme.colors.primary : theme.colors.border,
       opacity: disabled ? 0.55 : 1,
-      ...(isPrimary ? theme.shadow.md : isSecondary ? theme.shadow.sm : {})
+      ...(isPrimary ? theme.shadow.sm : {})
     },
     label: {
       color: isPrimary ? "#FFFFFF" : theme.colors.text,
       fontSize: theme.typography.body,
-      fontFamily: theme.fonts.body,
-      fontWeight: isPrimary ? "800" : "700",
-      letterSpacing: 0.15,
+      fontWeight: "700",
+      letterSpacing: 0.1,
       textAlign: "center",
       flexShrink: 1
     }
