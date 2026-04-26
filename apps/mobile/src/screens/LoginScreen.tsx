@@ -45,6 +45,19 @@ type LoginScreenProps = {
   vkWebWidget?: React.ReactNode;
 };
 
+function getInitialLoginStage(): LoginStage {
+  if (typeof window === "undefined") {
+    return "intro";
+  }
+
+  const pathname = String(window.location.pathname ?? "").toLowerCase();
+  if (pathname.endsWith("/auth/vk") || pathname.endsWith("/auth/google")) {
+    return "auth";
+  }
+
+  return "intro";
+}
+
 export function LoginScreen({
   theme,
   onLogin,
@@ -55,7 +68,7 @@ export function LoginScreen({
   const { width } = useWindowDimensions();
   const styles = createStyles(theme, width);
 
-  const [stage, setStage] = useState<LoginStage>("intro");
+  const [stage, setStage] = useState<LoginStage>(() => getInitialLoginStage());
   const [role, setRole] = useState<LoginRole>("student");
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [fullName, setFullName] = useState("");
