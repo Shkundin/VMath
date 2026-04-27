@@ -1,15 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Platform, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import { AppButton } from "../components/ui/AppButton";
 import { Screen } from "../components/ui/Screen";
 import { ScreenHeader } from "../components/ui/ScreenHeader";
 import { SectionCard } from "../components/ui/SectionCard";
-import { StateCallout } from "../components/ui/StateCallout";
 import {
   getTeacherCurrentBlock,
   type TeacherManagedSession,
-  type TeacherParticipant,
   type TeacherParticipantStatus
 } from "../mocks/teacher";
 import type { AppTheme } from "../theme";
@@ -116,63 +114,17 @@ function formatStartedAt(value: string | null): string {
   }
 }
 
-function formatDurationFromStart(value: string | null, nowTs: number): string {
+function formatSessionDuration(value: string | null): string {
   if (!value) {
     return "00:00";
   }
 
-  const diff = Math.max(0, nowTs - new Date(value).getTime());
+  const diff = Math.max(0, Date.now() - new Date(value).getTime());
   const totalMinutes = Math.floor(diff / 60000);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
 
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-}
-
-function sortParticipants(participants: TeacherParticipant[]): TeacherParticipant[] {
-  const order: Record<TeacherParticipantStatus, number> = {
-    "in-progress": 0,
-    online: 1,
-    completed: 2,
-    offline: 3
-  };
-
-  return [...participants].sort((left, right) => {
-    const byStatus = order[left.status] - order[right.status];
-    if (byStatus !== 0) {
-      return byStatus;
-    }
-
-    return (right.score ?? -1) - (left.score ?? -1);
-  });
-}
-
-async function copyText(value: string): Promise<boolean> {
-  try {
-    const maybeNavigator = globalThis as typeof globalThis & {
-      navigator?: { clipboard?: { writeText?: (text: string) => Promise<void> } };
-    };
-
-    if (maybeNavigator.navigator?.clipboard?.writeText) {
-      await maybeNavigator.navigator.clipboard.writeText(value);
-      return true;
-    }
-
-    if (Platform.OS === "web" && typeof document !== "undefined") {
-      const textarea = document.createElement("textarea");
-      textarea.value = value;
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      textarea.focus();
-      textarea.select();
-      const success = document.execCommand("copy");
-      textarea.remove();
-      return success;
-    }
-  } catch {}
-
-  return false;
 }
 
 export function TeacherSessionControlScreen({
@@ -192,19 +144,13 @@ export function TeacherSessionControlScreen({
   const [storedStats, setStoredStats] = useState<StoredTeacherStats | null>(
     readStoredStats(session.lectureId)
   );
-  const [nowTs, setNowTs] = useState(Date.now());
-  const [copyState, setCopyState] = useState("");
 
   useEffect(() => {
     setStoredStats(readStoredStats(session.lectureId));
 
-    const statsIntervalId = setInterval(() => {
+    const intervalId = setInterval(() => {
       setStoredStats(readStoredStats(session.lectureId));
     }, 30000);
-
-    const timerId = setInterval(() => {
-      setNowTs(Date.now());
-    }, 1000);
 
     function handleStorage() {
       setStoredStats(readStoredStats(session.lectureId));
@@ -215,25 +161,12 @@ export function TeacherSessionControlScreen({
     }
 
     return () => {
-      clearInterval(statsIntervalId);
-      clearInterval(timerId);
+      clearInterval(intervalId);
       if (typeof window !== "undefined") {
         window.removeEventListener("storage", handleStorage);
       }
     };
-  }, [session.lectureId]);
-
-  useEffect(() => {
-    if (!copyState) {
-      return;
-    }
-
-    const timeoutId = setTimeout(() => {
-      setCopyState("");
-    }, 2200);
-
-    return () => clearTimeout(timeoutId);
-  }, [copyState]);
+  }, [session.lectureId, session.startedAt]);
 
   const participantStats = useMemo(
     () => ({
@@ -245,11 +178,6 @@ export function TeacherSessionControlScreen({
     [session.participants]
   );
 
-  const sortedParticipants = useMemo(
-    () => sortParticipants(session.participants),
-    [session.participants]
-  );
-
   const completedCount = storedStats?.completed ?? participantStats.completed;
   const totalScore =
     storedStats?.totalScore ??
@@ -257,24 +185,7 @@ export function TeacherSessionControlScreen({
   const lastCorrectCount = storedStats?.lastCorrectCount ?? null;
   const isActive = session.status === "active";
   const startedAtLabel = formatStartedAt(session.startedAt);
-  const durationLabel = formatDurationFromStart(session.startedAt, nowTs);
-  const connectedCount =
-    participantStats.online + participantStats.inProgress + participantStats.completed;
-  const engagementPercent =
-    session.participants.length > 0
-      ? Math.round((connectedCount / session.participants.length) * 100)
-      : 0;
-  const averageScore =
-    completedCount > 0 ? Math.round(totalScore / completedCount) : 0;
-
-  async function handleCopySessionCode() {
-    const success = await copyText(session.sessionCode);
-    setCopyState(
-      success
-        ? "Код занятия скопирован."
-        : "Не удалось скопировать код автоматически."
-    );
-  }
+  const durationLabel = formatSessionDuration(session.startedAt);
 
   return (
     <Screen theme={theme}>
@@ -283,18 +194,8 @@ export function TeacherSessionControlScreen({
         title="Общая сессия"
         subtitle="Управляй ходом занятия, переключай блоки и отслеживай прогресс группы в одном экране."
         rightSlot={
-          <View
-            style={[
-              styles.statusBadge,
-              isActive ? styles.statusBadgeActive : styles.statusBadgeDraft
-            ]}
-          >
-            <Text
-              style={[
-                styles.statusBadgeText,
-                isActive ? styles.statusBadgeTextActive : null
-              ]}
-            >
+          <View style={[styles.statusBadge, isActive ? styles.statusBadgeActive : styles.statusBadgeDraft]}>
+            <Text style={[styles.statusBadgeText, isActive ? styles.statusBadgeTextActive : null]}>
               {getSessionStatusLabel(session.status)}
             </Text>
           </View>
@@ -309,8 +210,7 @@ export function TeacherSessionControlScreen({
           <Text style={styles.heroEyebrow}>VisualMath Session</Text>
           <Text style={styles.heroTitle}>{fixText(session.lectureTitle)}</Text>
           <Text style={styles.heroSubtitle}>
-            Код сессии {fixText(session.sessionCode)} • блок {session.currentBlockIndex + 1} из{" "}
-            {session.blocks.length}
+            Код сессии {fixText(session.sessionCode)} • блок {session.currentBlockIndex + 1} из {session.blocks.length}
           </Text>
 
           <View style={styles.heroMetaRow}>
@@ -323,11 +223,7 @@ export function TeacherSessionControlScreen({
 
         <View style={styles.heroAside}>
           <MetricCard theme={theme} value={String(completedCount)} label="Завершили" />
-          <MetricCard
-            theme={theme}
-            value={String(participantStats.inProgress)}
-            label="В процессе"
-          />
+          <MetricCard theme={theme} value={String(participantStats.inProgress)} label="В процессе" />
           <MetricCard theme={theme} value={String(totalScore)} label="Сумма баллов" />
         </View>
       </View>
@@ -336,7 +232,7 @@ export function TeacherSessionControlScreen({
         <SectionCard
           theme={theme}
           title="Управление сессией"
-          subtitle="Запуск, остановка, копирование кода и быстрый возврат в кабинет преподавателя."
+          subtitle="Запуск, остановка и быстрый возврат в кабинет преподавателя."
           style={styles.cardWide}
         >
           <View style={styles.actionStack}>
@@ -347,46 +243,27 @@ export function TeacherSessionControlScreen({
               disabled={isActive}
             />
 
-            <View style={styles.inlineActions}>
-              <AppButton
-                label="Скопировать код"
-                onPress={() => {
-                  void handleCopySessionCode();
-                }}
-                theme={theme}
-                variant="secondary"
-                fullWidth={false}
-                style={styles.inlineButton}
-              />
+            <AppButton
+              label="Остановить сессию"
+              onPress={onStop}
+              theme={theme}
+              variant="secondary"
+              disabled={!isActive}
+            />
 
-              <AppButton
-                label="Остановить сессию"
-                onPress={onStop}
-                theme={theme}
-                variant="secondary"
-                disabled={!isActive}
-                fullWidth={false}
-                style={styles.inlineButton}
-              />
-
-              <AppButton
-                label="Вернуться в кабинет"
-                onPress={onBack}
-                theme={theme}
-                variant="ghost"
-                fullWidth={false}
-                style={styles.inlineButton}
-              />
-            </View>
+            <AppButton
+              label="Вернуться в кабинет"
+              onPress={onBack}
+              theme={theme}
+              variant="ghost"
+            />
           </View>
-
-          {copyState ? <Text style={styles.helperText}>{copyState}</Text> : null}
         </SectionCard>
 
         <SectionCard
           theme={theme}
           title="Текущий блок"
-          subtitle="Переключай содержимое занятия и держи общий темп группы."
+          subtitle="Переключай содержание занятия и держи общий темп группы."
           style={styles.cardNarrow}
         >
           <Text style={styles.currentBlockLabel}>Сейчас у студентов открыт</Text>
@@ -395,12 +272,7 @@ export function TeacherSessionControlScreen({
             Позиция {session.currentBlockIndex + 1} / {session.blocks.length}
           </Text>
 
-          <View
-            style={[
-              styles.doubleActionRow,
-              isCompact ? styles.doubleActionRowCompact : null
-            ]}
-          >
+          <View style={[styles.doubleActionRow, isCompact ? styles.doubleActionRowCompact : null]}>
             <View style={styles.doubleActionItem}>
               <AppButton
                 label="Предыдущий блок"
@@ -411,7 +283,11 @@ export function TeacherSessionControlScreen({
             </View>
 
             <View style={styles.doubleActionItem}>
-              <AppButton label="Следующий блок" onPress={onNextBlock} theme={theme} />
+              <AppButton
+                label="Следующий блок"
+                onPress={onNextBlock}
+                theme={theme}
+              />
             </View>
           </View>
         </SectionCard>
@@ -425,40 +301,16 @@ export function TeacherSessionControlScreen({
           style={styles.cardWide}
         >
           <View style={styles.summaryGrid}>
-            <SummaryTile
-              theme={theme}
-              value={String(participantStats.online)}
-              label="На связи"
-              tone="warning"
-            />
-            <SummaryTile
-              theme={theme}
-              value={String(participantStats.inProgress)}
-              label="В процессе"
-              tone="info"
-            />
-            <SummaryTile
-              theme={theme}
-              value={String(completedCount)}
-              label="Завершили"
-              tone="success"
-            />
-            <SummaryTile
-              theme={theme}
-              value={`${engagementPercent}%`}
-              label="Вовлечённость"
-              tone="neutral"
-            />
+            <SummaryTile theme={theme} value={String(participantStats.online)} label="На связи" tone="warning" />
+            <SummaryTile theme={theme} value={String(participantStats.inProgress)} label="В процессе" tone="info" />
+            <SummaryTile theme={theme} value={String(completedCount)} label="Завершили" tone="success" />
+            <SummaryTile theme={theme} value={String(participantStats.offline)} label="Не в сети" tone="neutral" />
           </View>
 
-          <View style={styles.summaryInlineCards}>
-            <MetricCard theme={theme} value={String(averageScore)} label="Средний балл" />
-            <MetricCard
-              theme={theme}
-              value={lastCorrectCount === null ? "—" : String(lastCorrectCount)}
-              label="Последний результат"
-            />
-          </View>
+          <Text style={styles.lastResultText}>
+            Последний результат:{" "}
+            {lastCorrectCount === null ? "ещё нет ответов" : `${lastCorrectCount} правильных ответов`}
+          </Text>
         </SectionCard>
 
         <SectionCard
@@ -467,30 +319,19 @@ export function TeacherSessionControlScreen({
           subtitle="Статус, баллы и готовность студентов."
           style={styles.cardNarrow}
         >
-          {sortedParticipants.length === 0 ? (
-            <StateCallout
-              theme={theme}
-              title="Пока нет участников"
-              description="Когда студенты подключатся к общей сессии, здесь появятся их статусы и результаты."
-              tone="info"
-            />
+          {session.participants.length === 0 ? (
+            <Text style={styles.emptyText}>Пока нет участников в этой сессии.</Text>
           ) : (
-            sortedParticipants.map((participant) => (
+            session.participants.map((participant) => (
               <View key={participant.id} style={styles.participantRow}>
                 <View style={styles.participantMeta}>
                   <Text style={styles.participantName}>{fixText(participant.name)}</Text>
                   <View
                     style={[
                       styles.participantPill,
-                      getParticipantTone(participant.status) === "success"
-                        ? styles.participantPillSuccess
-                        : null,
-                      getParticipantTone(participant.status) === "info"
-                        ? styles.participantPillInfo
-                        : null,
-                      getParticipantTone(participant.status) === "warning"
-                        ? styles.participantPillWarning
-                        : null
+                      getParticipantTone(participant.status) === "success" ? styles.participantPillSuccess : null,
+                      getParticipantTone(participant.status) === "info" ? styles.participantPillInfo : null,
+                      getParticipantTone(participant.status) === "warning" ? styles.participantPillWarning : null
                     ]}
                   >
                     <Text style={styles.participantPillText}>
@@ -500,8 +341,8 @@ export function TeacherSessionControlScreen({
                 </View>
 
                 <Text style={styles.participantDetails}>
-                  Баллы: {participant.score ?? "—"} • Верно: {participant.correctCount ?? "—"} •
-                  Вопросов: {participant.totalQuestions ?? "—"}
+                  Баллы: {participant.score ?? "—"} • Верно: {participant.correctCount ?? "—"} • Вопросов:{" "}
+                  {participant.totalQuestions ?? "—"}
                 </Text>
               </View>
             ))
@@ -726,20 +567,6 @@ function createStyles(theme: AppTheme, width: number) {
     actionStack: {
       gap: theme.spacing.sm
     },
-    inlineActions: {
-      flexDirection: isPhone ? "column" : "row",
-      flexWrap: "wrap"
-    },
-    inlineButton: {
-      marginRight: isPhone ? 0 : theme.spacing.sm,
-      marginBottom: theme.spacing.sm
-    },
-    helperText: {
-      fontFamily: theme.fonts.body,
-      fontSize: theme.typography.caption,
-      lineHeight: 20,
-      color: theme.colors.textSecondary
-    },
     currentBlockLabel: {
       fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
@@ -779,10 +606,6 @@ function createStyles(theme: AppTheme, width: number) {
       flexWrap: "wrap",
       marginBottom: theme.spacing.md
     },
-    summaryInlineCards: {
-      flexDirection: isPhone ? "column" : "row",
-      gap: theme.spacing.sm
-    },
     summaryTile: {
       minWidth: isPhone ? "47%" : 150,
       flexGrow: 1,
@@ -818,6 +641,17 @@ function createStyles(theme: AppTheme, width: number) {
       fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700",
+      color: theme.colors.textSecondary
+    },
+    lastResultText: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      lineHeight: 20,
+      color: theme.colors.textSecondary
+    },
+    emptyText: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.body,
       color: theme.colors.textSecondary
     },
     participantRow: {

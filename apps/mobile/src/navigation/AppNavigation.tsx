@@ -1044,29 +1044,6 @@ export function AppNavigation() {
       (submission) => submission.sessionId === visibleActiveTestingSession.id
     );
   }, [testingSubmissions, visibleActiveTestingSession]);
-
-  const studentProgressSummary = useMemo(() => {
-    if (isTeacher) {
-      return null;
-    }
-
-    return {
-      courseCount: visibleLectures.length,
-      resourceCount:
-        visibleVideoLessons.length + visiblePhotoMaterials.length + visibleMeetings.length,
-      homeworkCount: visibleHomeworks.length,
-      testingCount: testingResults.length
-    };
-  }, [
-    isTeacher,
-    testingResults.length,
-    visibleHomeworks.length,
-    visibleLectures.length,
-    visibleMeetings.length,
-    visiblePhotoMaterials.length,
-    visibleVideoLessons.length
-  ]);
-
   useEffect(() => {
     configureGoogleSignIn();
   }, []);
@@ -3414,7 +3391,6 @@ export function AppNavigation() {
             lastOpenedLecture={lastOpenedLecture}
             resumeLecture={resumeLecture}
             resumeStep={studentResumeContext?.step ?? null}
-            progressSummary={studentProgressSummary}
             isLoading={catalogMode === "loading"}
             hasError={catalogMode === "error"}
             isOffline={catalogMode === "offline"}
@@ -3617,7 +3593,6 @@ export function AppNavigation() {
             selectedTeacherBranch={isTeacher ? null : selectedTeacherBranch}
             resumeLectureTitle={resumeLecture?.title ?? lastOpenedLecture?.title ?? null}
             resumeStep={studentResumeContext?.step ?? null}
-            studentProgressSummary={studentProgressSummary}
             onResumeStudy={
               isTeacher || (!resumeLecture && !lastOpenedLecture)
                 ? undefined

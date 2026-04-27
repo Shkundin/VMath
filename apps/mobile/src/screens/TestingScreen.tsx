@@ -13,7 +13,6 @@ import { AppInput } from "../components/ui/AppInput";
 import { Screen } from "../components/ui/Screen";
 import { ScreenHeader } from "../components/ui/ScreenHeader";
 import { SectionCard } from "../components/ui/SectionCard";
-import { StateCallout } from "../components/ui/StateCallout";
 import type { AppTheme } from "../theme";
 import { fixText } from "../utils/fixText";
 import type {
@@ -362,12 +361,9 @@ export function TestingScreen({
               subtitle={submissions.length > 0 ? `Получено ответов: ${submissions.length}` : "Пока никто не отправил ответы"}
             >
               {submissions.length === 0 ? (
-                <StateCallout
-                  theme={theme}
-                  title="Ответов пока нет"
-                  description="Студенты увидят тест во вкладке «Тестирование» после синхронизации и смогут отправить ответы сюда."
-                  tone="info"
-                />
+                <Text style={styles.helperText}>
+                  {fixText("Студенты увидят тест во вкладке «Тестирование» после синхронизации.")}
+                </Text>
               ) : (
                 submissions.map((submission) => (
                   <View key={submission.id} style={styles.questionCard}>
@@ -412,12 +408,9 @@ export function TestingScreen({
             subtitle={draftQuestions.length > 0 ? `Всего вопросов: ${draftQuestions.length}` : "Пока вопросов нет"}
           >
             {draftQuestions.length === 0 ? (
-              <StateCallout
-                theme={theme}
-                title="Тест ещё не собран"
-                description="Добавь хотя бы один вопрос, и после этого можно будет сразу запустить проверку для студентов."
-                tone="warning"
-              />
+              <Text style={styles.helperText}>
+                {fixText("Добавь вопросы, потом запусти тест для студентов.")}
+              </Text>
             ) : (
               draftQuestions.map((question, index) => (
                 <View key={question.id} style={styles.questionCard}>
@@ -471,12 +464,9 @@ export function TestingScreen({
           title="Сейчас нет активного теста"
           subtitle="Ожидай, когда преподаватель запустит тест."
         >
-          <StateCallout
-            theme={theme}
-            title="Ожидание запуска"
-            description="Когда преподаватель откроет тестирование, оно автоматически появится здесь без перезагрузки экрана."
-            tone="info"
-          />
+          <Text style={styles.helperText}>
+            {fixText("Когда преподаватель запустит тестирование, оно автоматически появится здесь.")}
+          </Text>
         </SectionCard>
       </Screen>
     );

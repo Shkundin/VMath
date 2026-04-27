@@ -25,12 +25,6 @@ type ProfileScreenProps = {
   selectedTeacherBranch?: TeacherBranch | null;
   resumeLectureTitle?: string | null;
   resumeStep?: StudentResumeStep | null;
-  studentProgressSummary?: {
-    courseCount: number;
-    resourceCount: number;
-    homeworkCount: number;
-    testingCount: number;
-  } | null;
   teacherSessionSummary?: {
     lectureTitle: string;
     sessionCode: string;
@@ -56,7 +50,6 @@ export function ProfileScreen({
   selectedTeacherBranch,
   resumeLectureTitle,
   resumeStep,
-  studentProgressSummary,
   teacherSessionSummary,
   onResumeStudy,
   onToggleTheme,
@@ -194,31 +187,6 @@ export function ProfileScreen({
               tone={mapModeToTone(sessionMode)}
             />
           </View>
-
-          {isStudent && studentProgressSummary ? (
-            <View style={styles.progressStrip}>
-              <ProgressTile
-                theme={theme}
-                label="Курсы"
-                value={String(studentProgressSummary.courseCount)}
-              />
-              <ProgressTile
-                theme={theme}
-                label="Материалы"
-                value={String(studentProgressSummary.resourceCount)}
-              />
-              <ProgressTile
-                theme={theme}
-                label="Домашние"
-                value={String(studentProgressSummary.homeworkCount)}
-              />
-              <ProgressTile
-                theme={theme}
-                label="Тесты"
-                value={String(studentProgressSummary.testingCount)}
-              />
-            </View>
-          ) : null}
 
           {isStudent && resumeLectureTitle ? (
             <View style={styles.focusPanel}>
@@ -400,23 +368,6 @@ function InfoTile({ theme, label, value }: InfoTileProps) {
     <View style={styles.infoTile}>
       <Text style={styles.infoTileLabel}>{fixText(label)}</Text>
       <Text style={styles.infoTileValue}>{fixText(value)}</Text>
-    </View>
-  );
-}
-
-type ProgressTileProps = {
-  theme: AppTheme;
-  label: string;
-  value: string;
-};
-
-function ProgressTile({ theme, label, value }: ProgressTileProps) {
-  const styles = createStyles(theme, 1200);
-
-  return (
-    <View style={styles.progressTile}>
-      <Text style={styles.progressTileValue}>{fixText(value)}</Text>
-      <Text style={styles.progressTileLabel}>{fixText(label)}</Text>
     </View>
   );
 }
@@ -727,37 +678,6 @@ function createStyles(theme: AppTheme, width: number) {
       flexDirection: isPhone ? "column" : "row",
       flexWrap: "wrap",
       alignItems: "flex-start"
-    },
-    progressStrip: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      marginTop: theme.spacing.md,
-      marginBottom: theme.spacing.xs
-    },
-    progressTile: {
-      flexBasis: isPhone ? "47%" : 140,
-      flexGrow: 1,
-      marginRight: theme.spacing.sm,
-      marginBottom: theme.spacing.sm,
-      padding: theme.spacing.md,
-      borderRadius: theme.radius.md,
-      backgroundColor: theme.colors.surfaceElevated,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      ...theme.shadow.sm
-    },
-    progressTileValue: {
-      fontFamily: theme.fonts.display,
-      fontSize: theme.typography.body + 1,
-      fontWeight: "700",
-      color: theme.colors.text,
-      marginBottom: theme.spacing.xs
-    },
-    progressTileLabel: {
-      fontFamily: theme.fonts.body,
-      fontSize: theme.typography.helper,
-      fontWeight: "700",
-      color: theme.colors.textSecondary
     },
     focusPanel: {
       marginTop: theme.spacing.md,
