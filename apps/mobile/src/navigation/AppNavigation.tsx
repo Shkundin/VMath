@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -924,10 +924,6 @@ export function AppNavigation() {
   function clearStudentResume() {
     setStudentResumeContext(null);
   }
-
-  const dismissToast = useCallback(() => {
-    setActiveToast(null);
-  }, []);
 
   const visibleLectures = useMemo(() => {
     if (!scopedTeacherLogin) {
@@ -3646,7 +3642,7 @@ export function AppNavigation() {
       <AppToastHost
         toast={activeToast}
         theme={theme}
-        onDismiss={dismissToast}
+        onDismiss={() => setActiveToast(null)}
       />
     </View>
   );
