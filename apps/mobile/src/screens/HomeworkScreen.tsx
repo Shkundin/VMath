@@ -13,6 +13,7 @@ import { AppInput } from "../components/ui/AppInput";
 import { Screen } from "../components/ui/Screen";
 import { ScreenHeader } from "../components/ui/ScreenHeader";
 import { SectionCard } from "../components/ui/SectionCard";
+import { StateCallout } from "../components/ui/StateCallout";
 import { StatusPill } from "../components/ui/StatusPill";
 import type { AppTheme } from "../theme";
 import { fixText } from "../utils/fixText";
@@ -382,9 +383,16 @@ export function HomeworkScreen({
         subtitle={sortedHomeworks.length > 0 ? `Всего заданий: ${sortedHomeworks.length}` : "Пока заданий нет"}
       >
         {sortedHomeworks.length === 0 ? (
-          <Text style={styles.emptyText}>
-            {isTeacher ? "Пока нет созданных заданий." : "Преподаватель пока не добавил задания."}
-          </Text>
+          <StateCallout
+            theme={theme}
+            title={isTeacher ? "Заданий пока нет" : "Преподаватель ещё не выдал задания"}
+            description={
+              isTeacher
+                ? "Создай первое домашнее задание, чтобы здесь появилась рабочая лента сдач и проверок."
+                : "Когда преподаватель опубликует домашнюю работу, она автоматически появится в этом разделе."
+            }
+            tone={isTeacher ? "warning" : "info"}
+          />
         ) : (
           <View style={styles.homeworkList}>
             {sortedHomeworks.map((homework) => {
@@ -481,7 +489,12 @@ export function HomeworkScreen({
                       <Text style={styles.teacherSubmissionsTitle}>Сдачи студентов</Text>
 
                       {relatedSubmissions.length === 0 ? (
-                        <Text style={styles.emptyText}>Пока никто не сдал это задание.</Text>
+                        <StateCallout
+                          theme={theme}
+                          title="Сдач пока нет"
+                          description="Студенты ещё не загрузили файлы по этому заданию. Как только появятся первые работы, они отобразятся здесь."
+                          tone="info"
+                        />
                       ) : (
                         relatedSubmissions.map((submission) => {
                           const scoreValue =

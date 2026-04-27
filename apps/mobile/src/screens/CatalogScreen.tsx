@@ -22,6 +22,12 @@ type CatalogScreenProps = {
   lastOpenedLecture: LectureItem | null;
   resumeLecture: LectureItem | null;
   resumeStep: StudentResumeStep | null;
+  progressSummary?: {
+    courseCount: number;
+    resourceCount: number;
+    homeworkCount: number;
+    testingCount: number;
+  } | null;
   isLoading: boolean;
   hasError: boolean;
   isOffline: boolean;
@@ -36,6 +42,7 @@ export function CatalogScreen({
   lastOpenedLecture,
   resumeLecture,
   resumeStep,
+  progressSummary,
   isLoading,
   hasError,
   isOffline,
@@ -171,6 +178,22 @@ export function CatalogScreen({
               fullWidth={false}
               style={styles.heroButton}
             />
+          </View>
+        </SectionCard>
+      ) : null}
+
+      {progressSummary ? (
+        <SectionCard
+          title="Твой темп"
+          subtitle="Короткая сводка по текущему учебному пространству."
+          theme={theme}
+          style={styles.resumeCard}
+        >
+          <View style={styles.progressGrid}>
+            <MiniInfoTile theme={theme} label="Курсы" value={String(progressSummary.courseCount)} />
+            <MiniInfoTile theme={theme} label="Материалы" value={String(progressSummary.resourceCount)} />
+            <MiniInfoTile theme={theme} label="Домашние" value={String(progressSummary.homeworkCount)} />
+            <MiniInfoTile theme={theme} label="Тесты" value={String(progressSummary.testingCount)} />
           </View>
         </SectionCard>
       ) : null}
@@ -505,6 +528,10 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.md
     },
     resumeActionRow: {
+      flexDirection: "row",
+      flexWrap: "wrap"
+    },
+    progressGrid: {
       flexDirection: "row",
       flexWrap: "wrap"
     },
