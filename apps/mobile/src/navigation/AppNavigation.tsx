@@ -659,6 +659,29 @@ function withTeacherScope<T extends { teacherLogin?: string }>(
   );
 }
 
+function getVisibleTeacherScopedItems<T extends { teacherLogin?: string }>(
+  items: T[],
+  isTeacher: boolean,
+  scopedTeacherLogin: string | null
+): T[] {
+  if (!scopedTeacherLogin) {
+    if (isTeacher) {
+      return items;
+    }
+
+    const unscoped = items.filter((item) => !item.teacherLogin);
+    return unscoped.length > 0 ? unscoped : items;
+  }
+
+  const scoped = items.filter((item) => item.teacherLogin === scopedTeacherLogin);
+
+  if (scoped.length > 0) {
+    return scoped;
+  }
+
+  return items.filter((item) => !item.teacherLogin);
+}
+
 const TEACHER_STATS_KEY = "vm.teacher.session.stats.v1";
 
 type TeacherSessionStatsRecord = Record<
@@ -881,92 +904,34 @@ export function AppNavigation() {
     : selectedTeacherBranch?.teacherName || "Выбор преподавателя";
 
   const scopedTeacherLogin = isTeacher ? user.login : selectedTeacherLogin;
-  const studentLandingScreen: "catalog" | "teacherBranchSelect" = selectedTeacherLogin
-    ? "catalog"
-    : "teacherBranchSelect";
+  const studentLandingScreen: "catalog" = "catalog";
 
   const visibleLectures = useMemo(() => {
-    if (!scopedTeacherLogin) {
-      return isTeacher ? catalogLectures : [];
-    }
-
-    const scoped = catalogLectures.filter((lecture) => lecture.teacherLogin === scopedTeacherLogin);
-
-    if (scoped.length > 0) {
-      return scoped;
-    }
-
-    return catalogLectures.filter((lecture) => !lecture.teacherLogin);
+    return getVisibleTeacherScopedItems(catalogLectures, isTeacher, scopedTeacherLogin);
   }, [catalogLectures, isTeacher, scopedTeacherLogin]);
 
   const visibleVideoLessons = useMemo(() => {
-    if (!scopedTeacherLogin) {
-      return isTeacher ? videoLessons : [];
-    }
-
-    const scoped = videoLessons.filter((lesson) => lesson.teacherLogin === scopedTeacherLogin);
-
-    if (scoped.length > 0) {
-      return scoped;
-    }
-
-    return videoLessons.filter((lesson) => !lesson.teacherLogin);
+    return getVisibleTeacherScopedItems(videoLessons, isTeacher, scopedTeacherLogin);
   }, [isTeacher, scopedTeacherLogin, videoLessons]);
 
   const visiblePhotoMaterials = useMemo(() => {
-    if (!scopedTeacherLogin) {
-      return isTeacher ? photoMaterials : [];
-    }
-
-    const scoped = photoMaterials.filter((material) => material.teacherLogin === scopedTeacherLogin);
-
-    if (scoped.length > 0) {
-      return scoped;
-    }
-
-    return photoMaterials.filter((material) => !material.teacherLogin);
+    return getVisibleTeacherScopedItems(photoMaterials, isTeacher, scopedTeacherLogin);
   }, [isTeacher, photoMaterials, scopedTeacherLogin]);
 
   const visibleMeetings = useMemo(() => {
-    if (!scopedTeacherLogin) {
-      return isTeacher ? meetings : [];
-    }
-
-    const scoped = meetings.filter((meeting) => meeting.teacherLogin === scopedTeacherLogin);
-
-    if (scoped.length > 0) {
-      return scoped;
-    }
-
-    return meetings.filter((meeting) => !meeting.teacherLogin);
+    return getVisibleTeacherScopedItems(meetings, isTeacher, scopedTeacherLogin);
   }, [isTeacher, meetings, scopedTeacherLogin]);
 
   const visibleHomeworks = useMemo(() => {
-    if (!scopedTeacherLogin) {
-      return isTeacher ? homeworks : [];
-    }
-
-    const scoped = homeworks.filter((homework) => homework.teacherLogin === scopedTeacherLogin);
-
-    if (scoped.length > 0) {
-      return scoped;
-    }
-
-    return homeworks.filter((homework) => !homework.teacherLogin);
+    return getVisibleTeacherScopedItems(homeworks, isTeacher, scopedTeacherLogin);
   }, [homeworks, isTeacher, scopedTeacherLogin]);
 
   const visibleHomeworkSubmissions = useMemo(() => {
-    if (!scopedTeacherLogin) {
-      return isTeacher ? homeworkSubmissions : [];
-    }
-
-    const scoped = homeworkSubmissions.filter(
-      (submission) => submission.teacherLogin === scopedTeacherLogin
+    const base = getVisibleTeacherScopedItems(
+      homeworkSubmissions,
+      isTeacher,
+      scopedTeacherLogin
     );
-
-    const base = scoped.length > 0
-      ? scoped
-      : homeworkSubmissions.filter((submission) => !submission.teacherLogin);
 
     return isTeacher
       ? base
@@ -1427,7 +1392,7 @@ export function AppNavigation() {
     setSelectedTeacherLogin(null);
     resetStudentFlow();
     resetTeacherFlow();
-    setActiveScreen("teacherBranchSelect");
+    setActiveScreen("catalog");
   }
 
   function handleOpenTeacherBranchSelector() {
@@ -1535,7 +1500,7 @@ export function AppNavigation() {
       setSelectedTeacherLogin(null);
       resetStudentFlow();
       resetTeacherFlow();
-      setActiveScreen("teacherBranchSelect");
+      setActiveScreen("catalog");
     }
 
     setUser(nextUser);
@@ -1575,7 +1540,7 @@ export function AppNavigation() {
       return;
     }
 
-    setActiveScreen(storedTeacherLogin ? "catalog" : "teacherBranchSelect");
+    setActiveScreen("catalog");
   }
 
   function getSocialStudentLogin(identity: SocialIdentity): string {
@@ -2755,22 +2720,6 @@ export function AppNavigation() {
     screen: "catalog" | "solver" | "videoLessons" | "photoMaterials" | "meetings" | "homework" | "grades" | "testing" | "teacherBranchSelect" | "latex" | "profile"
   ) {
     setIsMenuOpen(false);
-
-    const requiresTeacherConnection =
-      screen === "catalog" ||
-      screen === "videoLessons" ||
-      screen === "photoMaterials" ||
-      screen === "meetings" ||
-      screen === "homework" ||
-      screen === "grades" ||
-      screen === "testing";
-
-    if (!isTeacher && requiresTeacherConnection && !selectedTeacherLogin) {
-      resetStudentFlow();
-      resetTeacherFlow();
-      setActiveScreen("teacherBranchSelect");
-      return;
-    }
 
     if (screen === "profile") {
       resetTeacherFlow();
