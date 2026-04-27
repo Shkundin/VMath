@@ -13,28 +13,35 @@ import { Screen } from "../components/ui/Screen";
 import { ScreenHeader } from "../components/ui/ScreenHeader";
 import { SectionCard } from "../components/ui/SectionCard";
 import type { LectureItem } from "../mocks/lectures";
+import type { StudentResumeStep } from "../storage/appUXStorage";
 import type { AppTheme } from "../theme";
 
 type CatalogScreenProps = {
   theme: AppTheme;
   lectures: LectureItem[];
   lastOpenedLecture: LectureItem | null;
+  resumeLecture: LectureItem | null;
+  resumeStep: StudentResumeStep | null;
   isLoading: boolean;
   hasError: boolean;
   isOffline: boolean;
   onRetry: () => void;
   onOpenLecture: (lecture: LectureItem) => void;
+  onResumeLecture: () => void;
 };
 
 export function CatalogScreen({
   theme,
   lectures,
   lastOpenedLecture,
+  resumeLecture,
+  resumeStep,
   isLoading,
   hasError,
   isOffline,
   onRetry,
-  onOpenLecture
+  onOpenLecture,
+  onResumeLecture
 }: CatalogScreenProps) {
   const { width } = useWindowDimensions();
   const styles = createStyles(theme, width);
@@ -89,18 +96,30 @@ export function CatalogScreen({
         <View style={styles.heroMain}>
           <Text style={styles.heroEyebrow}>Учебный кабинет</Text>
           <Text style={styles.heroTitle}>
-            {lastOpenedLecture
-              ? `Продолжить: ${lastOpenedLecture.title}`
+            {resumeLecture
+              ? `Продолжить: ${resumeLecture.title}`
+              : lastOpenedLecture
+                ? `Продолжить: ${lastOpenedLecture.title}`
               : "Открой курс и начни работу"}
           </Text>
           <Text style={styles.heroText}>
-            {lastOpenedLecture
-              ? "Последняя лекция всегда под рукой. Продолжай с того места, где остановился."
+            {resumeLecture
+              ? getResumeDescription(resumeStep)
+              : lastOpenedLecture
+                ? "Последняя лекция всегда под рукой. Продолжай с того места, где остановился."
               : "Здесь собраны лекции, визуальные блоки, задания и материалы преподавателя."}
           </Text>
 
           <View style={styles.heroActions}>
-            {lastOpenedLecture ? (
+            {resumeLecture ? (
+              <AppButton
+                label={getResumeButtonLabel(resumeStep)}
+                onPress={onResumeLecture}
+                theme={theme}
+                fullWidth={false}
+                style={styles.heroButton}
+              />
+            ) : lastOpenedLecture ? (
               <AppButton
                 label="Продолжить курс"
                 onPress={() => onOpenLecture(lastOpenedLecture)}
@@ -127,6 +146,34 @@ export function CatalogScreen({
           <StatCard theme={theme} value={isOffline ? "offline" : "online"} label="Режим" />
         </View>
       </View>
+
+      {resumeLecture ? (
+        <SectionCard
+          title="Точка возврата"
+          subtitle={getResumeCardSubtitle(resumeLecture.title, resumeStep)}
+          theme={theme}
+          style={styles.resumeCard}
+        >
+          <View style={styles.resumeActionRow}>
+            <AppButton
+              label={getResumeButtonLabel(resumeStep)}
+              onPress={onResumeLecture}
+              theme={theme}
+              fullWidth={false}
+              style={styles.heroButton}
+            />
+
+            <AppButton
+              label="Открыть курс"
+              onPress={() => onOpenLecture(resumeLecture)}
+              theme={theme}
+              variant="secondary"
+              fullWidth={false}
+              style={styles.heroButton}
+            />
+          </View>
+        </SectionCard>
+      ) : null}
 
       {isOffline ? (
         <View style={styles.bannerInfo}>
@@ -454,6 +501,13 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.md,
       ...theme.shadow.sm
     },
+    resumeCard: {
+      marginBottom: theme.spacing.md
+    },
+    resumeActionRow: {
+      flexDirection: "row",
+      flexWrap: "wrap"
+    },
     bannerInfoTitle: {
       fontFamily: theme.fonts.display,
       fontSize: theme.typography.body,
@@ -731,4 +785,48 @@ function createStyles(theme: AppTheme, width: number) {
       backgroundColor: theme.colors.surfaceMuted
     }
   });
+}
+
+function getResumeButtonLabel(step: StudentResumeStep | null): string {
+  if (step === "task") {
+    return "Вернуться к заданию";
+  }
+
+  if (step === "session" || step === "result") {
+    return "Продолжить занятие";
+  }
+
+  return "Открыть лекцию";
+}
+
+function getResumeDescription(step: StudentResumeStep | null): string {
+  if (step === "task") {
+    return "Мы сохранили момент на шаге с заданием, чтобы можно было быстро вернуться к работе.";
+  }
+
+  if (step === "session") {
+    return "Активная учебная сессия уже ждёт тебя. Можно сразу вернуться к нужному блоку.";
+  }
+
+  if (step === "result") {
+    return "Последний результат отмечен как точка возврата. При необходимости откроем текущее занятие.";
+  }
+
+  return "Последняя лекция всегда под рукой. Продолжай с того места, где остановился.";
+}
+
+function getResumeCardSubtitle(title: string, step: StudentResumeStep | null): string {
+  if (step === "task") {
+    return `Сохранён шаг с заданием для курса «${title}».`;
+  }
+
+  if (step === "session") {
+    return `Для курса «${title}» сохранена активная учебная сессия.`;
+  }
+
+  if (step === "result") {
+    return `Для курса «${title}» отмечен последний завершённый результат.`;
+  }
+
+  return `Курс «${title}» был открыт последним и готов к продолжению.`;
 }

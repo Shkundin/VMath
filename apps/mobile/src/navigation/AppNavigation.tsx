@@ -63,6 +63,7 @@ import { TaskScreen } from "../screens/TaskScreen";
 import { TeacherHomeScreen, type DraftLectureInput, type DraftLectureMetaInput, type DraftQuestionInput } from "../screens/TeacherHomeScreen";
 import { TeacherSessionControlScreen } from "../screens/TeacherSessionControlScreen";
 import { VkIdWebWidgets } from "../components/auth/VkIdWebWidgets";
+import { AppToastHost, type AppToast } from "../components/ui/AppToastHost";
 import {
   clearAuthSession,
   readAuthMeta,
@@ -84,6 +85,15 @@ import {
   writeNotificationsEnabled,
   writeThemeMode
 } from "../storage/mobileCache";
+import {
+  clearStudentResumeContext,
+  clearTeacherSessionSnapshot,
+  readStudentResumeContext,
+  readTeacherSessionSnapshot,
+  type StudentResumeContext,
+  writeStudentResumeContext,
+  writeTeacherSessionSnapshot
+} from "../storage/appUXStorage";
 import { createAppTheme, type AppTheme, type ThemeMode } from "../theme";
 import { createDefaultLatexDocument, readLatexDocument, writeLatexDocument, type LatexDocumentState } from "../storage/latexStorage";
 import { readMeetings, writeMeetings, type MeetingItem } from "../storage/meetingsStorage";
@@ -849,6 +859,8 @@ export function AppNavigation() {
   const [currentSession, setCurrentSession] = useState<SessionData | null>(null);
   const [currentResult, setCurrentResult] = useState<TaskResult | null>(null);
   const [currentTeacherSession, setCurrentTeacherSession] = useState<TeacherManagedSession | null>(null);
+  const [studentResumeContext, setStudentResumeContext] = useState<StudentResumeContext | null>(null);
+  const [activeToast, setActiveToast] = useState<AppToast | null>(null);
 
   const [catalogMode, setCatalogMode] = useState<DemoDataMode>("loading");
   const [sessionMode, setSessionMode] = useState<DemoDataMode>("online");
@@ -884,6 +896,34 @@ export function AppNavigation() {
   const studentLandingScreen: "catalog" | "teacherBranchSelect" = selectedTeacherLogin
     ? "catalog"
     : "teacherBranchSelect";
+
+  function showToast(
+    tone: AppToast["tone"],
+    title: string,
+    message?: string
+  ) {
+    setActiveToast({
+      id: Date.now(),
+      tone,
+      title,
+      message
+    });
+  }
+
+  function rememberStudentResumeStep(
+    lectureId: string,
+    step: StudentResumeContext["step"]
+  ) {
+    setStudentResumeContext({
+      lectureId,
+      step,
+      updatedAt: new Date().toISOString()
+    });
+  }
+
+  function clearStudentResume() {
+    setStudentResumeContext(null);
+  }
 
   const visibleLectures = useMemo(() => {
     if (!scopedTeacherLogin) {
@@ -1050,7 +1090,9 @@ export function AppNavigation() {
           storedTeacherBranches,
           storedSelectedTeacherLogin,
           storedActiveTestingSession,
-          storedTestingSubmissions
+          storedTestingSubmissions,
+          storedStudentResumeContext,
+          storedTeacherSessionSnapshot
         ] = await Promise.all([
           readCatalogSnapshot(),
           readLastLectureId(),
@@ -1063,7 +1105,9 @@ export function AppNavigation() {
           readTeacherBranches(),
           readSelectedTeacherLogin(),
           readActiveTestingSession(),
-          readTestingSubmissions()
+          readTestingSubmissions(),
+          readStudentResumeContext(),
+          readTeacherSessionSnapshot()
         ]);
 
         if (!isMounted) {
@@ -1135,6 +1179,14 @@ export function AppNavigation() {
 
         if (Array.isArray(storedTestingSubmissions) && storedTestingSubmissions.length > 0) {
           setTestingSubmissions(storedTestingSubmissions);
+        }
+
+        if (storedStudentResumeContext?.lectureId) {
+          setStudentResumeContext(storedStudentResumeContext);
+        }
+
+        if (storedAuthMeta?.role === "teacher" && storedTeacherSessionSnapshot) {
+          setCurrentTeacherSession(storedTeacherSessionSnapshot);
         }
 
         if (storedAuthMeta?.userLogin) {
@@ -1268,6 +1320,32 @@ export function AppNavigation() {
 
     void writeNotificationsEnabled(notificationsEnabled);
   }, [notificationsEnabled, isHydrating]);
+
+  useEffect(() => {
+    if (isHydrating) {
+      return;
+    }
+
+    if (studentResumeContext) {
+      void writeStudentResumeContext(studentResumeContext);
+      return;
+    }
+
+    void clearStudentResumeContext();
+  }, [isHydrating, studentResumeContext]);
+
+  useEffect(() => {
+    if (isHydrating) {
+      return;
+    }
+
+    if (currentTeacherSession) {
+      void writeTeacherSessionSnapshot(currentTeacherSession);
+      return;
+    }
+
+    void clearTeacherSessionSnapshot();
+  }, [currentTeacherSession, isHydrating]);
 
   useEffect(() => {
     if (isHydrating) {
@@ -1421,6 +1499,14 @@ export function AppNavigation() {
     resetStudentFlow();
     resetTeacherFlow();
     setActiveScreen("catalog");
+    const branch = teacherBranches.find((item) => item.teacherLogin === nextTeacherLogin) ?? null;
+    showToast(
+      "success",
+      "Каталог подключён",
+      branch
+        ? `Открыт курс преподавателя ${fixText(branch.teacherName)}.`
+        : "Каталог преподавателя готов к работе."
+    );
   }
 
   function handleDisconnectTeacherBranch() {
@@ -1428,6 +1514,7 @@ export function AppNavigation() {
     resetStudentFlow();
     resetTeacherFlow();
     setActiveScreen("teacherBranchSelect");
+    showToast("info", "Подключение снято", "Можно выбрать другого преподавателя.");
   }
 
   function handleOpenTeacherBranchSelector() {
@@ -2026,6 +2113,7 @@ export function AppNavigation() {
     setCurrentResult(null);
     setCurrentTeacherSession(null);
     setLastOpenedLectureId(null);
+    clearStudentResume();
     setLectureDetailsById((current) => pickDraftLectureDetails(current));
     setUser(DEFAULT_USER);
 
@@ -2036,6 +2124,8 @@ export function AppNavigation() {
     try {
       await GoogleSignin.signOut();
     } catch {}
+
+    showToast("info", "Вы вышли из аккаунта", "Сессию можно начать снова в любой момент.");
   }
 
   function resetStudentFlow() {
@@ -2046,7 +2136,9 @@ export function AppNavigation() {
   }
 
   function resetTeacherFlow() {
-    setCurrentTeacherSession(null);
+    if (!isTeacher) {
+      setCurrentTeacherSession(null);
+    }
   }
 
   function handleUpdateDraftLectureMeta(lectureId: string, input: DraftLectureMetaInput) {
@@ -2087,6 +2179,9 @@ export function AppNavigation() {
 
     setSelectedLecture((current) => (current?.id === lectureId ? null : current));
     setLastOpenedLectureId((current) => (current === lectureId ? null : current));
+    setCurrentTeacherSession((current) => (current?.lectureId === lectureId ? null : current));
+    setStudentResumeContext((current) => (current?.lectureId === lectureId ? null : current));
+    showToast("warning", "Лекция удалена", "Черновик и связанные локальные данные убраны.");
   }
 
   function handleCreateDraftLecture(input: DraftLectureInput): string | null {
@@ -2102,6 +2197,7 @@ export function AppNavigation() {
     setSelectedLecture(nextLecture);
     setLastOpenedLectureId(lectureId);
     void writeLastLectureId(lectureId);
+    showToast("success", "Лекция создана", "Можно открыть редактор, добавить вопросы и запустить сессию.");
 
     return lectureId;
   }
@@ -2189,6 +2285,7 @@ export function AppNavigation() {
         [lectureId]: withQuestionDeleted(editable, questionId)
       };
     });
+    showToast("warning", "Вопрос удалён");
   }
 
   function handleCreateVideoLesson(input: {
@@ -2227,12 +2324,14 @@ export function AppNavigation() {
     }
 
     setVideoLessons((current: VideoLessonItem[]) => [nextLesson, ...current]);
+    showToast("success", "Видео добавлено", `Материал «${fixText(nextTitle)}» появился в библиотеке.`);
   }
 
   function handleDeleteVideoLesson(lessonId: string) {
     setVideoLessons((current: VideoLessonItem[]) =>
       current.filter((lesson: VideoLessonItem) => lesson.id !== lessonId)
     );
+    showToast("warning", "Видео удалено");
   }
 
   async function handleLogout() {
@@ -2243,6 +2342,7 @@ export function AppNavigation() {
     setCurrentResult(null);
     setCurrentTeacherSession(null);
     setLastOpenedLectureId(null);
+    clearStudentResume();
     setLectureDetailsById((current) => pickDraftLectureDetails(current));
     setUser(DEFAULT_USER);
 
@@ -2257,6 +2357,8 @@ export function AppNavigation() {
     try {
       await authApi.logout();
     } catch {}
+
+    showToast("info", "Вы вышли из аккаунта", "Возвращайся, когда будешь готов продолжить.");
   }
 
   async function handleOpenLecture(lecture: LectureItem) {
@@ -2266,6 +2368,7 @@ export function AppNavigation() {
     setCurrentSession(null);
     setCurrentResult(null);
     setActiveScreen("details");
+    rememberStudentResumeStep(lecture.id, "details");
 
     const details = await ensureLectureDetails(lecture);
     if (!details) {
@@ -2278,36 +2381,47 @@ export function AppNavigation() {
     setActiveScreen(studentLandingScreen);
   }
 
-  async function handleOpenSession() {
-    if (!selectedLecture) {
-      return;
+  async function handleOpenSession(lectureOverride?: LectureItem | null): Promise<SessionData | null> {
+    const lecture = lectureOverride ?? selectedLecture;
+    if (!lecture) {
+      return null;
+    }
+
+    if (lectureOverride) {
+      setSelectedLecture(lectureOverride);
+      setLastOpenedLectureId(lectureOverride.id);
+      void writeLastLectureId(lectureOverride.id);
     }
 
     setSessionMode("loading");
 
     const details =
-      lectureDetailsById[selectedLecture.id] ?? (await ensureLectureDetails(selectedLecture));
+      lectureDetailsById[lecture.id] ?? (await ensureLectureDetails(lecture));
 
-    if (selectedLecture.id.startsWith("draft-lecture-")) {
-      setCurrentSession(createMockSession(selectedLecture, details));
+    if (lecture.id.startsWith("draft-lecture-")) {
+      const nextSession = createMockSession(lecture, details);
+      setCurrentSession(nextSession);
       setCurrentResult(null);
       setSessionMode("online");
       setActiveScreen("session");
-      return;
+      rememberStudentResumeStep(lecture.id, "session");
+      return nextSession;
     }
 
     if (!details) {
-      setCurrentSession(createMockSession(selectedLecture));
+      const nextSession = createMockSession(lecture);
+      setCurrentSession(nextSession);
       setCurrentResult(null);
       setSessionMode("offline");
       setActiveScreen("session");
-      return;
+      rememberStudentResumeStep(lecture.id, "session");
+      return nextSession;
     }
 
     try {
-      const sessionState = await sessionApi.getSession(selectedLecture.id);
+      const sessionState = await sessionApi.getSession(lecture.id);
       const mappedSession = mapSessionToSessionData({
-        lecture: selectedLecture,
+        lecture,
         details,
         sessionState
       });
@@ -2316,17 +2430,61 @@ export function AppNavigation() {
       setCurrentResult(null);
       setSessionMode("online");
       setActiveScreen("session");
+      rememberStudentResumeStep(lecture.id, "session");
+      return mappedSession;
     } catch {
-      setCurrentSession(createMockSession(selectedLecture, details));
+      const nextSession = createMockSession(lecture, details);
+      setCurrentSession(nextSession);
       setCurrentResult(null);
       setSessionMode("offline");
       setActiveScreen("session");
+      rememberStudentResumeStep(lecture.id, "session");
+      return nextSession;
+    }
+  }
+
+  async function handleResumeStudentContext() {
+    const resumeLectureId = studentResumeContext?.lectureId ?? lastOpenedLectureId;
+    const resumeLecture =
+      visibleLectures.find((lecture) => lecture.id === resumeLectureId) ??
+      lastOpenedLecture ??
+      null;
+
+    if (!resumeLecture) {
+      return;
+    }
+
+    if (!studentResumeContext || studentResumeContext.step === "details") {
+      await handleOpenLecture(resumeLecture);
+      return;
+    }
+
+    const restoredSession = await handleOpenSession(resumeLecture);
+    if (!restoredSession) {
+      return;
+    }
+
+    if (studentResumeContext.step === "task") {
+      setActiveScreen("task");
+      rememberStudentResumeStep(resumeLecture.id, "task");
+      return;
+    }
+
+    if (studentResumeContext.step === "result") {
+      showToast(
+        "info",
+        "Продолжаем с текущего занятия",
+        "Последний результат не хранится после перезагрузки, поэтому открыт активный сеанс."
+      );
     }
   }
 
   function handleBackToLecture() {
     setCurrentResult(null);
     setActiveScreen("details");
+    if (selectedLecture) {
+      rememberStudentResumeStep(selectedLecture.id, "details");
+    }
   }
 
   function handleOpenTask() {
@@ -2335,6 +2493,7 @@ export function AppNavigation() {
     }
 
     setActiveScreen("task");
+    rememberStudentResumeStep(currentSession.lectureId, "task");
   }
 
   async function handleSubmitTask(submission: TaskSubmission) {
@@ -2348,6 +2507,8 @@ export function AppNavigation() {
 
     setCurrentResult(result);
     setActiveScreen("result");
+    rememberStudentResumeStep(currentSession.lectureId, "result");
+    showToast("success", "Ответы отправлены", `${result.correctCount} из ${result.totalQuestions} верно.`);
 
     if (currentTeacherSession && currentTeacherSession.lectureId === currentSession.lectureId) {
       setCurrentTeacherSession((current) => {
@@ -2384,6 +2545,9 @@ export function AppNavigation() {
 
   function handleBackToSession() {
     setActiveScreen("session");
+    if (currentSession) {
+      rememberStudentResumeStep(currentSession.lectureId, "session");
+    }
   }
 
   function createTeacherSessionForLecture(lecture: LectureItem) {
@@ -2401,7 +2565,27 @@ export function AppNavigation() {
 
   async function handleOpenManageTeacherSession(lecture: LectureItem) {
     setSelectedLecture(lecture);
-    setCurrentTeacherSession(createTeacherSessionForLecture(lecture));
+    setCurrentTeacherSession((current) =>
+      current?.lectureId === lecture.id ? current : createTeacherSessionForLecture(lecture)
+    );
+    setActiveScreen("teacherSession");
+    showToast("info", "Пульт преподавателя открыт", `Лекция: ${fixText(lecture.title)}.`);
+  }
+
+  function handleResumeTeacherSession() {
+    if (!currentTeacherSession) {
+      return;
+    }
+
+    const lecture =
+      visibleLectures.find((item) => item.id === currentTeacherSession.lectureId) ??
+      selectedLecture ??
+      null;
+
+    if (lecture) {
+      setSelectedLecture(lecture);
+    }
+
     setActiveScreen("teacherSession");
   }
 
@@ -2413,6 +2597,7 @@ export function AppNavigation() {
     ) {
       setSelectedLecture(lecture);
       setActiveScreen("teacherSession");
+      showToast("info", "Сессия уже активна", `Возвращаем тебя к лекции ${fixText(lecture.title)}.`);
       return;
     }
 
@@ -2421,10 +2606,10 @@ export function AppNavigation() {
     setSelectedLecture(lecture);
     setCurrentTeacherSession(updateTeacherSessionStatus(nextSession, "active"));
     setActiveScreen("teacherSession");
+    showToast("success", "Общая сессия запущена", `Код занятия: ${nextSession.sessionCode}.`);
   }
 
   function handleBackToTeacherHome() {
-    resetTeacherFlow();
     setActiveScreen("teacherHome");
   }
 
@@ -2435,6 +2620,7 @@ export function AppNavigation() {
 
     resetTeacherSessionStats(currentTeacherSession.lectureId);
     setCurrentTeacherSession(updateTeacherSessionStatus(currentTeacherSession, "active"));
+    showToast("success", "Сессия активна", "Студенты могут подключаться и двигаться по блокам.");
   }
 
   function handleTeacherStopSession() {
@@ -2443,6 +2629,7 @@ export function AppNavigation() {
     }
 
     setCurrentTeacherSession(updateTeacherSessionStatus(currentTeacherSession, "stopped"));
+    showToast("warning", "Сессия остановлена", "Её можно снова открыть из кабинета преподавателя.");
   }
 
   async function handleTeacherMoveBlock(direction: "prev" | "next") {
@@ -2463,18 +2650,25 @@ export function AppNavigation() {
         : Math.max(currentTeacherSession.currentBlockIndex - 1, 0);
 
     const nextBlock = details.blocks[nextIndex];
-    if (!nextBlock) {
+    const nextBlockId = nextBlock?.id;
+    if (!nextBlock || !nextBlockId) {
       return;
     }
 
     try {
-      await sessionApi.setActiveBlock(currentTeacherSession.sessionId, nextBlock.id);
+      await sessionApi.setActiveBlock(currentTeacherSession.sessionId, nextBlockId);
       setCurrentTeacherSession({
         ...currentTeacherSession,
         currentBlockIndex: nextIndex
       });
+      showToast(
+        "info",
+        "Блок обновлён",
+        `Текущий блок: ${fixText(nextBlock.title ?? `Блок ${nextIndex + 1}`)}.`
+      );
     } catch {
       setCurrentTeacherSession(moveTeacherSessionBlock(currentTeacherSession, direction));
+      showToast("warning", "Локальный режим", "Сервер не ответил, поэтому блок переключён локально.");
     }
   }
 
@@ -2517,12 +2711,14 @@ export function AppNavigation() {
     }
 
     setPhotoMaterials((current: PhotoMaterialItem[]) => [nextMaterial, ...current]);
+    showToast("success", "Материал добавлен", `Файл «${fixText(nextTitle)}» доступен студентам.`);
   }
 
   function handleDeletePhotoMaterial(materialId: string) {
     setPhotoMaterials((current: PhotoMaterialItem[]) =>
       current.filter((material: PhotoMaterialItem) => material.id !== materialId)
     );
+    showToast("warning", "Материал удалён");
   }
 
   function handleCreateMeeting(input: MeetingDraftInput) {
@@ -2545,12 +2741,14 @@ export function AppNavigation() {
           new Date(left.scheduledAt).getTime() - new Date(right.scheduledAt).getTime()
       )
     );
+    showToast("success", "Встреча запланирована", `Событие «${fixText(nextMeeting.title)}» добавлено в календарь.`);
   }
 
   function handleDeleteMeeting(meetingId: string) {
     setMeetings((current: MeetingItem[]) =>
       current.filter((meeting: MeetingItem) => meeting.id !== meetingId)
     );
+    showToast("warning", "Встреча удалена");
   }
 
   function handleCreateHomework(input: HomeworkDraftInput) {
@@ -2572,6 +2770,7 @@ export function AppNavigation() {
           new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime()
       )
     );
+    showToast("success", "Домашнее задание создано", `Дедлайн: ${new Date(nextHomework.dueAt).toLocaleString("ru-RU")}.`);
   }
 
   function handleDeleteHomework(homeworkId: string) {
@@ -2582,6 +2781,7 @@ export function AppNavigation() {
     setHomeworkSubmissions((current: HomeworkSubmissionItem[]) =>
       current.filter((submission: HomeworkSubmissionItem) => submission.homeworkId !== homeworkId)
     );
+    showToast("warning", "Домашнее задание удалено");
   }
 
   function handleCreateHomeworkSubmission(input: HomeworkSubmissionDraftInput) {
@@ -2608,12 +2808,14 @@ export function AppNavigation() {
           !(submission.homeworkId === input.homeworkId && submission.studentLogin === input.studentLogin)
       )
     ]);
+    showToast("success", "Работа загружена", `Файл «${fixText(nextSubmission.fileName)}» отправлен преподавателю.`);
   }
 
   function handleDeleteHomeworkSubmission(submissionId: string) {
     setHomeworkSubmissions((current: HomeworkSubmissionItem[]) =>
       current.filter((submission: HomeworkSubmissionItem) => submission.id !== submissionId)
     );
+    showToast("warning", "Сдача удалена");
   }
 
   function handleGradeHomeworkSubmission(
@@ -2631,6 +2833,11 @@ export function AppNavigation() {
             }
           : submission
       )
+    );
+    showToast(
+      score === null ? "info" : "success",
+      score === null ? "Комментарий сохранён" : "Оценка обновлена",
+      score === null ? undefined : `Поставлено ${score} баллов.`
     );
   }
 
@@ -2653,6 +2860,7 @@ export function AppNavigation() {
     };
 
     setActiveTestingSession(nextSession);
+    showToast("success", "Тест запущен", `Студентам открыт тест «${fixText(nextSession.title)}».`);
   }
 
   function handleFinishTestingSession() {
@@ -2696,6 +2904,7 @@ export function AppNavigation() {
     });
 
     setActiveTestingSession(null);
+    showToast("info", "Тест завершён", "Сводка сохранена в результатах.");
   }
 
   function handleSubmitTestingAnswers(answers: Record<string, TestingAnswerKey>) {
@@ -2749,6 +2958,7 @@ export function AppNavigation() {
           !(submission.sessionId === visibleActiveTestingSession.id && submission.studentLogin === user.login)
       )
     ]);
+    showToast("success", "Тест отправлен", `${correctCount} из ${totalQuestions} верно.`);
   }
 
   function handleMenuNavigate(
@@ -2912,6 +3122,9 @@ export function AppNavigation() {
 
   const lastOpenedLecture =
     visibleLectures.find((lecture) => lecture.id === lastOpenedLectureId) ?? null;
+
+  const resumeLecture =
+    visibleLectures.find((lecture) => lecture.id === studentResumeContext?.lectureId) ?? null;
 
   const activeBottomTab: "catalog" | "teacher" | "profile" = isTeacher
     ? activeScreen === "profile"
@@ -3172,11 +3385,14 @@ export function AppNavigation() {
             theme={theme}
             lectures={visibleLectures}
             lastOpenedLecture={lastOpenedLecture}
+            resumeLecture={resumeLecture}
+            resumeStep={studentResumeContext?.step ?? null}
             isLoading={catalogMode === "loading"}
             hasError={catalogMode === "error"}
             isOffline={catalogMode === "offline"}
             onRetry={() => void refreshCatalogFromApi()}
             onOpenLecture={(lecture) => void handleOpenLecture(lecture)}
+            onResumeLecture={() => void handleResumeStudentContext()}
           />
         ) : null}
 
@@ -3240,6 +3456,7 @@ export function AppNavigation() {
             }
             onLaunchSharedSession={handleLaunchSharedTeacherSession}
             onOpenManageSession={(lecture) => void handleOpenManageTeacherSession(lecture)}
+            onResumeActiveSession={handleResumeTeacherSession}
             onCreateDraftLecture={handleCreateDraftLecture}
             onUpdateDraftLectureMeta={handleUpdateDraftLectureMeta}
             onAddDraftQuestion={handleAddDraftQuestion}
@@ -3370,6 +3587,22 @@ export function AppNavigation() {
             catalogMode={catalogMode}
             sessionMode={sessionMode}
             selectedTeacherBranch={isTeacher ? null : selectedTeacherBranch}
+            resumeLectureTitle={resumeLecture?.title ?? lastOpenedLecture?.title ?? null}
+            resumeStep={studentResumeContext?.step ?? null}
+            onResumeStudy={
+              isTeacher || (!resumeLecture && !lastOpenedLecture)
+                ? undefined
+                : () => void handleResumeStudentContext()
+            }
+            teacherSessionSummary={
+              isTeacher && currentTeacherSession
+                ? {
+                    lectureTitle: currentTeacherSession.lectureTitle,
+                    status: currentTeacherSession.status,
+                    sessionCode: currentTeacherSession.sessionCode
+                  }
+                : null
+            }
             onToggleTheme={() =>
               setThemeMode((currentMode) =>
                 currentMode === "light" ? "dark" : "light"
@@ -3405,6 +3638,12 @@ export function AppNavigation() {
           onChange={handleBottomTabChange}
         />
       ) : null}
+
+      <AppToastHost
+        toast={activeToast}
+        theme={theme}
+        onDismiss={() => setActiveToast(null)}
+      />
     </View>
   );
 }

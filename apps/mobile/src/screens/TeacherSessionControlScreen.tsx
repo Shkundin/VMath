@@ -79,7 +79,9 @@ function getParticipantStatusLabel(status: TeacherParticipantStatus): string {
   return "Не в сети";
 }
 
-function getParticipantTone(status: TeacherParticipantStatus): "success" | "warning" | "info" | "neutral" {
+function getParticipantTone(
+  status: TeacherParticipantStatus
+): "success" | "warning" | "info" | "neutral" {
   if (status === "completed") {
     return "success";
   }
@@ -95,6 +97,36 @@ function getParticipantTone(status: TeacherParticipantStatus): "success" | "warn
   return "neutral";
 }
 
+function formatStartedAt(value: string | null): string {
+  if (!value) {
+    return "ещё не начата";
+  }
+
+  try {
+    return new Date(value).toLocaleString("ru-RU", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  } catch {
+    return "ещё не начата";
+  }
+}
+
+function formatSessionDuration(value: string | null): string {
+  if (!value) {
+    return "00:00";
+  }
+
+  const diff = Math.max(0, Date.now() - new Date(value).getTime());
+  const totalMinutes = Math.floor(diff / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
 export function TeacherSessionControlScreen({
   theme,
   session,
@@ -106,8 +138,8 @@ export function TeacherSessionControlScreen({
 }: TeacherSessionControlScreenProps) {
   const { width } = useWindowDimensions();
   const styles = createStyles(theme, width);
-  const currentBlock = getTeacherCurrentBlock(session);
   const isCompact = width < 920;
+  const currentBlock = getTeacherCurrentBlock(session);
 
   const [storedStats, setStoredStats] = useState<StoredTeacherStats | null>(
     readStoredStats(session.lectureId)
@@ -118,7 +150,7 @@ export function TeacherSessionControlScreen({
 
     const intervalId = setInterval(() => {
       setStoredStats(readStoredStats(session.lectureId));
-    }, 800);
+    }, 30000);
 
     function handleStorage() {
       setStoredStats(readStoredStats(session.lectureId));
@@ -134,7 +166,7 @@ export function TeacherSessionControlScreen({
         window.removeEventListener("storage", handleStorage);
       }
     };
-  }, [session.lectureId]);
+  }, [session.lectureId, session.startedAt]);
 
   const participantStats = useMemo(
     () => ({
@@ -152,6 +184,8 @@ export function TeacherSessionControlScreen({
     session.participants.reduce((sum, item) => sum + (item.score ?? 0), 0);
   const lastCorrectCount = storedStats?.lastCorrectCount ?? null;
   const isActive = session.status === "active";
+  const startedAtLabel = formatStartedAt(session.startedAt);
+  const durationLabel = formatSessionDuration(session.startedAt);
 
   return (
     <Screen theme={theme}>
@@ -182,6 +216,8 @@ export function TeacherSessionControlScreen({
           <View style={styles.heroMetaRow}>
             <HeroChip theme={theme} label={`Текущий блок: ${fixText(currentBlock)}`} />
             <HeroChip theme={theme} label={`Вопросов: ${session.questionPreview.length}`} />
+            <HeroChip theme={theme} label={`Старт: ${startedAtLabel}`} />
+            <HeroChip theme={theme} label={`Длительность: ${durationLabel}`} />
           </View>
         </View>
 
@@ -196,7 +232,7 @@ export function TeacherSessionControlScreen({
         <SectionCard
           theme={theme}
           title="Управление сессией"
-          subtitle="Запуск, остановка и возврат в кабинет преподавателя."
+          subtitle="Запуск, остановка и быстрый возврат в кабинет преподавателя."
           style={styles.cardWide}
         >
           <View style={styles.actionStack}>
@@ -227,7 +263,7 @@ export function TeacherSessionControlScreen({
         <SectionCard
           theme={theme}
           title="Текущий блок"
-          subtitle="Переключай содержание занятия и держи темп группы."
+          subtitle="Переключай содержание занятия и держи общий темп группы."
           style={styles.cardNarrow}
         >
           <Text style={styles.currentBlockLabel}>Сейчас у студентов открыт</Text>
@@ -518,13 +554,13 @@ function createStyles(theme: AppTheme, width: number) {
       flexDirection: isCompact ? "column" : "row"
     },
     cardWide: {
-      flexGrow: isCompact ? 0 : 1.08,
+      flexGrow: isCompact ? 0 : 1.1,
       flexShrink: 0,
       flexBasis: isCompact ? "auto" : 0,
       marginRight: isCompact ? 0 : theme.spacing.md
     },
     cardNarrow: {
-      flexGrow: isCompact ? 0 : 0.92,
+      flexGrow: isCompact ? 0 : 0.9,
       flexShrink: 0,
       flexBasis: isCompact ? "auto" : 0
     },
@@ -536,60 +572,63 @@ function createStyles(theme: AppTheme, width: number) {
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.textSecondary,
-      marginBottom: theme.spacing.sm
+      marginBottom: theme.spacing.xs
     },
     currentBlockValue: {
       fontFamily: theme.fonts.display,
-      fontSize: isPhone ? 22 : theme.typography.sectionTitle + 5,
-      lineHeight: isPhone ? 28 : theme.typography.sectionTitle + 11,
+      fontSize: theme.typography.title,
+      lineHeight: theme.typography.title + 4,
       fontWeight: "700",
       color: theme.colors.text,
-      marginBottom: theme.spacing.sm
+      marginBottom: theme.spacing.xs
     },
     currentBlockHint: {
       fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       lineHeight: 20,
       color: theme.colors.textSecondary,
-      marginBottom: theme.spacing.lg
+      marginBottom: theme.spacing.md
     },
     doubleActionRow: {
       flexDirection: "row",
-      gap: theme.spacing.sm
+      alignItems: "stretch"
     },
     doubleActionRowCompact: {
       flexDirection: "column"
     },
     doubleActionItem: {
-      flex: 1
+      flex: 1,
+      marginRight: isCompact ? 0 : theme.spacing.sm,
+      marginBottom: isCompact ? theme.spacing.sm : 0
     },
     summaryGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      gap: theme.spacing.sm,
       marginBottom: theme.spacing.md
     },
     summaryTile: {
-      flexBasis: isPhone ? "100%" : 150,
+      minWidth: isPhone ? "47%" : 150,
       flexGrow: 1,
-      borderRadius: theme.radius.lg,
       padding: theme.spacing.md,
-      backgroundColor: theme.colors.surfaceElevated,
+      borderRadius: theme.radius.lg,
+      backgroundColor: theme.colors.surface,
       borderWidth: 1,
       borderColor: theme.colors.border,
+      marginRight: theme.spacing.sm,
+      marginBottom: theme.spacing.sm,
       ...theme.shadow.sm
     },
     summaryTileSuccess: {
-      backgroundColor: "#EDF8F2",
-      borderColor: "#EDF8F2"
+      backgroundColor: theme.mode === "dark" ? "#132B23" : "#F0FAF5",
+      borderColor: theme.colors.success
     },
     summaryTileWarning: {
-      backgroundColor: "#FFF6E5",
-      borderColor: "#FFF6E5"
+      backgroundColor: theme.mode === "dark" ? "#302310" : "#FFF7E8",
+      borderColor: theme.colors.warning
     },
     summaryTileInfo: {
-      backgroundColor: theme.colors.primarySoft,
-      borderColor: theme.colors.primarySoft
+      backgroundColor: theme.mode === "dark" ? "#13213A" : "#EDF2FF",
+      borderColor: theme.colors.primary
     },
     summaryValue: {
       fontFamily: theme.fonts.display,
@@ -606,24 +645,24 @@ function createStyles(theme: AppTheme, width: number) {
     },
     lastResultText: {
       fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      lineHeight: 20,
+      color: theme.colors.textSecondary
+    },
+    emptyText: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
-      lineHeight: 22,
-      color: theme.colors.text
+      color: theme.colors.textSecondary
     },
     participantRow: {
-      borderRadius: theme.radius.lg,
-      padding: theme.spacing.md,
-      backgroundColor: theme.colors.surfaceElevated,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      marginBottom: theme.spacing.sm,
-      ...theme.shadow.sm
+      paddingVertical: theme.spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border
     },
     participantMeta: {
-      flexDirection: "row",
+      flexDirection: isPhone ? "column" : "row",
       justifyContent: "space-between",
-      alignItems: "center",
-      flexWrap: "wrap",
+      alignItems: isPhone ? "flex-start" : "center",
       marginBottom: theme.spacing.xs
     },
     participantName: {
@@ -631,29 +670,28 @@ function createStyles(theme: AppTheme, width: number) {
       fontSize: theme.typography.body,
       fontWeight: "700",
       color: theme.colors.text,
-      marginRight: theme.spacing.sm
+      marginBottom: isPhone ? theme.spacing.xs : 0
     },
     participantPill: {
       minHeight: 30,
       paddingHorizontal: theme.spacing.sm,
       borderRadius: theme.radius.pill,
+      justifyContent: "center",
       backgroundColor: theme.colors.surfaceMuted,
       borderWidth: 1,
-      borderColor: theme.colors.border,
-      justifyContent: "center",
-      marginTop: theme.spacing.xs
+      borderColor: theme.colors.border
     },
     participantPillSuccess: {
-      backgroundColor: "#E7F5EF",
-      borderColor: "#E7F5EF"
+      backgroundColor: theme.mode === "dark" ? "#132B23" : "#F0FAF5",
+      borderColor: theme.colors.success
     },
     participantPillInfo: {
-      backgroundColor: theme.colors.primarySoft,
-      borderColor: theme.colors.primarySoft
+      backgroundColor: theme.mode === "dark" ? "#13213A" : "#EDF2FF",
+      borderColor: theme.colors.primary
     },
     participantPillWarning: {
-      backgroundColor: "#FFF6E5",
-      borderColor: "#FFF6E5"
+      backgroundColor: theme.mode === "dark" ? "#302310" : "#FFF7E8",
+      borderColor: theme.colors.warning
     },
     participantPillText: {
       fontFamily: theme.fonts.body,
@@ -665,11 +703,6 @@ function createStyles(theme: AppTheme, width: number) {
       fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       lineHeight: 20,
-      color: theme.colors.textSecondary
-    },
-    emptyText: {
-      fontFamily: theme.fonts.body,
-      fontSize: theme.typography.body,
       color: theme.colors.textSecondary
     }
   });
