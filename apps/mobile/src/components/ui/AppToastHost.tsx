@@ -31,7 +31,7 @@ export function AppToastHost({ onDismiss, theme, toast }: AppToastHostProps) {
   const { width } = useWindowDimensions();
   const isPhone = width < 720;
   const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(-18)).current;
+  const translateY = useRef(new Animated.Value(18)).current;
 
   const palette = useMemo(() => {
     if (!toast) {
@@ -79,7 +79,7 @@ export function AppToastHost({ onDismiss, theme, toast }: AppToastHostProps) {
     }
 
     opacity.setValue(0);
-    translateY.setValue(-18);
+    translateY.setValue(18);
 
     Animated.parallel([
       Animated.timing(opacity, {
@@ -87,10 +87,10 @@ export function AppToastHost({ onDismiss, theme, toast }: AppToastHostProps) {
         duration: 210,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 240,
+        }),
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: 240,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true
       })
@@ -105,7 +105,7 @@ export function AppToastHost({ onDismiss, theme, toast }: AppToastHostProps) {
           useNativeDriver: true
         }),
         Animated.timing(translateY, {
-          toValue: -14,
+          toValue: 14,
           duration: 180,
           easing: Easing.in(Easing.cubic),
           useNativeDriver: true
@@ -118,7 +118,7 @@ export function AppToastHost({ onDismiss, theme, toast }: AppToastHostProps) {
     }, 3200);
 
     return () => clearTimeout(timeoutId);
-  }, [onDismiss, opacity, toast, translateY]);
+  }, [onDismiss, opacity, toast?.id, translateY]);
 
   if (!toast) {
     return null;
@@ -132,7 +132,8 @@ export function AppToastHost({ onDismiss, theme, toast }: AppToastHostProps) {
           {
             left: isPhone ? 12 : undefined,
             right: isPhone ? 12 : 20,
-            maxWidth: isPhone ? undefined : 420,
+            bottom: isPhone ? 86 : 20,
+            maxWidth: isPhone ? undefined : 360,
             opacity,
             transform: [{ translateY }]
           }
@@ -198,8 +199,7 @@ const styles = StyleSheet.create({
     zIndex: 120
   },
   toastWrap: {
-    position: "absolute",
-    top: 14
+    position: "absolute"
   },
   toast: {
     flexDirection: "row",
