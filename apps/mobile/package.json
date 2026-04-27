@@ -16,6 +16,7 @@
     "@react-native-google-signin/google-signin": "^16.1.2",
     "@vkid/sdk": "^2.6.5",
     "@vercel/analytics": "^1.5.0",
+    "@vercel/speed-insights": "^1.2.0",
     "@vm/integration": "workspace:*",
     "@vm/shared": "workspace:*",
     "expo": "~54.0.0",
