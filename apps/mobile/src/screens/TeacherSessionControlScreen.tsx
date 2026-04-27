@@ -79,9 +79,7 @@ function getParticipantStatusLabel(status: TeacherParticipantStatus): string {
   return "Не в сети";
 }
 
-function getParticipantTone(
-  status: TeacherParticipantStatus
-): "success" | "warning" | "info" | "neutral" {
+function getParticipantTone(status: TeacherParticipantStatus): "success" | "warning" | "info" | "neutral" {
   if (status === "completed") {
     return "success";
   }
@@ -97,36 +95,6 @@ function getParticipantTone(
   return "neutral";
 }
 
-function formatStartedAt(value: string | null): string {
-  if (!value) {
-    return "ещё не начата";
-  }
-
-  try {
-    return new Date(value).toLocaleString("ru-RU", {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit"
-    });
-  } catch {
-    return "ещё не начата";
-  }
-}
-
-function formatSessionDuration(value: string | null): string {
-  if (!value) {
-    return "00:00";
-  }
-
-  const diff = Math.max(0, Date.now() - new Date(value).getTime());
-  const totalMinutes = Math.floor(diff / 60000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-}
-
 export function TeacherSessionControlScreen({
   theme,
   session,
@@ -138,8 +106,8 @@ export function TeacherSessionControlScreen({
 }: TeacherSessionControlScreenProps) {
   const { width } = useWindowDimensions();
   const styles = createStyles(theme, width);
-  const isCompact = width < 920;
   const currentBlock = getTeacherCurrentBlock(session);
+  const isCompact = width < 920;
 
   const [storedStats, setStoredStats] = useState<StoredTeacherStats | null>(
     readStoredStats(session.lectureId)
@@ -150,7 +118,7 @@ export function TeacherSessionControlScreen({
 
     const intervalId = setInterval(() => {
       setStoredStats(readStoredStats(session.lectureId));
-    }, 30000);
+    }, 800);
 
     function handleStorage() {
       setStoredStats(readStoredStats(session.lectureId));
@@ -166,7 +134,7 @@ export function TeacherSessionControlScreen({
         window.removeEventListener("storage", handleStorage);
       }
     };
-  }, [session.lectureId, session.startedAt]);
+  }, [session.lectureId]);
 
   const participantStats = useMemo(
     () => ({
@@ -184,8 +152,6 @@ export function TeacherSessionControlScreen({
     session.participants.reduce((sum, item) => sum + (item.score ?? 0), 0);
   const lastCorrectCount = storedStats?.lastCorrectCount ?? null;
   const isActive = session.status === "active";
-  const startedAtLabel = formatStartedAt(session.startedAt);
-  const durationLabel = formatSessionDuration(session.startedAt);
 
   return (
     <Screen theme={theme}>
@@ -216,8 +182,6 @@ export function TeacherSessionControlScreen({
           <View style={styles.heroMetaRow}>
             <HeroChip theme={theme} label={`Текущий блок: ${fixText(currentBlock)}`} />
             <HeroChip theme={theme} label={`Вопросов: ${session.questionPreview.length}`} />
-            <HeroChip theme={theme} label={`Старт: ${startedAtLabel}`} />
-            <HeroChip theme={theme} label={`Длительность: ${durationLabel}`} />
           </View>
         </View>
 
@@ -232,7 +196,7 @@ export function TeacherSessionControlScreen({
         <SectionCard
           theme={theme}
           title="Управление сессией"
-          subtitle="Запуск, остановка и быстрый возврат в кабинет преподавателя."
+          subtitle="Запуск, остановка и возврат в кабинет преподавателя."
           style={styles.cardWide}
         >
           <View style={styles.actionStack}>
@@ -263,7 +227,7 @@ export function TeacherSessionControlScreen({
         <SectionCard
           theme={theme}
           title="Текущий блок"
-          subtitle="Переключай содержание занятия и держи общий темп группы."
+          subtitle="Переключай содержание занятия и держи темп группы."
           style={styles.cardNarrow}
         >
           <Text style={styles.currentBlockLabel}>Сейчас у студентов открыт</Text>
@@ -554,13 +518,13 @@ function createStyles(theme: AppTheme, width: number) {
       flexDirection: isCompact ? "column" : "row"
     },
     cardWide: {
-      flexGrow: isCompact ? 0 : 1.1,
+      flexGrow: isCompact ? 0 : 1.08,
       flexShrink: 0,
       flexBasis: isCompact ? "auto" : 0,
       marginRight: isCompact ? 0 : theme.spacing.md
     },
     cardNarrow: {
-      flexGrow: isCompact ? 0 : 0.9,
+      flexGrow: isCompact ? 0 : 0.92,
       flexShrink: 0,
       flexBasis: isCompact ? "auto" : 0
     },
@@ -572,63 +536,60 @@ function createStyles(theme: AppTheme, width: number) {
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.textSecondary,
-      marginBottom: theme.spacing.xs
+      marginBottom: theme.spacing.sm
     },
     currentBlockValue: {
       fontFamily: theme.fonts.display,
-      fontSize: theme.typography.title,
-      lineHeight: theme.typography.title + 4,
+      fontSize: isPhone ? 22 : theme.typography.sectionTitle + 5,
+      lineHeight: isPhone ? 28 : theme.typography.sectionTitle + 11,
       fontWeight: "700",
       color: theme.colors.text,
-      marginBottom: theme.spacing.xs
+      marginBottom: theme.spacing.sm
     },
     currentBlockHint: {
       fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       lineHeight: 20,
       color: theme.colors.textSecondary,
-      marginBottom: theme.spacing.md
+      marginBottom: theme.spacing.lg
     },
     doubleActionRow: {
       flexDirection: "row",
-      alignItems: "stretch"
+      gap: theme.spacing.sm
     },
     doubleActionRowCompact: {
       flexDirection: "column"
     },
     doubleActionItem: {
-      flex: 1,
-      marginRight: isCompact ? 0 : theme.spacing.sm,
-      marginBottom: isCompact ? theme.spacing.sm : 0
+      flex: 1
     },
     summaryGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
+      gap: theme.spacing.sm,
       marginBottom: theme.spacing.md
     },
     summaryTile: {
-      minWidth: isPhone ? "47%" : 150,
+      flexBasis: isPhone ? "100%" : 150,
       flexGrow: 1,
-      padding: theme.spacing.md,
       borderRadius: theme.radius.lg,
-      backgroundColor: theme.colors.surface,
+      padding: theme.spacing.md,
+      backgroundColor: theme.colors.surfaceElevated,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      marginRight: theme.spacing.sm,
-      marginBottom: theme.spacing.sm,
       ...theme.shadow.sm
     },
     summaryTileSuccess: {
-      backgroundColor: theme.mode === "dark" ? "#132B23" : "#F0FAF5",
-      borderColor: theme.colors.success
+      backgroundColor: "#EDF8F2",
+      borderColor: "#EDF8F2"
     },
     summaryTileWarning: {
-      backgroundColor: theme.mode === "dark" ? "#302310" : "#FFF7E8",
-      borderColor: theme.colors.warning
+      backgroundColor: "#FFF6E5",
+      borderColor: "#FFF6E5"
     },
     summaryTileInfo: {
-      backgroundColor: theme.mode === "dark" ? "#13213A" : "#EDF2FF",
-      borderColor: theme.colors.primary
+      backgroundColor: theme.colors.primarySoft,
+      borderColor: theme.colors.primarySoft
     },
     summaryValue: {
       fontFamily: theme.fonts.display,
@@ -645,24 +606,24 @@ function createStyles(theme: AppTheme, width: number) {
     },
     lastResultText: {
       fontFamily: theme.fonts.body,
-      fontSize: theme.typography.caption,
-      lineHeight: 20,
-      color: theme.colors.textSecondary
-    },
-    emptyText: {
-      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
-      color: theme.colors.textSecondary
+      lineHeight: 22,
+      color: theme.colors.text
     },
     participantRow: {
-      paddingVertical: theme.spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.border
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.md,
+      backgroundColor: theme.colors.surfaceElevated,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      marginBottom: theme.spacing.sm,
+      ...theme.shadow.sm
     },
     participantMeta: {
-      flexDirection: isPhone ? "column" : "row",
+      flexDirection: "row",
       justifyContent: "space-between",
-      alignItems: isPhone ? "flex-start" : "center",
+      alignItems: "center",
+      flexWrap: "wrap",
       marginBottom: theme.spacing.xs
     },
     participantName: {
@@ -670,28 +631,29 @@ function createStyles(theme: AppTheme, width: number) {
       fontSize: theme.typography.body,
       fontWeight: "700",
       color: theme.colors.text,
-      marginBottom: isPhone ? theme.spacing.xs : 0
+      marginRight: theme.spacing.sm
     },
     participantPill: {
       minHeight: 30,
       paddingHorizontal: theme.spacing.sm,
       borderRadius: theme.radius.pill,
-      justifyContent: "center",
       backgroundColor: theme.colors.surfaceMuted,
       borderWidth: 1,
-      borderColor: theme.colors.border
+      borderColor: theme.colors.border,
+      justifyContent: "center",
+      marginTop: theme.spacing.xs
     },
     participantPillSuccess: {
-      backgroundColor: theme.mode === "dark" ? "#132B23" : "#F0FAF5",
-      borderColor: theme.colors.success
+      backgroundColor: "#E7F5EF",
+      borderColor: "#E7F5EF"
     },
     participantPillInfo: {
-      backgroundColor: theme.mode === "dark" ? "#13213A" : "#EDF2FF",
-      borderColor: theme.colors.primary
+      backgroundColor: theme.colors.primarySoft,
+      borderColor: theme.colors.primarySoft
     },
     participantPillWarning: {
-      backgroundColor: theme.mode === "dark" ? "#302310" : "#FFF7E8",
-      borderColor: theme.colors.warning
+      backgroundColor: "#FFF6E5",
+      borderColor: "#FFF6E5"
     },
     participantPillText: {
       fontFamily: theme.fonts.body,
@@ -703,6 +665,11 @@ function createStyles(theme: AppTheme, width: number) {
       fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       lineHeight: 20,
+      color: theme.colors.textSecondary
+    },
+    emptyText: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.body,
       color: theme.colors.textSecondary
     }
   });

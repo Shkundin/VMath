@@ -7,7 +7,6 @@ import { ScreenHeader } from "../components/ui/ScreenHeader";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatusPill } from "../components/ui/StatusPill";
 import type { UserProfile } from "../mocks/user";
-import type { StudentResumeStep } from "../storage/appUXStorage";
 import type { TeacherBranch } from "../storage/teacherBranchesStorage";
 import type { AppTheme, ThemeMode } from "../theme";
 import { fixText } from "../utils/fixText";
@@ -23,14 +22,6 @@ type ProfileScreenProps = {
   catalogMode: DemoDataMode;
   sessionMode: DemoDataMode;
   selectedTeacherBranch?: TeacherBranch | null;
-  resumeLectureTitle?: string | null;
-  resumeStep?: StudentResumeStep | null;
-  teacherSessionSummary?: {
-    lectureTitle: string;
-    sessionCode: string;
-    status: "draft" | "active" | "stopped";
-  } | null;
-  onResumeStudy?: () => void;
   onToggleTheme: () => void;
   onToggleNotifications: () => void;
   onCycleCatalogMode: () => void;
@@ -48,10 +39,6 @@ export function ProfileScreen({
   catalogMode,
   sessionMode,
   selectedTeacherBranch,
-  resumeLectureTitle,
-  resumeStep,
-  teacherSessionSummary,
-  onResumeStudy,
   onToggleTheme,
   onToggleNotifications,
   onCycleCatalogMode,
@@ -163,16 +150,8 @@ export function ProfileScreen({
 
         <SectionCard
           theme={theme}
-          title={isStudent ? "Фокус обучения" : "Рабочий статус"}
-          subtitle={
-            isStudent
-              ? resumeLectureTitle
-                ? `Следующая точка входа: ${resumeLectureTitle}.`
-                : "Продолжай обучение, а приложение сохранит удобную точку возврата."
-              : teacherSessionSummary
-                ? `Общая сессия для лекции ${fixText(teacherSessionSummary.lectureTitle)} уже под рукой.`
-                : "Здесь будет показано состояние общей преподавательской сессии."
-          }
+          title="Состояние приложения"
+          subtitle="Короткий статус основных разделов."
           style={styles.cardNarrow}
         >
           <View style={styles.statusWrap}>
@@ -187,34 +166,6 @@ export function ProfileScreen({
               tone={mapModeToTone(sessionMode)}
             />
           </View>
-
-          {isStudent && resumeLectureTitle ? (
-            <View style={styles.focusPanel}>
-              <Text style={styles.focusLabel}>Последняя точка возврата</Text>
-              <Text style={styles.focusTitle}>{fixText(resumeLectureTitle)}</Text>
-              <Text style={styles.focusHint}>{getResumeStepDescription(resumeStep)}</Text>
-
-              {onResumeStudy ? (
-                <AppButton
-                  label={getResumeButtonLabel(resumeStep)}
-                  onPress={onResumeStudy}
-                  theme={theme}
-                  fullWidth={isPhone}
-                  style={styles.focusButton}
-                />
-              ) : null}
-            </View>
-          ) : null}
-
-          {!isStudent && teacherSessionSummary ? (
-            <View style={styles.focusPanel}>
-              <Text style={styles.focusLabel}>Общая сессия</Text>
-              <Text style={styles.focusTitle}>{fixText(teacherSessionSummary.lectureTitle)}</Text>
-              <Text style={styles.focusHint}>
-                {getTeacherSessionStatusLabel(teacherSessionSummary.status)} • код {fixText(teacherSessionSummary.sessionCode)}
-              </Text>
-            </View>
-          ) : null}
         </SectionCard>
       </View>
 
@@ -440,46 +391,6 @@ function formatModeLabel(mode: DemoDataMode): string {
   return "Ошибка";
 }
 
-function getResumeButtonLabel(step: StudentResumeStep | null | undefined): string {
-  if (step === "task") {
-    return "Вернуться к заданию";
-  }
-
-  if (step === "session" || step === "result") {
-    return "Продолжить занятие";
-  }
-
-  return "Открыть лекцию";
-}
-
-function getResumeStepDescription(step: StudentResumeStep | null | undefined): string {
-  if (step === "task") {
-    return "Остановились на шаге с заданием. Можно вернуться прямо к нему.";
-  }
-
-  if (step === "session") {
-    return "Открыта точка возврата в учебную сессию.";
-  }
-
-  if (step === "result") {
-    return "Последний результат отмечен как ориентир для продолжения.";
-  }
-
-  return "Последняя открытая лекция сохранена для быстрого продолжения.";
-}
-
-function getTeacherSessionStatusLabel(status: "draft" | "active" | "stopped"): string {
-  if (status === "active") {
-    return "Сессия активна";
-  }
-
-  if (status === "stopped") {
-    return "Сессия остановлена";
-  }
-
-  return "Сессия подготовлена";
-}
-
 function createStyles(theme: AppTheme, width: number) {
   const isPhone = width < 560;
   const isCompact = width < 980;
@@ -678,40 +589,6 @@ function createStyles(theme: AppTheme, width: number) {
       flexDirection: isPhone ? "column" : "row",
       flexWrap: "wrap",
       alignItems: "flex-start"
-    },
-    focusPanel: {
-      marginTop: theme.spacing.md,
-      padding: theme.spacing.md,
-      borderRadius: theme.radius.lg,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      backgroundColor: theme.colors.surface,
-      ...theme.shadow.sm
-    },
-    focusLabel: {
-      fontFamily: theme.fonts.body,
-      fontSize: theme.typography.caption,
-      fontWeight: "700",
-      color: theme.colors.primary,
-      marginBottom: theme.spacing.xs,
-      textTransform: "uppercase",
-      letterSpacing: 0.3
-    },
-    focusTitle: {
-      fontFamily: theme.fonts.display,
-      fontSize: theme.typography.body + 1,
-      fontWeight: "700",
-      color: theme.colors.text,
-      marginBottom: theme.spacing.xs
-    },
-    focusHint: {
-      fontFamily: theme.fonts.body,
-      fontSize: theme.typography.caption,
-      lineHeight: 20,
-      color: theme.colors.textSecondary
-    },
-    focusButton: {
-      marginTop: theme.spacing.md
     },
     settingRow: {
       flexDirection: "row",

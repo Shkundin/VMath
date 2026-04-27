@@ -17,11 +17,6 @@ import { Screen } from "../components/ui/Screen";
 import { ScreenHeader } from "../components/ui/ScreenHeader";
 import { SectionCard } from "../components/ui/SectionCard";
 import type { LectureItem } from "../mocks/lectures";
-import {
-  clearTeacherComposerDraft,
-  readTeacherComposerDraft,
-  writeTeacherComposerDraft
-} from "../storage/appUXStorage";
 import type { UserProfile } from "../mocks/user";
 import type { AppTheme } from "../theme";
 import { fixTextSafe as fixText } from "../utils/fixTextSafe";
@@ -69,7 +64,6 @@ type TeacherHomeScreenProps = {
   activeSession?: TeacherSessionSummary | null;
   onLaunchSharedSession: (lecture: LectureItem) => void;
   onOpenManageSession: (lecture: LectureItem) => void;
-  onResumeActiveSession?: () => void;
   onCreateDraftLecture: (input: DraftLectureInput) => string | null;
   onUpdateDraftLectureMeta: (lectureId: string, input: DraftLectureMetaInput) => void;
   onAddDraftQuestion: (lectureId: string, input: DraftQuestionInput) => void;
@@ -87,7 +81,6 @@ export function TeacherHomeScreen({
   activeSession,
   onLaunchSharedSession,
   onOpenManageSession,
-  onResumeActiveSession,
   onCreateDraftLecture,
   onUpdateDraftLectureMeta,
   onAddDraftQuestion,
@@ -108,8 +101,6 @@ export function TeacherHomeScreen({
   const [level, setLevel] = useState("Базовый");
   const [createError, setCreateError] = useState("");
   const [createSuccess, setCreateSuccess] = useState("");
-  const [draftReady, setDraftReady] = useState(false);
-  const [draftNotice, setDraftNotice] = useState("");
 
   const [expandedLectureId, setExpandedLectureId] = useState<string | null>(null);
 
@@ -179,61 +170,6 @@ export function TeacherHomeScreen({
 
   const teacherVideoUrl =
     expandedLecture ? ((expandedLecture as LectureItem & { videoUrl?: string }).videoUrl ?? "") : "";
-
-  useEffect(() => {
-    let isMounted = true;
-
-    void readTeacherComposerDraft().then((draft) => {
-      if (!isMounted) {
-        return;
-      }
-
-      if (draft) {
-        setTitle(draft.title);
-        setDescription(draft.description);
-        setTheory(draft.theory);
-        setVideoUrl(draft.videoUrl);
-        setSubject(draft.subject);
-        setSemester(draft.semester);
-        setLevel(draft.level);
-        setDraftNotice("Черновик лекции восстановлен автоматически.");
-      }
-
-      setDraftReady(true);
-    });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!draftReady) {
-      return;
-    }
-
-    const nextDraft = {
-      title: title.trim(),
-      description: description.trim(),
-      theory: theory.trim(),
-      videoUrl: videoUrl.trim(),
-      subject: subject.trim(),
-      semester: semester.trim(),
-      level: level.trim()
-    };
-
-    const hasDraftContent = Object.values(nextDraft).some((value) => value.length > 0);
-
-    if (!hasDraftContent) {
-      void clearTeacherComposerDraft();
-      return;
-    }
-
-    void writeTeacherComposerDraft({
-      ...nextDraft,
-      updatedAt: new Date().toISOString()
-    });
-  }, [description, draftReady, level, semester, subject, theory, title, videoUrl]);
 
   useEffect(() => {
     if (!expandedLecture) {
@@ -319,10 +255,8 @@ export function TeacherHomeScreen({
     setLevel("Базовый");
     setCreateError("");
     setCreateSuccess("Лекция создана. Теперь можно открыть редактор и добавить вопросы.");
-    setDraftNotice("Черновик очищен после создания лекции.");
     setExpandedLectureId(createdLectureId);
     resetQuestionForm();
-    void clearTeacherComposerDraft();
   }
 
   function handleToggleEditor(lectureId: string) {
@@ -401,8 +335,6 @@ export function TeacherHomeScreen({
       subtitle="Сначала создаём основу, потом открываем редактор и наполняем вопросами."
       style={isCompactLayout ? undefined : styles.dashboardWide}
     >
-      {draftNotice ? <Text style={styles.helperText}>{fixText(draftNotice)}</Text> : null}
-
       <AppInput
         label="Название лекции"
         theme={theme}
@@ -517,44 +449,6 @@ export function TeacherHomeScreen({
           title="Итоги"
           subtitle="Смотри, кто уже сдал задания и как прошли проверки."
           style={styles.quickActionItem}
-        />
-      </View>
-
-      <View style={styles.quickActionButtons}>
-        <AppButton
-          label={activeSession ? "Вернуться к общей сессии" : "Открыть первую лекцию"}
-          onPress={() => {
-            if (activeSession && onResumeActiveSession) {
-              onResumeActiveSession();
-              return;
-            }
-
-            const targetLecture = expandedLecture ?? lectures[0] ?? null;
-            if (targetLecture) {
-              setExpandedLectureId(targetLecture.id);
-            }
-          }}
-          theme={theme}
-          fullWidth={isCompactLayout}
-          style={styles.quickActionButton}
-        />
-
-        <AppButton
-          label={sharedSessionLecture ? "Открыть пульт сессии" : "Подготовить первую лекцию"}
-          onPress={() => {
-            if (sharedSessionLecture) {
-              onOpenManageSession(sharedSessionLecture);
-              return;
-            }
-
-            if (lectures[0]) {
-              setExpandedLectureId(lectures[0].id);
-            }
-          }}
-          theme={theme}
-          variant="secondary"
-          fullWidth={isCompactLayout}
-          style={styles.quickActionButton}
         />
       </View>
     </SectionCard>
@@ -1211,15 +1105,6 @@ function createStyles(theme: AppTheme, width: number) {
       flexWrap: "wrap",
       gap: theme.spacing.sm
     },
-    quickActionButtons: {
-      flexDirection: isPhone ? "column" : "row",
-      flexWrap: "wrap",
-      marginTop: theme.spacing.sm
-    },
-    quickActionButton: {
-      marginRight: isPhone ? 0 : theme.spacing.sm,
-      marginBottom: theme.spacing.sm
-    },
     quickActionItem: {
       flexBasis: "100%",
       flexGrow: 0,
@@ -1276,12 +1161,6 @@ function createStyles(theme: AppTheme, width: number) {
       fontSize: theme.typography.caption,
       fontWeight: "700",
       marginTop: theme.spacing.xs
-    },
-    helperText: {
-      color: theme.colors.textSecondary,
-      fontSize: theme.typography.caption,
-      lineHeight: 20,
-      marginBottom: theme.spacing.sm
     },
     emptyText: {
       fontSize: theme.typography.body,

@@ -1,7 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
-  Animated,
-  Easing,
   Pressable,
   StyleSheet,
   Text,
@@ -56,10 +54,6 @@ export function LoginScreen({
 }: LoginScreenProps) {
   const { width } = useWindowDimensions();
   const styles = createStyles(theme, width);
-  const introOpacity = useRef(new Animated.Value(0)).current;
-  const introTranslate = useRef(new Animated.Value(18)).current;
-  const authOpacity = useRef(new Animated.Value(0)).current;
-  const authTranslate = useRef(new Animated.Value(20)).current;
 
   const [stage, setStage] = useState<LoginStage>("intro");
   const [role, setRole] = useState<LoginRole>("student");
@@ -79,7 +73,7 @@ export function LoginScreen({
     }
 
     return authMode === "register" ? "Регистрация студента" : "Вход студента";
-  }, [authMode, role]);
+  }, [role, authMode]);
 
   const roleSubtitle = useMemo(() => {
     if (role === "teacher") {
@@ -89,7 +83,7 @@ export function LoginScreen({
     return authMode === "register"
       ? "Создай студенческий аккаунт и используй его для входа в учебный кабинет."
       : "Войди в аккаунт, чтобы открыть курсы, материалы, домашние задания и результаты.";
-  }, [authMode, role]);
+  }, [role, authMode]);
 
   const submitLabel = useMemo(() => {
     if (role === "teacher") {
@@ -97,48 +91,7 @@ export function LoginScreen({
     }
 
     return authMode === "register" ? "Зарегистрироваться" : "Войти как студент";
-  }, [authMode, role]);
-
-  useEffect(() => {
-    if (stage === "intro") {
-      introOpacity.setValue(0);
-      introTranslate.setValue(18);
-
-      Animated.parallel([
-        Animated.timing(introOpacity, {
-          toValue: 1,
-          duration: 260,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true
-        }),
-        Animated.timing(introTranslate, {
-          toValue: 0,
-          duration: 320,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true
-        })
-      ]).start();
-      return;
-    }
-
-    authOpacity.setValue(0);
-    authTranslate.setValue(20);
-
-    Animated.parallel([
-      Animated.timing(authOpacity, {
-        toValue: 1,
-        duration: 240,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true
-      }),
-      Animated.timing(authTranslate, {
-        toValue: 0,
-        duration: 300,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true
-      })
-    ]).start();
-  }, [authOpacity, authTranslate, introOpacity, introTranslate, stage]);
+  }, [role, authMode]);
 
   function applyPreset(nextRole: LoginRole, nextMode: AuthMode) {
     setError("");
@@ -253,33 +206,17 @@ export function LoginScreen({
     return (
       <Screen theme={theme}>
         <View style={styles.page}>
-          <Animated.View
-            style={[
-              styles.introShell,
-              {
-                opacity: introOpacity,
-                transform: [{ translateY: introTranslate }]
-              }
-            ]}
-          >
+          <View style={styles.introShell}>
             <View style={styles.introGlowPrimary} />
             <View style={styles.introGlowSecondary} />
-            <View style={styles.introGlowTertiary} />
 
             <Pressable onPress={() => setStage("auth")} style={styles.introBrandButton}>
-              <Text style={styles.introEyebrow}>Interactive Math Workspace</Text>
               <BrandMark theme={theme} />
               <Text style={styles.introTitle}>VisualMath</Text>
               <Text style={styles.introSubtitle}>
                 Нажми на эмблему и открой вход в учебное пространство для студента или преподавателя.
               </Text>
             </Pressable>
-
-            <View style={styles.introMetricRail}>
-              <IntroMetric theme={theme} value="01" label="единое пространство" />
-              <IntroMetric theme={theme} value="24/7" label="быстрый доступ" />
-              <IntroMetric theme={theme} value="∞" label="визуальная практика" />
-            </View>
 
             <View style={styles.introFeatureGrid}>
               <FeatureTile
@@ -302,13 +239,6 @@ export function LoginScreen({
               />
             </View>
 
-            <View style={styles.trustRail}>
-              <TrustChip theme={theme} label="Google" />
-              <TrustChip theme={theme} label="VK ID" />
-              <TrustChip theme={theme} label="Mail.ru" />
-              <TrustChip theme={theme} label="OK" />
-            </View>
-
             <AppButton
               label="Открыть вход"
               onPress={() => setStage("auth")}
@@ -316,7 +246,7 @@ export function LoginScreen({
               fullWidth={width < 640}
               style={styles.introButton}
             />
-          </Animated.View>
+          </View>
         </View>
       </Screen>
     );
@@ -324,15 +254,7 @@ export function LoginScreen({
 
   return (
     <Screen theme={theme}>
-      <Animated.View
-        style={[
-          styles.page,
-          {
-            opacity: authOpacity,
-            transform: [{ translateY: authTranslate }]
-          }
-        ]}
-      >
+      <View style={styles.page}>
         <View style={styles.authTopRow}>
           <Pressable onPress={() => setStage("intro")} style={styles.backChip}>
             <Text style={styles.backChipText}>Эмблема</Text>
@@ -349,9 +271,6 @@ export function LoginScreen({
 
         <View style={styles.layout}>
           <View style={styles.heroPanel}>
-            <View style={styles.heroPanelGlowPrimary} />
-            <View style={styles.heroPanelGlowSecondary} />
-
             <View style={styles.heroBadge}>
               <Text style={styles.heroBadgeText}>VisualMath Mobile</Text>
             </View>
@@ -360,24 +279,6 @@ export function LoginScreen({
             <Text style={styles.heroSubtitle}>
               Курсы, материалы, встречи, тестирование и домашние задания в аккуратном интерфейсе учебного кабинета.
             </Text>
-
-            <View style={styles.heroInsightGrid}>
-              <InsightCard
-                theme={theme}
-                value="Focus"
-                label="лекции, практика и прогресс"
-              />
-              <InsightCard
-                theme={theme}
-                value="Live"
-                label="сессии преподавателя и учебные блоки"
-              />
-              <InsightCard
-                theme={theme}
-                value="Smart"
-                label="материалы, тесты и домашние задания"
-              />
-            </View>
 
             <View style={styles.roleGrid}>
               <RoleCard
@@ -404,8 +305,6 @@ export function LoginScreen({
           </View>
 
           <View style={styles.formPanel}>
-            <View style={styles.formPanelGlow} />
-
             <View style={styles.modeRow}>
               <ModeChip
                 theme={theme}
@@ -500,13 +399,6 @@ export function LoginScreen({
                     variant="secondary"
                   />
                 )}
-
-                <View style={styles.formTrustRail}>
-                  <TrustChip theme={theme} label="Google" compact />
-                  <TrustChip theme={theme} label="VK ID" compact />
-                  <TrustChip theme={theme} label="Mail.ru" compact />
-                  <TrustChip theme={theme} label="OK" compact />
-                </View>
               </>
             ) : null}
 
@@ -519,7 +411,7 @@ export function LoginScreen({
             </Text>
           </View>
         </View>
-      </Animated.View>
+      </View>
     </Screen>
   );
 }
@@ -658,14 +550,9 @@ function createFeatureTileStyles(theme: AppTheme) {
       minHeight: 116,
       borderRadius: theme.radius.lg,
       padding: theme.spacing.lg,
-      backgroundColor: "rgba(255, 255, 255, 0.9)",
+      backgroundColor: "rgba(255, 255, 255, 0.88)",
       borderWidth: 1,
-      borderColor: "#D6E3FF",
-      shadowColor: theme.colors.shadow,
-      shadowOpacity: 0.08,
-      shadowRadius: 18,
-      shadowOffset: { width: 0, height: 10 },
-      elevation: 3
+      borderColor: "#D6E3FF"
     },
     code: {
       fontSize: theme.typography.helper,
@@ -681,49 +568,6 @@ function createFeatureTileStyles(theme: AppTheme) {
       marginBottom: theme.spacing.xs
     },
     subtitle: {
-      fontSize: theme.typography.caption,
-      lineHeight: 18,
-      color: theme.colors.textSecondary
-    }
-  });
-}
-
-type IntroMetricProps = {
-  theme: AppTheme;
-  value: string;
-  label: string;
-};
-
-function IntroMetric({ theme, value, label }: IntroMetricProps) {
-  const styles = createIntroMetricStyles(theme);
-
-  return (
-    <View style={styles.card}>
-      <Text style={styles.value}>{value}</Text>
-      <Text style={styles.label}>{label}</Text>
-    </View>
-  );
-}
-
-function createIntroMetricStyles(theme: AppTheme) {
-  return StyleSheet.create({
-    card: {
-      minWidth: 132,
-      flexGrow: 1,
-      paddingVertical: theme.spacing.md,
-      paddingHorizontal: theme.spacing.lg,
-      borderRadius: theme.radius.lg,
-      backgroundColor: "rgba(255, 255, 255, 0.8)",
-      borderWidth: 1,
-      borderColor: "#D6E3FF"
-    },
-    value: {
-      fontSize: theme.typography.sectionTitle,
-      fontWeight: "900",
-      color: theme.colors.text,
-      marginBottom: theme.spacing.xs
-    },
-    label: {
       fontSize: theme.typography.caption,
       lineHeight: 18,
       color: theme.colors.textSecondary
@@ -759,17 +603,17 @@ function createRoleCardStyles(theme: AppTheme, isActive: boolean, isStacked: boo
     card: {
       width: isStacked ? "100%" : undefined,
       flex: isStacked ? undefined : 1,
-      minHeight: isPhone ? 112 : 136,
+      minHeight: isPhone ? 108 : 132,
       borderRadius: theme.radius.lg,
       padding: theme.spacing.lg,
       borderWidth: 1,
       borderColor: isActive ? theme.colors.primary : theme.colors.border,
-      backgroundColor: isActive ? "#EEF5FF" : "rgba(255, 255, 255, 0.78)",
+      backgroundColor: isActive ? "#EEF5FF" : theme.colors.surface,
       shadowColor: theme.colors.shadow,
-      shadowOpacity: isActive ? 0.1 : 0.05,
+      shadowOpacity: isActive ? 0.1 : 0.04,
       shadowRadius: 12,
       shadowOffset: { width: 0, height: 6 },
-      elevation: isActive ? 4 : 2
+      elevation: isActive ? 4 : 1
     },
     icon: {
       width: 44,
@@ -820,7 +664,7 @@ function createModeChipStyles(theme: AppTheme, isActive: boolean) {
   return StyleSheet.create({
     chip: {
       flex: 1,
-      minHeight: 48,
+      minHeight: 44,
       borderRadius: theme.radius.pill,
       borderWidth: 1,
       borderColor: isActive ? theme.colors.primary : theme.colors.border,
@@ -832,88 +676,6 @@ function createModeChipStyles(theme: AppTheme, isActive: boolean) {
       fontSize: theme.typography.body,
       fontWeight: "800",
       color: isActive ? theme.colors.primary : theme.colors.text
-    }
-  });
-}
-
-type TrustChipProps = {
-  theme: AppTheme;
-  label: string;
-  compact?: boolean;
-};
-
-function TrustChip({ theme, label, compact = false }: TrustChipProps) {
-  const styles = createTrustChipStyles(theme, compact);
-
-  return (
-    <View style={styles.shell}>
-      <Text style={styles.label}>{label}</Text>
-    </View>
-  );
-}
-
-function createTrustChipStyles(theme: AppTheme, compact: boolean) {
-  return StyleSheet.create({
-    shell: {
-      minHeight: compact ? 30 : 36,
-      paddingHorizontal: compact ? theme.spacing.sm + 2 : theme.spacing.md,
-      borderRadius: theme.radius.pill,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: compact ? theme.colors.surface : "rgba(255, 255, 255, 0.86)",
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      marginRight: theme.spacing.sm,
-      marginBottom: theme.spacing.sm
-    },
-    label: {
-      fontSize: compact ? theme.typography.helper : theme.typography.caption,
-      fontWeight: "700",
-      color: theme.colors.textSecondary
-    }
-  });
-}
-
-type InsightCardProps = {
-  theme: AppTheme;
-  value: string;
-  label: string;
-};
-
-function InsightCard({ theme, value, label }: InsightCardProps) {
-  const styles = createInsightCardStyles(theme);
-
-  return (
-    <View style={styles.card}>
-      <Text style={styles.value}>{value}</Text>
-      <Text style={styles.label}>{label}</Text>
-    </View>
-  );
-}
-
-function createInsightCardStyles(theme: AppTheme) {
-  return StyleSheet.create({
-    card: {
-      flexBasis: 180,
-      flexGrow: 1,
-      minHeight: 92,
-      padding: theme.spacing.md,
-      borderRadius: theme.radius.lg,
-      backgroundColor: "rgba(255, 255, 255, 0.64)",
-      borderWidth: 1,
-      borderColor: "#D7E4FF",
-      marginBottom: theme.spacing.sm
-    },
-    value: {
-      fontSize: theme.typography.body,
-      fontWeight: "900",
-      color: theme.colors.text,
-      marginBottom: theme.spacing.xs
-    },
-    label: {
-      fontSize: theme.typography.caption,
-      lineHeight: 18,
-      color: theme.colors.textSecondary
     }
   });
 }
@@ -933,17 +695,12 @@ function createStyles(theme: AppTheme, width: number) {
       overflow: "hidden",
       borderRadius: theme.radius.xl,
       padding: isPhone ? theme.spacing.lg : theme.spacing.xxl,
-      backgroundColor: "#F6F9FF",
+      backgroundColor: "#F7FAFF",
       borderWidth: 1,
       borderColor: "#D7E4FF",
-      minHeight: isPhone ? 620 : 700,
+      minHeight: isPhone ? 620 : 680,
       alignItems: "center",
-      justifyContent: "space-between",
-      shadowColor: theme.colors.shadow,
-      shadowOpacity: 0.1,
-      shadowRadius: 28,
-      shadowOffset: { width: 0, height: 14 },
-      elevation: 5
+      justifyContent: "space-between"
     },
     introGlowPrimary: {
       position: "absolute",
@@ -963,27 +720,10 @@ function createStyles(theme: AppTheme, width: number) {
       borderRadius: 999,
       backgroundColor: "rgba(249, 171, 0, 0.14)"
     },
-    introGlowTertiary: {
-      position: "absolute",
-      top: 120,
-      right: isPhone ? -30 : 70,
-      width: isPhone ? 120 : 180,
-      height: isPhone ? 120 : 180,
-      borderRadius: 999,
-      backgroundColor: "rgba(52, 168, 83, 0.10)"
-    },
     introBrandButton: {
       width: "100%",
       alignItems: "center",
       paddingTop: isPhone ? theme.spacing.lg : theme.spacing.xxl
-    },
-    introEyebrow: {
-      marginBottom: theme.spacing.md,
-      fontSize: theme.typography.caption,
-      fontWeight: "800",
-      letterSpacing: 1.4,
-      textTransform: "uppercase",
-      color: theme.colors.primary
     },
     introTitle: {
       marginTop: theme.spacing.lg,
@@ -1000,23 +740,10 @@ function createStyles(theme: AppTheme, width: number) {
       textAlign: "center",
       maxWidth: 620
     },
-    introMetricRail: {
-      width: "100%",
-      flexDirection: isPhone ? "column" : "row",
-      gap: theme.spacing.sm,
-      marginVertical: theme.spacing.lg
-    },
     introFeatureGrid: {
       width: "100%",
       flexDirection: isPhone ? "column" : "row",
       gap: theme.spacing.md
-    },
-    trustRail: {
-      width: "100%",
-      flexDirection: "row",
-      flexWrap: "wrap",
-      justifyContent: "center",
-      marginTop: theme.spacing.lg
     },
     introButton: {
       marginTop: theme.spacing.xl
@@ -1065,26 +792,17 @@ function createStyles(theme: AppTheme, width: number) {
       alignItems: "stretch"
     },
     heroPanel: {
-      position: "relative",
-      overflow: "hidden",
       width: "100%",
       flex: isStacked ? undefined : 1.1,
       borderRadius: theme.radius.xl,
       padding: isPhone ? theme.spacing.lg : theme.spacing.xxl,
-      backgroundColor: "#F6F9FF",
+      backgroundColor: "#F7FAFF",
       borderWidth: 1,
       borderColor: "#D7E4FF",
       marginBottom: isStacked ? theme.spacing.lg : 0,
-      marginRight: isStacked ? 0 : theme.spacing.lg,
-      shadowColor: theme.colors.shadow,
-      shadowOpacity: 0.08,
-      shadowRadius: 24,
-      shadowOffset: { width: 0, height: 14 },
-      elevation: 4
+      marginRight: isStacked ? 0 : theme.spacing.lg
     },
     formPanel: {
-      position: "relative",
-      overflow: "hidden",
       width: "100%",
       flex: isStacked ? undefined : 0.95,
       borderRadius: theme.radius.xl,
@@ -1097,34 +815,6 @@ function createStyles(theme: AppTheme, width: number) {
       shadowRadius: 18,
       shadowOffset: { width: 0, height: 8 },
       elevation: 4
-    },
-    heroPanelGlowPrimary: {
-      position: "absolute",
-      top: -34,
-      right: -24,
-      width: isPhone ? 140 : 190,
-      height: isPhone ? 140 : 190,
-      borderRadius: 999,
-      backgroundColor: "rgba(26, 115, 232, 0.11)"
-    },
-    heroPanelGlowSecondary: {
-      position: "absolute",
-      bottom: -44,
-      left: -28,
-      width: isPhone ? 130 : 180,
-      height: isPhone ? 130 : 180,
-      borderRadius: 999,
-      backgroundColor: "rgba(249, 171, 0, 0.10)"
-    },
-    formPanelGlow: {
-      position: "absolute",
-      top: -26,
-      right: -26,
-      width: isPhone ? 96 : 140,
-      height: isPhone ? 96 : 140,
-      borderRadius: 999,
-      backgroundColor: theme.colors.primarySoft,
-      opacity: 0.45
     },
     heroBadge: {
       alignSelf: "flex-start",
@@ -1151,14 +841,8 @@ function createStyles(theme: AppTheme, width: number) {
       fontSize: theme.typography.body,
       lineHeight: 22,
       color: theme.colors.textSecondary,
-      marginBottom: theme.spacing.lg,
+      marginBottom: theme.spacing.xl,
       maxWidth: 520
-    },
-    heroInsightGrid: {
-      flexDirection: isPhone ? "column" : "row",
-      flexWrap: "wrap",
-      gap: theme.spacing.sm,
-      marginBottom: theme.spacing.xl
     },
     roleGrid: {
       flexDirection: width < 860 ? "column" : "row",
@@ -1218,17 +902,11 @@ function createStyles(theme: AppTheme, width: number) {
     socialButton: {
       marginBottom: theme.spacing.sm
     },
-    formTrustRail: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      marginTop: theme.spacing.md
-    },
     helperText: {
       marginTop: theme.spacing.lg,
       fontSize: theme.typography.caption,
       color: theme.colors.textSecondary,
-      textAlign: "center",
-      lineHeight: 20
+      textAlign: "center"
     }
   });
 }

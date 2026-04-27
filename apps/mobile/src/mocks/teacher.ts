@@ -25,7 +25,6 @@ export type TeacherManagedSession = {
   lectureId: string;
   lectureTitle: string;
   status: "draft" | "active" | "stopped";
-  startedAt: string | null;
   blocks: string[];
   currentBlockIndex: number;
   participants: TeacherParticipant[];
@@ -114,7 +113,6 @@ export function createTeacherManagedSession(
     lectureId: lecture.id,
     lectureTitle: lecture.title,
     status: "draft",
-    startedAt: null,
     blocks: lecture.blocks,
     currentBlockIndex: 0,
     questionPreview,
@@ -147,12 +145,6 @@ export function updateTeacherSessionStatus(
 ): TeacherManagedSession {
   return {
     ...session,
-    status,
-    startedAt:
-      status === "active"
-        ? session.startedAt ?? new Date().toISOString()
-        : status === "draft"
-          ? null
-          : session.startedAt
+    status
   };
 }
