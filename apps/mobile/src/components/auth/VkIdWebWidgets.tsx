@@ -40,15 +40,6 @@ type VkWidgetHandle = {
   on: (eventName: string, listener: (payload: unknown) => void) => VkWidgetHandle;
 };
 
-type VkFloatingOneTap = {
-  close?: () => void;
-  render: (params: {
-    appName: string;
-    oauthList?: string[];
-    showAlternativeLogin?: boolean;
-  }) => VkWidgetHandle;
-};
-
 type VkIdSdk = {
   Auth: {
     exchangeCode: (code: string, deviceId: string) => Promise<VkTokenResult>;
@@ -68,10 +59,6 @@ type VkIdSdk = {
   };
   ConfigSource: {
     LOWCODE: string;
-  };
-  FloatingOneTap: new () => VkFloatingOneTap;
-  FloatingOneTapInternalEvents: {
-    LOGIN_SUCCESS: string;
   };
   OAuthList: new () => {
     render: (params: {
@@ -220,7 +207,7 @@ function getVkAlternativeOauthList(sdk: VkIdSdk): string[] {
 
 export function VkIdWebWidgets({
   appId,
-  appName,
+  appName: _appName,
   onSuccess,
   redirectUrl,
   theme
@@ -254,7 +241,6 @@ export function VkIdWebWidgets({
     }
 
     let isDisposed = false;
-    let floatingWidget: VkFloatingOneTap | null = null;
 
     const handleError = (reason: unknown) => {
       const message =
@@ -339,22 +325,6 @@ export function VkIdWebWidgets({
             void handleLoginSuccess(sdk, payload);
           });
 
-        floatingWidget = new sdk.FloatingOneTap();
-        floatingWidget
-          .render({
-            appName,
-            oauthList: getVkAlternativeOauthList(sdk),
-            showAlternativeLogin: true
-          })
-          .on(sdk.WidgetEvents.ERROR, handleError)
-          .on(sdk.FloatingOneTapInternalEvents.LOGIN_SUCCESS, (payload) => {
-            void handleLoginSuccess(sdk, payload, () => {
-              try {
-                floatingWidget?.close?.();
-              } catch {}
-            });
-          });
-
         const oauthList = new sdk.OAuthList();
         oauthList
           .render({
@@ -375,12 +345,8 @@ export function VkIdWebWidgets({
 
     return () => {
       isDisposed = true;
-
-      try {
-        floatingWidget?.close?.();
-      } catch {}
     };
-  }, [appId, appName, oauthListContainerId, oneTapContainerId, redirectUrl]);
+  }, [appId, oauthListContainerId, oneTapContainerId, redirectUrl]);
 
   if (Platform.OS !== "web") {
     return null;
@@ -388,15 +354,10 @@ export function VkIdWebWidgets({
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>VK ID</Text>
-      <Text style={styles.subtitle}>
-        Официальный вход через VK ID, Mail.ru и Одноклассники для сайта VisualMath.
-      </Text>
-
       {isLoading ? (
         <View style={styles.loadingRow}>
           <ActivityIndicator color={theme.colors.primary} />
-          <Text style={styles.loadingText}>Подключаем официальный VK ID SDK...</Text>
+          <Text style={styles.loadingText}>Подключаем VK ID...</Text>
         </View>
       ) : null}
 
@@ -411,32 +372,17 @@ export function VkIdWebWidgets({
 function createStyles(theme: AppTheme) {
   return StyleSheet.create({
     card: {
-      marginTop: theme.spacing.sm,
-      padding: theme.spacing.lg,
-      borderRadius: theme.radius.lg,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      backgroundColor: theme.colors.surfaceMuted
-    },
-    title: {
-      fontSize: theme.typography.body,
-      fontWeight: "800",
-      color: theme.colors.text
-    },
-    subtitle: {
-      marginTop: theme.spacing.xs,
-      marginBottom: theme.spacing.md,
-      fontSize: theme.typography.caption,
-      lineHeight: 18,
-      color: theme.colors.textSecondary
+      width: "100%"
     },
     loadingRow: {
       flexDirection: "row",
       alignItems: "center",
+      minHeight: 28,
       marginBottom: theme.spacing.sm
     },
     loadingText: {
       marginLeft: theme.spacing.sm,
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       color: theme.colors.textSecondary
     },
@@ -450,6 +396,7 @@ function createStyles(theme: AppTheme) {
     errorText: {
       marginTop: theme.spacing.sm,
       color: theme.colors.danger,
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700"
     }

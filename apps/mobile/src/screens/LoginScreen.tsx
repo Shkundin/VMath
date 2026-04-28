@@ -15,6 +15,7 @@ import type { AppTheme } from "../theme";
 export type LoginRole = "student" | "teacher";
 export type AuthMode = "login" | "register";
 type LoginStage = "intro" | "auth";
+type StudentEntryMode = "social" | "credentials";
 
 export type GoogleLoginPayload = {
   mode: AuthMode;
@@ -58,6 +59,7 @@ export function LoginScreen({
   const [stage, setStage] = useState<LoginStage>("intro");
   const [role, setRole] = useState<LoginRole>("student");
   const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [studentEntryMode, setStudentEntryMode] = useState<StudentEntryMode>("social");
   const [fullName, setFullName] = useState("");
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
@@ -69,33 +71,66 @@ export function LoginScreen({
 
   const roleTitle = useMemo(() => {
     if (role === "teacher") {
-      return "Вход преподавателя";
+      return "Кабинет преподавателя";
+    }
+
+    if (studentEntryMode === "social") {
+      return authMode === "register" ? "Создай кабинет студента" : "Вход студента";
     }
 
     return authMode === "register" ? "Регистрация студента" : "Вход студента";
-  }, [role, authMode]);
+  }, [authMode, role, studentEntryMode]);
 
   const roleSubtitle = useMemo(() => {
     if (role === "teacher") {
-      return "Доступ преподавателя открыт только по выданному логину и паролю.";
+      return "Вход по рабочему логину и паролю.";
+    }
+
+    if (studentEntryMode === "social") {
+      return authMode === "register"
+        ? "Открой кабинет через Google или VK."
+        : "Выбери знакомый способ входа и продолжай обучение.";
     }
 
     return authMode === "register"
-      ? "Создай студенческий аккаунт и используй его для входа в учебный кабинет."
-      : "Войди в аккаунт, чтобы открыть курсы, материалы, домашние задания и результаты.";
-  }, [role, authMode]);
+      ? "Создай локальный аккаунт для входа по логину и паролю."
+      : "Войди по логину и паролю.";
+  }, [authMode, role, studentEntryMode]);
 
   const submitLabel = useMemo(() => {
     if (role === "teacher") {
       return "Войти как преподаватель";
     }
 
-    return authMode === "register" ? "Зарегистрироваться" : "Войти как студент";
-  }, [role, authMode]);
+    return authMode === "register" ? "Создать аккаунт" : "Войти как студент";
+  }, [authMode, role]);
 
-  function applyPreset(nextRole: LoginRole, nextMode: AuthMode) {
+  const googleLabel = authMode === "register" ? "Создать через Google" : "Продолжить через Google";
+  const vkLabel = authMode === "register" ? "Создать через VK" : "Продолжить через VK";
+
+  const helperText = useMemo(() => {
+    if (role === "teacher") {
+      return "Демо-доступ: teacher / teacher";
+    }
+
+    if (studentEntryMode === "social") {
+      return authMode === "register"
+        ? "Профиль создастся автоматически после подтверждения у провайдера."
+        : "Используй тот же Google или VK, если уже входил раньше.";
+    }
+
+    return authMode === "register"
+      ? "После регистрации вход выполняется по сохранённым данным."
+      : "Нет аккаунта? Переключись на регистрацию или выбери быстрый вход.";
+  }, [authMode, role, studentEntryMode]);
+
+  function resetMessages() {
     setError("");
     setSuccessText("");
+  }
+
+  function applyPreset(nextRole: LoginRole, nextMode: AuthMode) {
+    resetMessages();
     setFullName("");
     setLogin("");
     setPassword("");
@@ -111,11 +146,13 @@ export function LoginScreen({
 
     if (nextRole === "teacher") {
       setAuthMode("login");
-      applyPreset(nextRole, "login");
+      setStudentEntryMode("credentials");
+      applyPreset("teacher", "login");
       return;
     }
 
-    applyPreset(nextRole, authMode);
+    setStudentEntryMode("social");
+    applyPreset("student", authMode);
   }
 
   function handleModeChange(nextMode: AuthMode) {
@@ -124,7 +161,7 @@ export function LoginScreen({
     }
 
     setAuthMode(nextMode);
-    applyPreset(role, nextMode);
+    applyPreset("student", nextMode);
   }
 
   async function handleSubmit() {
@@ -139,8 +176,7 @@ export function LoginScreen({
     }
 
     setIsSubmitting(true);
-    setError("");
-    setSuccessText("");
+    resetMessages();
 
     try {
       const nextError = await onLogin({
@@ -156,6 +192,7 @@ export function LoginScreen({
 
         setAuthMode("login");
         setRole("student");
+        setStudentEntryMode("credentials");
         setLogin(registeredLogin);
         setPassword("");
         setSuccessText("Регистрация прошла. Теперь войди под своим логином и паролем.");
@@ -172,8 +209,7 @@ export function LoginScreen({
 
   async function handleGoogle() {
     setIsGoogleSubmitting(true);
-    setError("");
-    setSuccessText("");
+    resetMessages();
 
     try {
       const nextError = await onGoogleLogin({ mode: authMode });
@@ -188,8 +224,7 @@ export function LoginScreen({
 
   async function handleVk() {
     setIsVkSubmitting(true);
-    setError("");
-    setSuccessText("");
+    resetMessages();
 
     try {
       const nextError = await onVkLogin({ mode: authMode });
@@ -209,223 +244,260 @@ export function LoginScreen({
           <View style={styles.introShell}>
             <View style={styles.introGlowPrimary} />
             <View style={styles.introGlowSecondary} />
+            <View style={styles.introHalo} />
 
             <Pressable onPress={() => setStage("auth")} style={styles.introBrandButton}>
               <BrandMark theme={theme} />
-              <Text style={styles.introTitle}>VisualMath</Text>
-              <Text style={styles.introSubtitle}>
-                Нажми на эмблему и открой вход в учебное пространство для студента или преподавателя.
-              </Text>
             </Pressable>
 
-            <View style={styles.introFeatureGrid}>
-              <FeatureTile
-                theme={theme}
-                code="01"
-                title="Курсы"
-                subtitle="Лекции, видео и материалы в одном месте."
-              />
-              <FeatureTile
-                theme={theme}
-                code="02"
-                title="Решатель"
-                subtitle="Быстрые вычисления и пошаговые объяснения."
-              />
-              <FeatureTile
-                theme={theme}
-                code="03"
-                title="Контроль"
-                subtitle="Домашние задания, тестирование и итоги."
-              />
-            </View>
-
-            <AppButton
-              label="Открыть вход"
-              onPress={() => setStage("auth")}
-              theme={theme}
-              fullWidth={width < 640}
-              style={styles.introButton}
-            />
+            <Text style={styles.introTitle}>VisualMath</Text>
+            <Text style={styles.introHint}>Нажми на эмблему, чтобы открыть вход</Text>
           </View>
         </View>
       </Screen>
     );
   }
 
+  const isStudent = role === "student";
+  const showStudentModeChips = isStudent;
+  const showCredentialForm = role === "teacher" || studentEntryMode === "credentials";
+  const showStudentSocial = isStudent && studentEntryMode === "social";
+
   return (
     <Screen theme={theme}>
       <View style={styles.page}>
         <View style={styles.authTopRow}>
           <Pressable onPress={() => setStage("intro")} style={styles.backChip}>
-            <Text style={styles.backChipText}>Эмблема</Text>
+            <Text style={styles.backChipText}>Назад</Text>
           </Pressable>
 
           <View style={styles.authBrandRow}>
             <BrandMark theme={theme} compact />
             <View style={styles.authBrandTextWrap}>
               <Text style={styles.authBrandTitle}>VisualMath</Text>
-              <Text style={styles.authBrandSubtitle}>Вход в учебный кабинет</Text>
+              <Text style={styles.authBrandSubtitle}>Студент и преподаватель</Text>
             </View>
           </View>
         </View>
 
         <View style={styles.layout}>
-          <View style={styles.heroPanel}>
-            <View style={styles.heroBadge}>
-              <Text style={styles.heroBadgeText}>VisualMath Mobile</Text>
-            </View>
-
-            <Text style={styles.heroTitle}>Математика в одном учебном пространстве</Text>
-            <Text style={styles.heroSubtitle}>
-              Курсы, материалы, встречи, тестирование и домашние задания в аккуратном интерфейсе учебного кабинета.
+          <View style={styles.selectorPanel}>
+            <View style={styles.panelGlow} />
+            <Text style={styles.panelEyebrow}>Шаг 1</Text>
+            <Text style={styles.panelTitle}>Кто будет входить?</Text>
+            <Text style={styles.panelSubtitle}>
+              Сначала выбери роль, потом способ входа.
             </Text>
 
             <View style={styles.roleGrid}>
               <RoleCard
                 theme={theme}
                 title="Студент"
-                subtitle="Курсы, задания и результаты"
+                subtitle="Курсы, материалы, тесты и задания"
                 accent="С"
                 isActive={role === "student"}
                 onPress={() => handleRoleChange("student")}
                 isStacked={width < 860}
-                isPhone={width < 560}
               />
+
               <RoleCard
                 theme={theme}
                 title="Преподаватель"
-                subtitle="Управление курсом и группой"
+                subtitle="Лекции, группа и управление общей сессией"
                 accent="П"
                 isActive={role === "teacher"}
                 onPress={() => handleRoleChange("teacher")}
                 isStacked={width < 860}
-                isPhone={width < 560}
               />
             </View>
+
+            {isStudent ? (
+              <View style={styles.methodSection}>
+                <Text style={styles.methodTitle}>Шаг 2</Text>
+                <Text style={styles.methodSubtitle}>Выбери удобный формат входа.</Text>
+
+                <View style={styles.methodGrid}>
+                  <AccessMethodCard
+                    theme={theme}
+                    title="Google и VK"
+                    subtitle="Быстрое продолжение без ручного ввода"
+                    accent="G/VK"
+                    isActive={studentEntryMode === "social"}
+                    onPress={() => {
+                      setStudentEntryMode("social");
+                      resetMessages();
+                    }}
+                  />
+
+                  <AccessMethodCard
+                    theme={theme}
+                    title="Логин и пароль"
+                    subtitle="Локальный аккаунт студента"
+                    accent="ID"
+                    isActive={studentEntryMode === "credentials"}
+                    onPress={() => {
+                      setStudentEntryMode("credentials");
+                      resetMessages();
+                    }}
+                  />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.teacherCallout}>
+                <Text style={styles.teacherCalloutTitle}>Преподавательский доступ</Text>
+                <Text style={styles.teacherCalloutText}>
+                  Вход только по выданному логину и паролю, затем доступ к лекциям и общей сессии.
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.formPanel}>
-            <View style={styles.modeRow}>
-              <ModeChip
-                theme={theme}
-                label="Вход"
-                isActive={authMode === "login"}
-                onPress={() => handleModeChange("login")}
-              />
-              {role === "student" ? (
+            <View style={styles.formPanelGlow} />
+            {showStudentModeChips ? (
+              <View style={styles.modeRow}>
+                <ModeChip
+                  theme={theme}
+                  label="Вход"
+                  isActive={authMode === "login"}
+                  onPress={() => handleModeChange("login")}
+                />
                 <ModeChip
                   theme={theme}
                   label="Регистрация"
                   isActive={authMode === "register"}
                   onPress={() => handleModeChange("register")}
                 />
-              ) : null}
-            </View>
+              </View>
+            ) : null}
 
             <Text style={styles.formTitle}>{roleTitle}</Text>
             <Text style={styles.formSubtitle}>{roleSubtitle}</Text>
 
-            {role === "student" && authMode === "register" ? (
-              <AppInput
-                label="Имя студента"
-                theme={theme}
-                value={fullName}
-                onChangeText={setFullName}
-                placeholder="Например: Глеб Шкундин"
-                autoCorrect={false}
-              />
+            {showStudentSocial ? (
+              <>
+                <View style={styles.socialStack}>
+                  <AppButton
+                    label={isGoogleSubmitting ? "Подключаем Google..." : googleLabel}
+                    onPress={() => {
+                      void handleGoogle();
+                    }}
+                    theme={theme}
+                    variant="secondary"
+                    style={styles.socialButton}
+                  />
+
+                  {vkWebWidget ? (
+                    <View style={styles.vkWidgetShell}>{vkWebWidget}</View>
+                  ) : (
+                    <AppButton
+                      label={isVkSubmitting ? "Подключаем VK..." : vkLabel}
+                      onPress={() => {
+                        void handleVk();
+                      }}
+                      theme={theme}
+                      variant="secondary"
+                      style={styles.socialButton}
+                    />
+                  )}
+                </View>
+
+                <View style={styles.socialFooter}>
+                  <Pressable
+                    onPress={() => {
+                      setStudentEntryMode("credentials");
+                      resetMessages();
+                    }}
+                    style={styles.inlineLink}
+                  >
+                    <Text style={styles.inlineLinkText}>Или войти по логину и паролю</Text>
+                  </Pressable>
+                </View>
+              </>
             ) : null}
 
-            <AppInput
-              label={role === "teacher" ? "Логин преподавателя" : "Логин студента"}
-              theme={theme}
-              value={login}
-              onChangeText={setLogin}
-              placeholder={role === "teacher" ? "teacher" : "student_login"}
-              autoCorrect={false}
-              autoCapitalize="none"
-            />
+            {showCredentialForm ? (
+              <>
+                {isStudent ? (
+                  <View style={styles.formBadgeRow}>
+                    <Text style={styles.formBadgeText}>Локальный вход</Text>
+                  </View>
+                ) : (
+                  <View style={styles.formBadgeRow}>
+                    <Text style={styles.formBadgeText}>Доступ преподавателя</Text>
+                  </View>
+                )}
 
-            <AppInput
-              label="Пароль"
-              theme={theme}
-              value={password}
-              onChangeText={setPassword}
-              placeholder={authMode === "register" ? "Придумай пароль" : "Введите пароль"}
-              secureTextEntry
-              autoCorrect={false}
-              autoCapitalize="none"
-            />
+                {isStudent && authMode === "register" ? (
+                  <AppInput
+                    label="Имя студента"
+                    theme={theme}
+                    value={fullName}
+                    onChangeText={setFullName}
+                    placeholder="Например: Глеб Шкундин"
+                    autoCorrect={false}
+                  />
+                ) : null}
+
+                <AppInput
+                  label={role === "teacher" ? "Логин преподавателя" : "Логин студента"}
+                  theme={theme}
+                  value={login}
+                  onChangeText={setLogin}
+                  placeholder={role === "teacher" ? "teacher" : "student_login"}
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                />
+
+                <AppInput
+                  label="Пароль"
+                  theme={theme}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder={authMode === "register" ? "Придумай пароль" : "Введите пароль"}
+                  secureTextEntry
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                />
+
+                {isStudent ? (
+                  <View style={styles.socialFooter}>
+                    <Pressable
+                      onPress={() => {
+                        setStudentEntryMode("social");
+                        resetMessages();
+                      }}
+                      style={styles.inlineLink}
+                    >
+                      <Text style={styles.inlineLinkText}>Вернуться к Google и VK</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+
+                <AppButton
+                  label={isSubmitting ? "Подождите..." : submitLabel}
+                  onPress={() => {
+                    void handleSubmit();
+                  }}
+                  theme={theme}
+                  style={styles.primaryButton}
+                />
+              </>
+            ) : null}
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
             {successText ? <Text style={styles.successText}>{successText}</Text> : null}
 
-            <AppButton
-              label={isSubmitting ? "Подождите..." : submitLabel}
-              onPress={() => {
-                void handleSubmit();
-              }}
-              theme={theme}
-              style={styles.primaryButton}
-            />
-
-            {role === "student" ? (
-              <>
-                <View style={styles.dividerRow}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>или</Text>
-                  <View style={styles.dividerLine} />
-                </View>
-
-                <AppButton
-                  label={isGoogleSubmitting ? "Подключаем Google..." : "Продолжить через Google"}
-                  onPress={() => {
-                    void handleGoogle();
-                  }}
-                  theme={theme}
-                  variant="secondary"
-                  style={styles.socialButton}
-                />
-
-                {vkWebWidget ? (
-                  vkWebWidget
-                ) : (
-                  <AppButton
-                    label={isVkSubmitting ? "Подключаем VK..." : "Продолжить через VK"}
-                    onPress={() => {
-                      void handleVk();
-                    }}
-                    theme={theme}
-                    variant="secondary"
-                  />
-                )}
-              </>
-            ) : null}
-
-            <Text style={styles.helperText}>
-              {role === "teacher"
-                ? "Преподавательский доступ: teacher / teacher"
-                : authMode === "register"
-                  ? "После регистрации студент входит только по сохранённому логину и паролю."
-                  : "Если аккаунта ещё нет, сначала зарегистрируйся."}
-            </Text>
+            <View style={styles.noteCard}>
+              <Text style={styles.noteTitle}>Важно</Text>
+              <Text style={styles.noteText}>{helperText}</Text>
+            </View>
           </View>
         </View>
       </View>
     </Screen>
   );
 }
-
-type RoleCardProps = {
-  theme: AppTheme;
-  title: string;
-  subtitle: string;
-  accent: string;
-  isActive: boolean;
-  onPress: () => void;
-  isStacked: boolean;
-  isPhone: boolean;
-};
 
 type BrandMarkProps = {
   theme: AppTheme;
@@ -438,7 +510,9 @@ function BrandMark({ theme, compact = false }: BrandMarkProps) {
   return (
     <View style={styles.shell}>
       <View style={styles.core}>
-        <View style={styles.ring} />
+        <View style={styles.outerRing} />
+        <View style={styles.innerRing} />
+        <View style={styles.orbit} />
         <View style={styles.dotPrimary} />
         <View style={styles.dotSecondary} />
         <View style={styles.gridLineHorizontal} />
@@ -450,8 +524,8 @@ function BrandMark({ theme, compact = false }: BrandMarkProps) {
 }
 
 function createBrandMarkStyles(theme: AppTheme, compact: boolean) {
-  const size = compact ? 54 : 136;
-  const innerSize = compact ? 42 : 104;
+  const size = compact ? 58 : 158;
+  const innerSize = compact ? 44 : 118;
 
   return StyleSheet.create({
     shell: {
@@ -460,9 +534,14 @@ function createBrandMarkStyles(theme: AppTheme, compact: boolean) {
       borderRadius: size / 2,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: compact ? "#EFF6FF" : "#E8F0FE",
+      backgroundColor: compact ? "#EFF4FF" : "#F3F7FF",
       borderWidth: 1,
-      borderColor: "#C9DBFF"
+      borderColor: "#D8E4FF",
+      shadowColor: "#17347C",
+      shadowOpacity: compact ? 0.08 : 0.16,
+      shadowRadius: compact ? 10 : 26,
+      shadowOffset: { width: 0, height: compact ? 6 : 16 },
+      elevation: compact ? 3 : 7
     },
     core: {
       width: innerSize,
@@ -474,106 +553,80 @@ function createBrandMarkStyles(theme: AppTheme, compact: boolean) {
       position: "relative",
       overflow: "hidden"
     },
-    ring: {
+    outerRing: {
       position: "absolute",
-      width: compact ? 28 : 74,
-      height: compact ? 28 : 74,
-      borderRadius: compact ? 14 : 37,
-      borderWidth: compact ? 3 : 6,
-      borderColor: "rgba(255, 255, 255, 0.28)"
+      width: compact ? 30 : 82,
+      height: compact ? 30 : 82,
+      borderRadius: 999,
+      borderWidth: compact ? 3 : 7,
+      borderColor: "rgba(255, 255, 255, 0.24)"
+    },
+    innerRing: {
+      position: "absolute",
+      width: compact ? 18 : 48,
+      height: compact ? 18 : 48,
+      borderRadius: 999,
+      borderWidth: compact ? 2 : 4,
+      borderColor: "rgba(255, 255, 255, 0.18)"
+    },
+    orbit: {
+      position: "absolute",
+      width: compact ? 46 : 116,
+      height: compact ? 46 : 116,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: "rgba(255, 255, 255, 0.12)"
     },
     dotPrimary: {
       position: "absolute",
-      top: compact ? 8 : 18,
-      right: compact ? 10 : 24,
+      top: compact ? 8 : 20,
+      right: compact ? 10 : 28,
       width: compact ? 6 : 12,
       height: compact ? 6 : 12,
-      borderRadius: compact ? 3 : 6,
+      borderRadius: 999,
       backgroundColor: "#FFFFFF"
     },
     dotSecondary: {
       position: "absolute",
-      bottom: compact ? 10 : 24,
-      left: compact ? 8 : 18,
+      bottom: compact ? 10 : 26,
+      left: compact ? 8 : 20,
       width: compact ? 5 : 10,
       height: compact ? 5 : 10,
-      borderRadius: compact ? 2.5 : 5,
+      borderRadius: 999,
       backgroundColor: "#F9AB00"
     },
     gridLineHorizontal: {
       position: "absolute",
-      left: compact ? 8 : 14,
-      right: compact ? 8 : 14,
+      left: compact ? 9 : 16,
+      right: compact ? 9 : 16,
       height: 1,
-      backgroundColor: "rgba(255, 255, 255, 0.2)"
+      backgroundColor: "rgba(255, 255, 255, 0.16)"
     },
     gridLineVertical: {
       position: "absolute",
-      top: compact ? 8 : 14,
-      bottom: compact ? 8 : 14,
+      top: compact ? 9 : 16,
+      bottom: compact ? 9 : 16,
       width: 1,
-      backgroundColor: "rgba(255, 255, 255, 0.2)"
+      backgroundColor: "rgba(255, 255, 255, 0.16)"
     },
     symbol: {
       color: "#FFFFFF",
-      fontSize: compact ? 16 : 34,
+      fontSize: compact ? 16 : 36,
       fontWeight: "900",
-      letterSpacing: compact ? 0.8 : 1.2
+      letterSpacing: compact ? 0.9 : 1.4
     }
   });
 }
 
-type FeatureTileProps = {
+type RoleCardProps = {
   theme: AppTheme;
-  code: string;
   title: string;
   subtitle: string;
+  accent: string;
+  isActive: boolean;
+  onPress: () => void;
+  isStacked: boolean;
 };
-
-function FeatureTile({ theme, code, title, subtitle }: FeatureTileProps) {
-  const styles = createFeatureTileStyles(theme);
-
-  return (
-    <View style={styles.card}>
-      <Text style={styles.code}>{code}</Text>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.subtitle}>{subtitle}</Text>
-    </View>
-  );
-}
-
-function createFeatureTileStyles(theme: AppTheme) {
-  return StyleSheet.create({
-    card: {
-      flexBasis: 180,
-      flexGrow: 1,
-      minHeight: 116,
-      borderRadius: theme.radius.lg,
-      padding: theme.spacing.lg,
-      backgroundColor: "rgba(255, 255, 255, 0.88)",
-      borderWidth: 1,
-      borderColor: "#D6E3FF"
-    },
-    code: {
-      fontSize: theme.typography.helper,
-      fontWeight: "800",
-      color: theme.colors.primary,
-      marginBottom: theme.spacing.sm,
-      letterSpacing: 0.6
-    },
-    title: {
-      fontSize: theme.typography.body,
-      fontWeight: "800",
-      color: theme.colors.text,
-      marginBottom: theme.spacing.xs
-    },
-    subtitle: {
-      fontSize: theme.typography.caption,
-      lineHeight: 18,
-      color: theme.colors.textSecondary
-    }
-  });
-}
 
 function RoleCard({
   theme,
@@ -582,10 +635,9 @@ function RoleCard({
   accent,
   isActive,
   onPress,
-  isStacked,
-  isPhone
+  isStacked
 }: RoleCardProps) {
-  const styles = createRoleCardStyles(theme, isActive, isStacked, isPhone);
+  const styles = createRoleCardStyles(theme, isActive, isStacked);
 
   return (
     <Pressable onPress={onPress} style={styles.card}>
@@ -598,17 +650,17 @@ function RoleCard({
   );
 }
 
-function createRoleCardStyles(theme: AppTheme, isActive: boolean, isStacked: boolean, isPhone: boolean) {
+function createRoleCardStyles(theme: AppTheme, isActive: boolean, isStacked: boolean) {
   return StyleSheet.create({
     card: {
       width: isStacked ? "100%" : undefined,
       flex: isStacked ? undefined : 1,
-      minHeight: isPhone ? 108 : 132,
+      minHeight: 136,
       borderRadius: theme.radius.lg,
       padding: theme.spacing.lg,
       borderWidth: 1,
-      borderColor: isActive ? theme.colors.primary : theme.colors.border,
-      backgroundColor: isActive ? "#EEF5FF" : theme.colors.surface,
+      borderColor: isActive ? theme.colors.primary : "#D7E4FF",
+      backgroundColor: isActive ? "#EEF4FF" : "rgba(255, 255, 255, 0.86)",
       shadowColor: theme.colors.shadow,
       shadowOpacity: isActive ? 0.1 : 0.04,
       shadowRadius: 12,
@@ -616,9 +668,9 @@ function createRoleCardStyles(theme: AppTheme, isActive: boolean, isStacked: boo
       elevation: isActive ? 4 : 1
     },
     icon: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: 46,
+      height: 46,
+      borderRadius: 23,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: isActive ? theme.colors.primary : theme.colors.surfaceMuted,
@@ -626,16 +678,80 @@ function createRoleCardStyles(theme: AppTheme, isActive: boolean, isStacked: boo
     },
     iconText: {
       color: isActive ? "#FFFFFF" : theme.colors.text,
-      fontSize: 16,
-      fontWeight: "700"
+      fontSize: theme.typography.caption,
+      fontWeight: "800"
     },
     title: {
+      fontFamily: theme.fonts.display,
       fontSize: theme.typography.sectionTitle,
       fontWeight: "800",
       color: theme.colors.text,
       marginBottom: theme.spacing.xs
     },
     subtitle: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      lineHeight: 18,
+      color: theme.colors.textSecondary
+    }
+  });
+}
+
+type AccessMethodCardProps = {
+  theme: AppTheme;
+  title: string;
+  subtitle: string;
+  accent: string;
+  isActive: boolean;
+  onPress: () => void;
+};
+
+function AccessMethodCard({
+  theme,
+  title,
+  subtitle,
+  accent,
+  isActive,
+  onPress
+}: AccessMethodCardProps) {
+  const styles = createAccessMethodCardStyles(theme, isActive);
+
+  return (
+    <Pressable onPress={onPress} style={styles.card}>
+      <Text style={styles.accent}>{accent}</Text>
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.subtitle}>{subtitle}</Text>
+    </Pressable>
+  );
+}
+
+function createAccessMethodCardStyles(theme: AppTheme, isActive: boolean) {
+  return StyleSheet.create({
+    card: {
+      flex: 1,
+      minHeight: 114,
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.lg,
+      borderWidth: 1,
+      borderColor: isActive ? theme.colors.primary : theme.colors.border,
+      backgroundColor: isActive ? theme.colors.surface : "rgba(255, 255, 255, 0.62)"
+    },
+    accent: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.helper,
+      fontWeight: "800",
+      color: theme.colors.primary,
+      marginBottom: theme.spacing.sm
+    },
+    title: {
+      fontFamily: theme.fonts.display,
+      fontSize: theme.typography.body,
+      fontWeight: "800",
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs
+    },
+    subtitle: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       lineHeight: 18,
       color: theme.colors.textSecondary
@@ -673,6 +789,7 @@ function createModeChipStyles(theme: AppTheme, isActive: boolean) {
       justifyContent: "center"
     },
     label: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
       fontWeight: "800",
       color: isActive ? theme.colors.primary : theme.colors.text
@@ -693,60 +810,59 @@ function createStyles(theme: AppTheme, width: number) {
     introShell: {
       position: "relative",
       overflow: "hidden",
+      minHeight: isPhone ? 620 : 700,
       borderRadius: theme.radius.xl,
       padding: isPhone ? theme.spacing.lg : theme.spacing.xxl,
-      backgroundColor: "#F7FAFF",
+      backgroundColor: "#F8FBFF",
       borderWidth: 1,
-      borderColor: "#D7E4FF",
-      minHeight: isPhone ? 620 : 680,
+      borderColor: "#DCE6FA",
       alignItems: "center",
-      justifyContent: "space-between"
+      justifyContent: "center"
     },
     introGlowPrimary: {
       position: "absolute",
-      top: -60,
+      top: -70,
       left: -40,
-      width: isPhone ? 180 : 260,
-      height: isPhone ? 180 : 260,
+      width: isPhone ? 220 : 320,
+      height: isPhone ? 220 : 320,
       borderRadius: 999,
-      backgroundColor: "rgba(26, 115, 232, 0.12)"
+      backgroundColor: "rgba(36, 87, 230, 0.12)"
     },
     introGlowSecondary: {
       position: "absolute",
       right: -50,
       bottom: -70,
-      width: isPhone ? 200 : 280,
-      height: isPhone ? 200 : 280,
+      width: isPhone ? 220 : 320,
+      height: isPhone ? 220 : 320,
       borderRadius: 999,
-      backgroundColor: "rgba(249, 171, 0, 0.14)"
+      backgroundColor: "rgba(197, 138, 23, 0.14)"
+    },
+    introHalo: {
+      position: "absolute",
+      width: isPhone ? 260 : 420,
+      height: isPhone ? 260 : 420,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: "rgba(36, 87, 230, 0.08)"
     },
     introBrandButton: {
-      width: "100%",
       alignItems: "center",
-      paddingTop: isPhone ? theme.spacing.lg : theme.spacing.xxl
+      justifyContent: "center"
     },
     introTitle: {
       marginTop: theme.spacing.lg,
-      fontSize: isPhone ? 30 : 44,
-      lineHeight: isPhone ? 36 : 50,
+      fontFamily: theme.fonts.display,
+      fontSize: isPhone ? 30 : 46,
+      lineHeight: isPhone ? 36 : 52,
       fontWeight: "900",
       color: theme.colors.text
     },
-    introSubtitle: {
+    introHint: {
       marginTop: theme.spacing.sm,
-      fontSize: isPhone ? theme.typography.body : theme.typography.sectionTitle,
-      lineHeight: isPhone ? 22 : 28,
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
       color: theme.colors.textSecondary,
-      textAlign: "center",
-      maxWidth: 620
-    },
-    introFeatureGrid: {
-      width: "100%",
-      flexDirection: isPhone ? "column" : "row",
-      gap: theme.spacing.md
-    },
-    introButton: {
-      marginTop: theme.spacing.xl
+      letterSpacing: 0.3
     },
     authTopRow: {
       flexDirection: isPhone ? "column" : "row",
@@ -767,6 +883,7 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: isPhone ? theme.spacing.md : 0
     },
     backChipText: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       fontWeight: "700",
       color: theme.colors.text
@@ -779,11 +896,13 @@ function createStyles(theme: AppTheme, width: number) {
       marginLeft: theme.spacing.sm
     },
     authBrandTitle: {
+      fontFamily: theme.fonts.display,
       fontSize: theme.typography.body,
       fontWeight: "800",
       color: theme.colors.text
     },
     authBrandSubtitle: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       color: theme.colors.textSecondary
     },
@@ -791,20 +910,105 @@ function createStyles(theme: AppTheme, width: number) {
       flexDirection: isStacked ? "column" : "row",
       alignItems: "stretch"
     },
-    heroPanel: {
+    selectorPanel: {
+      position: "relative",
+      overflow: "hidden",
       width: "100%",
-      flex: isStacked ? undefined : 1.1,
+      flex: isStacked ? undefined : 1.02,
       borderRadius: theme.radius.xl,
       padding: isPhone ? theme.spacing.lg : theme.spacing.xxl,
-      backgroundColor: "#F7FAFF",
+      backgroundColor: "#F8FBFF",
       borderWidth: 1,
-      borderColor: "#D7E4FF",
+      borderColor: "#DCE6FA",
       marginBottom: isStacked ? theme.spacing.lg : 0,
       marginRight: isStacked ? 0 : theme.spacing.lg
     },
+    panelGlow: {
+      position: "absolute",
+      top: -72,
+      right: -52,
+      width: 180,
+      height: 180,
+      borderRadius: 999,
+      backgroundColor: "rgba(36, 87, 230, 0.10)"
+    },
+    panelEyebrow: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      fontWeight: "800",
+      color: theme.colors.primary,
+      marginBottom: theme.spacing.sm,
+      textTransform: "uppercase",
+      letterSpacing: 0.4
+    },
+    panelTitle: {
+      fontFamily: theme.fonts.display,
+      fontSize: isPhone ? 24 : theme.typography.hero,
+      lineHeight: isPhone ? 30 : theme.typography.hero + 6,
+      fontWeight: "900",
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm
+    },
+    panelSubtitle: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.body,
+      lineHeight: 22,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.xl
+    },
+    roleGrid: {
+      flexDirection: width < 860 ? "column" : "row",
+      gap: theme.spacing.md
+    },
+    methodSection: {
+      marginTop: theme.spacing.xl
+    },
+    methodTitle: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      fontWeight: "800",
+      color: theme.colors.primary,
+      marginBottom: theme.spacing.xs,
+      textTransform: "uppercase",
+      letterSpacing: 0.4
+    },
+    methodSubtitle: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.body,
+      lineHeight: 22,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.md
+    },
+    methodGrid: {
+      flexDirection: isPhone ? "column" : "row",
+      gap: theme.spacing.md
+    },
+    teacherCallout: {
+      marginTop: theme.spacing.xl,
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.lg,
+      backgroundColor: "rgba(255, 255, 255, 0.76)",
+      borderWidth: 1,
+      borderColor: theme.colors.border
+    },
+    teacherCalloutTitle: {
+      fontFamily: theme.fonts.display,
+      fontSize: theme.typography.body,
+      fontWeight: "800",
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs
+    },
+    teacherCalloutText: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      lineHeight: 20,
+      color: theme.colors.textSecondary
+    },
     formPanel: {
+      position: "relative",
+      overflow: "hidden",
       width: "100%",
-      flex: isStacked ? undefined : 0.95,
+      flex: isStacked ? undefined : 0.98,
       borderRadius: theme.radius.xl,
       padding: isPhone ? theme.spacing.lg : theme.spacing.xxl,
       backgroundColor: theme.colors.surface,
@@ -816,38 +1020,14 @@ function createStyles(theme: AppTheme, width: number) {
       shadowOffset: { width: 0, height: 8 },
       elevation: 4
     },
-    heroBadge: {
-      alignSelf: "flex-start",
-      minHeight: 30,
-      paddingHorizontal: theme.spacing.sm,
-      borderRadius: theme.radius.pill,
-      backgroundColor: theme.colors.primarySoft,
-      justifyContent: "center",
-      marginBottom: theme.spacing.md
-    },
-    heroBadgeText: {
-      color: theme.colors.primary,
-      fontSize: theme.typography.caption,
-      fontWeight: "700"
-    },
-    heroTitle: {
-      fontSize: isPhone ? 24 : theme.typography.hero,
-      lineHeight: isPhone ? 30 : theme.typography.hero + 6,
-      fontWeight: "900",
-      color: theme.colors.text,
-      marginBottom: theme.spacing.sm
-    },
-    heroSubtitle: {
-      fontSize: theme.typography.body,
-      lineHeight: 22,
-      color: theme.colors.textSecondary,
-      marginBottom: theme.spacing.xl,
-      maxWidth: 520
-    },
-    roleGrid: {
-      flexDirection: width < 860 ? "column" : "row",
-      alignItems: "stretch",
-      gap: theme.spacing.md
+    formPanelGlow: {
+      position: "absolute",
+      left: -44,
+      bottom: -84,
+      width: 220,
+      height: 220,
+      borderRadius: 999,
+      backgroundColor: "rgba(249, 171, 0, 0.08)"
     },
     modeRow: {
       flexDirection: "row",
@@ -855,58 +1035,91 @@ function createStyles(theme: AppTheme, width: number) {
       marginBottom: theme.spacing.lg
     },
     formTitle: {
+      fontFamily: theme.fonts.display,
       fontSize: isPhone ? 22 : theme.typography.screenTitle,
       lineHeight: isPhone ? 28 : theme.typography.screenTitle + 4,
-      fontWeight: "700",
+      fontWeight: "800",
       color: theme.colors.text,
       marginBottom: theme.spacing.xs
     },
     formSubtitle: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.body,
       lineHeight: 22,
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.lg
     },
-    errorText: {
-      color: theme.colors.danger,
-      fontSize: theme.typography.caption,
-      marginBottom: theme.spacing.sm,
-      fontWeight: "700"
+    socialStack: {
+      width: "100%"
     },
-    successText: {
-      color: theme.colors.success,
-      fontSize: theme.typography.caption,
-      marginBottom: theme.spacing.sm,
-      fontWeight: "700"
-    },
-    primaryButton: {
-      marginTop: theme.spacing.xs
-    },
-    dividerRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginTop: theme.spacing.lg,
-      marginBottom: theme.spacing.lg
-    },
-    dividerLine: {
-      flex: 1,
-      height: 1,
-      backgroundColor: theme.colors.border
-    },
-    dividerText: {
-      marginHorizontal: theme.spacing.md,
-      color: theme.colors.textSecondary,
-      fontSize: theme.typography.caption,
-      fontWeight: "700"
+    vkWidgetShell: {
+      marginTop: theme.spacing.sm
     },
     socialButton: {
       marginBottom: theme.spacing.sm
     },
-    helperText: {
-      marginTop: theme.spacing.lg,
+    socialFooter: {
+      marginBottom: theme.spacing.md
+    },
+    inlineLink: {
+      alignSelf: "flex-start"
+    },
+    inlineLinkText: {
+      fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
-      color: theme.colors.textSecondary,
-      textAlign: "center"
+      fontWeight: "700",
+      color: theme.colors.primary
+    },
+    formBadgeRow: {
+      alignSelf: "flex-start",
+      minHeight: 30,
+      paddingHorizontal: theme.spacing.sm,
+      borderRadius: theme.radius.pill,
+      justifyContent: "center",
+      backgroundColor: theme.colors.primarySoft,
+      marginBottom: theme.spacing.md
+    },
+    formBadgeText: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      fontWeight: "700",
+      color: theme.colors.primary
+    },
+    primaryButton: {
+      marginTop: theme.spacing.xs
+    },
+    errorText: {
+      marginTop: theme.spacing.md,
+      color: theme.colors.danger,
+      fontSize: theme.typography.caption,
+      fontWeight: "700"
+    },
+    successText: {
+      marginTop: theme.spacing.md,
+      color: theme.colors.success,
+      fontSize: theme.typography.caption,
+      fontWeight: "700"
+    },
+    noteCard: {
+      marginTop: theme.spacing.lg,
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.lg,
+      backgroundColor: "#F8FBFF",
+      borderWidth: 1,
+      borderColor: "#DCE6FA"
+    },
+    noteTitle: {
+      fontFamily: theme.fonts.display,
+      fontSize: theme.typography.body,
+      fontWeight: "800",
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs
+    },
+    noteText: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      lineHeight: 20,
+      color: theme.colors.textSecondary
     }
   });
 }
