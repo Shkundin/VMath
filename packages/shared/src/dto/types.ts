@@ -357,6 +357,23 @@ export interface ClassroomHomeworkSubmissionView {
   teacherLogin: string;
 }
 
+export type ClassroomResourceKind = "video" | "photo";
+
+export interface ClassroomResourceView {
+  id: string;
+  kind: ClassroomResourceKind;
+  title: string;
+  url: string;
+  note: string;
+  fileName?: string | null;
+  fileType?: string | null;
+  fileData?: string | null;
+  mimeType?: string | null;
+  createdBy: string;
+  createdAt: string;
+  teacherLogin: string;
+}
+
 export type ClassroomTestingAnswerKey = "A" | "B" | "C" | "D";
 
 export interface ClassroomTestingQuestionView {

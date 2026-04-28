@@ -20,6 +20,7 @@ import type {
   ClassroomHomeworkSubmissionView,
   ClassroomHomeworkView,
   ClassroomMeetingView,
+  ClassroomResourceView,
   SessionState as ApiSessionState,
   ClassroomTestingSessionView,
   ClassroomTestingSubmissionView,
@@ -242,6 +243,37 @@ function mapHomeworkSubmissionViewToItem(
     teacherComment: view.teacherComment,
     score: view.score,
     teacherLogin: view.teacherLogin
+  };
+}
+
+function mapResourceViewToVideoLesson(view: ClassroomResourceView): VideoLessonItem {
+  return {
+    id: view.id,
+    title: view.title,
+    url: view.url,
+    authorName: view.createdBy,
+    createdAt: view.createdAt,
+    teacherLogin: view.teacherLogin,
+    fileName: view.fileName ?? undefined,
+    fileType: view.fileType ?? undefined,
+    fileData: view.fileData ?? undefined,
+    mimeType: view.mimeType ?? undefined
+  };
+}
+
+function mapResourceViewToPhotoMaterial(view: ClassroomResourceView): PhotoMaterialItem {
+  return {
+    id: view.id,
+    title: view.title,
+    resourceUrl: view.url,
+    note: view.note,
+    authorName: view.createdBy,
+    createdAt: view.createdAt,
+    teacherLogin: view.teacherLogin,
+    fileName: view.fileName ?? undefined,
+    fileType: view.fileType ?? undefined,
+    fileData: view.fileData ?? undefined,
+    mimeType: view.mimeType ?? undefined
   };
 }
 
@@ -1436,6 +1468,8 @@ export function AppNavigation() {
         const currentTeacherLogin = isTeacher ? user.login : selectedTeacherLogin;
         if (!currentTeacherLogin) {
           if (!isTeacher) {
+            setVideoLessons([]);
+            setPhotoMaterials([]);
             setMeetings([]);
             setHomeworks([]);
             setHomeworkSubmissions([]);
@@ -1449,11 +1483,15 @@ export function AppNavigation() {
           meetingViews,
           homeworkViews,
           homeworkSubmissionViews,
+          videoResourceViews,
+          photoResourceViews,
           testingSessionView
         ] = await Promise.all([
           classroomApi.listMeetings(currentTeacherLogin),
           classroomApi.listHomeworks(currentTeacherLogin),
           classroomApi.listHomeworkSubmissions(currentTeacherLogin),
+          classroomApi.listResources(currentTeacherLogin, "video"),
+          classroomApi.listResources(currentTeacherLogin, "photo"),
           classroomApi.getActiveTestingSession(currentTeacherLogin)
         ]);
 
@@ -1468,6 +1506,8 @@ export function AppNavigation() {
 
         setMeetings(meetingViews.map(mapMeetingViewToItem));
         setHomeworks(homeworkViews.map(mapHomeworkViewToItem));
+        setVideoLessons(videoResourceViews.map(mapResourceViewToVideoLesson));
+        setPhotoMaterials(photoResourceViews.map(mapResourceViewToPhotoMaterial));
         setHomeworkSubmissions(
           homeworkSubmissionViews.map(mapHomeworkSubmissionViewToItem)
         );
@@ -2295,14 +2335,14 @@ export function AppNavigation() {
     });
   }
 
-  function handleCreateVideoLesson(input: {
+  async function handleCreateVideoLesson(input: {
     title: string;
     url: string;
     fileName?: string;
     fileType?: string;
     fileData?: string;
     mimeType?: string;
-  }) {
+  }): Promise<string | null> {
     const nextTitle = input.title.trim();
     const nextUrl = input.url.trim();
     const nextFileName = input.fileName?.trim() ?? "";
@@ -2311,32 +2351,50 @@ export function AppNavigation() {
     const nextMimeType = input.mimeType?.trim() ?? "";
 
     if (!nextTitle || (!nextUrl && !nextFileData)) {
-      return;
+      return fixText("Укажи название и добавь ссылку или файл.");
     }
 
-    const nextLesson: VideoLessonItem = {
-      id: `video-lesson-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      title: nextTitle,
-      url: nextUrl,
-      authorName: fixText(user.fullName || "Visual Math Team"),
-      createdAt: new Date().toISOString(),
-      teacherLogin: user.login
-    };
-
-    if (nextFileName && nextFileType && nextFileData) {
-      nextLesson.fileName = nextFileName;
-      nextLesson.fileType = nextFileType;
-      nextLesson.fileData = nextFileData;
-      nextLesson.mimeType = nextMimeType || "video/mp4";
+    const accessToken = await authApi.getAccessToken();
+    if (!accessToken) {
+      return fixText("Нет серверной сессии. Выйди и войди заново, чтобы видео увидели студенты.");
     }
 
-    setVideoLessons((current: VideoLessonItem[]) => [nextLesson, ...current]);
+    try {
+      const created = await classroomApi.createResource({
+        kind: "video",
+        title: nextTitle,
+        url: nextUrl,
+        fileName: nextFileName || undefined,
+        fileType: nextFileType || undefined,
+        fileData: nextFileData || undefined,
+        mimeType: nextMimeType || (nextFileData ? "video/mp4" : undefined)
+      });
+      const nextLesson = mapResourceViewToVideoLesson(created);
+      setVideoLessons((current: VideoLessonItem[]) => [
+        nextLesson,
+        ...current.filter((lesson: VideoLessonItem) => lesson.id !== nextLesson.id)
+      ]);
+      return null;
+    } catch (error: unknown) {
+      return fixText(toUserMessage(error));
+    }
   }
 
-  function handleDeleteVideoLesson(lessonId: string) {
-    setVideoLessons((current: VideoLessonItem[]) =>
-      current.filter((lesson: VideoLessonItem) => lesson.id !== lessonId)
-    );
+  async function handleDeleteVideoLesson(lessonId: string): Promise<string | null> {
+    const accessToken = await authApi.getAccessToken();
+    if (!accessToken) {
+      return fixText("Нет серверной сессии. Выйди и войди заново, чтобы удалить видео.");
+    }
+
+    try {
+      await classroomApi.deleteResource(lessonId);
+      setVideoLessons((current: VideoLessonItem[]) =>
+        current.filter((lesson: VideoLessonItem) => lesson.id !== lessonId)
+      );
+      return null;
+    } catch (error: unknown) {
+      return fixText(toUserMessage(error));
+    }
   }
 
   async function handleLogout() {
@@ -2796,7 +2854,7 @@ export function AppNavigation() {
     }
   }
 
-  function handleCreatePhotoMaterial(input: {
+  async function handleCreatePhotoMaterial(input: {
     title: string;
     resourceUrl: string;
     note: string;
@@ -2804,7 +2862,7 @@ export function AppNavigation() {
     fileType?: string;
     fileData?: string;
     mimeType?: string;
-  }) {
+  }): Promise<string | null> {
     const nextTitle = input.title.trim();
     const nextResourceUrl = input.resourceUrl.trim();
     const nextNote = input.note.trim();
@@ -2814,240 +2872,203 @@ export function AppNavigation() {
     const nextMimeType = input.mimeType?.trim() ?? "";
 
     if (!nextTitle || (!nextResourceUrl && !nextFileData)) {
-      return;
+      return fixText("Укажи название и добавь ссылку или файл.");
     }
 
-    const nextMaterial: PhotoMaterialItem = {
-      id: `photo-material-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      title: nextTitle,
-      resourceUrl: nextResourceUrl,
-      note: nextNote,
-      authorName: user.fullName || "Visual Math Team",
-      createdAt: new Date().toISOString(),
-      teacherLogin: user.login
-    };
-
-    if (nextFileName && nextFileType && nextFileData) {
-      nextMaterial.fileName = nextFileName;
-      nextMaterial.fileType = nextFileType;
-      nextMaterial.fileData = nextFileData;
-      nextMaterial.mimeType = nextMimeType || "application/octet-stream";
+    const accessToken = await authApi.getAccessToken();
+    if (!accessToken) {
+      return fixText("Нет серверной сессии. Выйди и войди заново, чтобы материал увидели студенты.");
     }
 
-    setPhotoMaterials((current: PhotoMaterialItem[]) => [nextMaterial, ...current]);
+    try {
+      const created = await classroomApi.createResource({
+        kind: "photo",
+        title: nextTitle,
+        url: nextResourceUrl,
+        note: nextNote,
+        fileName: nextFileName || undefined,
+        fileType: nextFileType || undefined,
+        fileData: nextFileData || undefined,
+        mimeType: nextMimeType || (nextFileData ? "application/octet-stream" : undefined)
+      });
+      const nextMaterial = mapResourceViewToPhotoMaterial(created);
+      setPhotoMaterials((current: PhotoMaterialItem[]) => [
+        nextMaterial,
+        ...current.filter((material: PhotoMaterialItem) => material.id !== nextMaterial.id)
+      ]);
+      return null;
+    } catch (error: unknown) {
+      return fixText(toUserMessage(error));
+    }
   }
 
-  function handleDeletePhotoMaterial(materialId: string) {
-    setPhotoMaterials((current: PhotoMaterialItem[]) =>
-      current.filter((material: PhotoMaterialItem) => material.id !== materialId)
-    );
+  async function handleDeletePhotoMaterial(materialId: string): Promise<string | null> {
+    const accessToken = await authApi.getAccessToken();
+    if (!accessToken) {
+      return fixText("Нет серверной сессии. Выйди и войди заново, чтобы удалить материал.");
+    }
+
+    try {
+      await classroomApi.deleteResource(materialId);
+      setPhotoMaterials((current: PhotoMaterialItem[]) =>
+        current.filter((material: PhotoMaterialItem) => material.id !== materialId)
+      );
+      return null;
+    } catch (error: unknown) {
+      return fixText(toUserMessage(error));
+    }
   }
 
-  async function handleCreateMeeting(input: MeetingDraftInput) {
+  async function handleCreateMeeting(input: MeetingDraftInput): Promise<string | null> {
     const accessToken = await authApi.getAccessToken();
 
-    if (accessToken) {
-      try {
-        const created = await classroomApi.createMeeting(input);
-        const nextMeeting = mapMeetingViewToItem(created);
-        setMeetings((current: MeetingItem[]) =>
-          [nextMeeting, ...current.filter((meeting: MeetingItem) => meeting.id !== nextMeeting.id)].sort(
-            (left, right) =>
-              new Date(left.scheduledAt).getTime() - new Date(right.scheduledAt).getTime()
-          )
-        );
-        return;
-      } catch {
-      }
+    if (!accessToken) {
+      return fixText("Нет серверной сессии. Выйди и войди заново, чтобы встречу увидели студенты.");
     }
 
-    const nextMeeting: MeetingItem = {
-      id: `meeting-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      title: input.title.trim(),
-      platform: input.platform.trim(),
-      url: input.url.trim(),
-      scheduledAt: input.scheduledAt,
-      durationMin: input.durationMin,
-      description: input.description.trim(),
-      createdBy: fixText(user.fullName || user.login || "Visual Math Team"),
-      createdAt: new Date().toISOString(),
-      teacherLogin: user.login
-    };
-
-    setMeetings((current: MeetingItem[]) =>
-      [nextMeeting, ...current].sort(
-        (left, right) =>
-          new Date(left.scheduledAt).getTime() - new Date(right.scheduledAt).getTime()
-      )
-    );
+    try {
+      const created = await classroomApi.createMeeting(input);
+      const nextMeeting = mapMeetingViewToItem(created);
+      setMeetings((current: MeetingItem[]) =>
+        [nextMeeting, ...current.filter((meeting: MeetingItem) => meeting.id !== nextMeeting.id)].sort(
+          (left, right) =>
+            new Date(left.scheduledAt).getTime() - new Date(right.scheduledAt).getTime()
+        )
+      );
+      return null;
+    } catch (error: unknown) {
+      return fixText(toUserMessage(error));
+    }
   }
 
-  async function handleDeleteMeeting(meetingId: string) {
+  async function handleDeleteMeeting(meetingId: string): Promise<string | null> {
     const accessToken = await authApi.getAccessToken();
-    if (accessToken) {
-      try {
-        await classroomApi.deleteMeeting(meetingId);
-      } catch {
-      }
+    if (!accessToken) {
+      return fixText("Нет серверной сессии. Выйди и войди заново, чтобы удалить встречу.");
     }
 
-    setMeetings((current: MeetingItem[]) =>
-      current.filter((meeting: MeetingItem) => meeting.id !== meetingId)
-    );
+    try {
+      await classroomApi.deleteMeeting(meetingId);
+      setMeetings((current: MeetingItem[]) =>
+        current.filter((meeting: MeetingItem) => meeting.id !== meetingId)
+      );
+      return null;
+    } catch (error: unknown) {
+      return fixText(toUserMessage(error));
+    }
   }
 
-  async function handleCreateHomework(input: HomeworkDraftInput) {
+  async function handleCreateHomework(input: HomeworkDraftInput): Promise<string | null> {
     const accessToken = await authApi.getAccessToken();
 
-    if (accessToken) {
-      try {
-        const created = await classroomApi.createHomework(input);
-        const nextHomework = mapHomeworkViewToItem(created);
-        setHomeworks((current: HomeworkItem[]) =>
-          [nextHomework, ...current.filter((homework: HomeworkItem) => homework.id !== nextHomework.id)].sort(
-            (left, right) =>
-              new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime()
-          )
-        );
-        return;
-      } catch {
-      }
+    if (!accessToken) {
+      return fixText("Нет серверной сессии. Выйди и войди заново, чтобы ДЗ увидели студенты.");
     }
 
-    const nextHomework: HomeworkItem = {
-      id: `homework-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      title: input.title.trim(),
-      description: input.description.trim(),
-      dueAt: input.dueAt,
-      allowedFormats: input.allowedFormats.map((item) => item.trim().toLowerCase()),
-      maxScore: input.maxScore,
-      createdBy: fixText(user.fullName || user.login || "Visual Math Team"),
-      createdAt: new Date().toISOString(),
-      teacherLogin: user.login
-    };
-
-    setHomeworks((current: HomeworkItem[]) =>
-      [nextHomework, ...current].sort(
-        (left, right) =>
-          new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime()
-      )
-    );
+    try {
+      const created = await classroomApi.createHomework(input);
+      const nextHomework = mapHomeworkViewToItem(created);
+      setHomeworks((current: HomeworkItem[]) =>
+        [nextHomework, ...current.filter((homework: HomeworkItem) => homework.id !== nextHomework.id)].sort(
+          (left, right) =>
+            new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime()
+        )
+      );
+      return null;
+    } catch (error: unknown) {
+      return fixText(toUserMessage(error));
+    }
   }
 
-  async function handleDeleteHomework(homeworkId: string) {
+  async function handleDeleteHomework(homeworkId: string): Promise<string | null> {
     const accessToken = await authApi.getAccessToken();
-    if (accessToken) {
-      try {
-        await classroomApi.deleteHomework(homeworkId);
-      } catch {
-      }
+    if (!accessToken) {
+      return fixText("Нет серверной сессии. Выйди и войди заново, чтобы удалить ДЗ.");
     }
 
-    setHomeworks((current: HomeworkItem[]) =>
-      current.filter((homework: HomeworkItem) => homework.id !== homeworkId)
-    );
-
-    setHomeworkSubmissions((current: HomeworkSubmissionItem[]) =>
-      current.filter((submission: HomeworkSubmissionItem) => submission.homeworkId !== homeworkId)
-    );
+    try {
+      await classroomApi.deleteHomework(homeworkId);
+      setHomeworks((current: HomeworkItem[]) =>
+        current.filter((homework: HomeworkItem) => homework.id !== homeworkId)
+      );
+      setHomeworkSubmissions((current: HomeworkSubmissionItem[]) =>
+        current.filter((submission: HomeworkSubmissionItem) => submission.homeworkId !== homeworkId)
+      );
+      return null;
+    } catch (error: unknown) {
+      return fixText(toUserMessage(error));
+    }
   }
 
-  async function handleCreateHomeworkSubmission(input: HomeworkSubmissionDraftInput) {
+  async function handleCreateHomeworkSubmission(input: HomeworkSubmissionDraftInput): Promise<string | null> {
     const accessToken = await authApi.getAccessToken();
 
-    if (accessToken) {
-      try {
-        const created = await classroomApi.createHomeworkSubmission(input.homeworkId, {
-          fileName: input.fileName,
-          fileType: input.fileType,
-          fileData: input.fileData
-        });
-        const nextSubmission = mapHomeworkSubmissionViewToItem(created);
-        setHomeworkSubmissions((current: HomeworkSubmissionItem[]) => [
-          nextSubmission,
-          ...current.filter(
-            (submission: HomeworkSubmissionItem) =>
-              !(submission.homeworkId === nextSubmission.homeworkId && submission.studentLogin === nextSubmission.studentLogin)
-          )
-        ]);
-        return;
-      } catch {
-      }
+    if (!accessToken) {
+      return fixText("Нет серверной сессии. Выйди и войди заново, чтобы преподаватель увидел сдачу.");
     }
 
-    const relatedHomework = homeworks.find((homework) => homework.id === input.homeworkId) ?? null;
-
-    const nextSubmission: HomeworkSubmissionItem = {
-      id: `submission-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      homeworkId: input.homeworkId,
-      studentLogin: input.studentLogin,
-      studentName: fixText(input.studentName),
-      fileName: input.fileName,
-      fileType: input.fileType,
-      fileData: input.fileData,
-      submittedAt: new Date().toISOString(),
-      teacherComment: "",
-      score: null,
-      teacherLogin: relatedHomework?.teacherLogin ?? selectedTeacherLogin ?? undefined
-    };
-
-    setHomeworkSubmissions((current: HomeworkSubmissionItem[]) => [
-      nextSubmission,
-      ...current.filter(
-        (submission: HomeworkSubmissionItem) =>
-          !(submission.homeworkId === input.homeworkId && submission.studentLogin === input.studentLogin)
-      )
-    ]);
+    try {
+      const created = await classroomApi.createHomeworkSubmission(input.homeworkId, {
+        fileName: input.fileName,
+        fileType: input.fileType,
+        fileData: input.fileData
+      });
+      const nextSubmission = mapHomeworkSubmissionViewToItem(created);
+      setHomeworkSubmissions((current: HomeworkSubmissionItem[]) => [
+        nextSubmission,
+        ...current.filter(
+          (submission: HomeworkSubmissionItem) =>
+            !(submission.homeworkId === nextSubmission.homeworkId && submission.studentLogin === nextSubmission.studentLogin)
+        )
+      ]);
+      return null;
+    } catch (error: unknown) {
+      return fixText(toUserMessage(error));
+    }
   }
 
-  async function handleDeleteHomeworkSubmission(submissionId: string) {
+  async function handleDeleteHomeworkSubmission(submissionId: string): Promise<string | null> {
     const accessToken = await authApi.getAccessToken();
-    if (accessToken) {
-      try {
-        await classroomApi.deleteHomeworkSubmission(submissionId);
-      } catch {
-      }
+    if (!accessToken) {
+      return fixText("Нет серверной сессии. Выйди и войди заново, чтобы удалить сдачу.");
     }
 
-    setHomeworkSubmissions((current: HomeworkSubmissionItem[]) =>
-      current.filter((submission: HomeworkSubmissionItem) => submission.id !== submissionId)
-    );
+    try {
+      await classroomApi.deleteHomeworkSubmission(submissionId);
+      setHomeworkSubmissions((current: HomeworkSubmissionItem[]) =>
+        current.filter((submission: HomeworkSubmissionItem) => submission.id !== submissionId)
+      );
+      return null;
+    } catch (error: unknown) {
+      return fixText(toUserMessage(error));
+    }
   }
 
   async function handleGradeHomeworkSubmission(
     submissionId: string,
     score: number | null,
     comment: string
-  ) {
+  ): Promise<string | null> {
     const accessToken = await authApi.getAccessToken();
-    if (accessToken) {
-      try {
-        const updated = await classroomApi.gradeHomeworkSubmission(submissionId, {
-          score,
-          comment
-        });
-        const nextSubmission = mapHomeworkSubmissionViewToItem(updated);
-        setHomeworkSubmissions((current: HomeworkSubmissionItem[]) =>
-          current.map((submission: HomeworkSubmissionItem) =>
-            submission.id === submissionId ? nextSubmission : submission
-          )
-        );
-        return;
-      } catch {
-      }
+    if (!accessToken) {
+      return fixText("Нет серверной сессии. Выйди и войди заново, чтобы оценка сохранилась для студента.");
     }
 
-    setHomeworkSubmissions((current: HomeworkSubmissionItem[]) =>
-      current.map((submission: HomeworkSubmissionItem) =>
-        submission.id === submissionId
-          ? {
-              ...submission,
-              score,
-              teacherComment: comment
-            }
-          : submission
-      )
-    );
+    try {
+      const updated = await classroomApi.gradeHomeworkSubmission(submissionId, {
+        score,
+        comment
+      });
+      const nextSubmission = mapHomeworkSubmissionViewToItem(updated);
+      setHomeworkSubmissions((current: HomeworkSubmissionItem[]) =>
+        current.map((submission: HomeworkSubmissionItem) =>
+          submission.id === submissionId ? nextSubmission : submission
+        )
+      );
+      return null;
+    } catch (error: unknown) {
+      return fixText(toUserMessage(error));
+    }
   }
 
   function handleSaveTestingResult(result: TestingRunResult) {

@@ -41,8 +41,8 @@ type VideoLessonsScreenProps = {
     fileType?: string;
     fileData?: string;
     mimeType?: string;
-  }) => void;
-  onDeleteLesson: (lessonId: string) => void;
+  }) => Promise<string | null> | string | null;
+  onDeleteLesson: (lessonId: string) => Promise<string | null> | string | null;
 };
 
 export function VideoLessonsScreen({
@@ -83,7 +83,7 @@ export function VideoLessonsScreen({
     );
   }, [lessons, query]);
 
-  function handleCreate() {
+  async function handleCreate() {
     const nextTitle = title.trim();
     const nextUrl = url.trim();
 
@@ -92,7 +92,7 @@ export function VideoLessonsScreen({
       return;
     }
 
-    onCreateLesson({
+    const nextError = await onCreateLesson({
       title: nextTitle,
       url: nextUrl,
       fileName: pickedFile?.fileName,
@@ -100,6 +100,11 @@ export function VideoLessonsScreen({
       fileData: pickedFile?.fileData,
       mimeType: pickedFile?.mimeType
     });
+
+    if (nextError) {
+      setErrorText(nextError);
+      return;
+    }
 
     setTitle("");
     setUrl("");
@@ -262,7 +267,12 @@ export function VideoLessonsScreen({
                   {isTeacher ? (
                     <AppButton
                       label="Удалить"
-                      onPress={() => onDeleteLesson(lesson.id)}
+                      onPress={async () => {
+                        const nextError = await onDeleteLesson(lesson.id);
+                        if (nextError) {
+                          setErrorText(nextError);
+                        }
+                      }}
                       theme={theme}
                       variant="ghost"
                       fullWidth={isPhone}

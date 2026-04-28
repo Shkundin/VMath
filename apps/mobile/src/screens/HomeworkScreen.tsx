@@ -42,11 +42,11 @@ type HomeworkScreenProps = {
   userName: string;
   homeworks: HomeworkItem[];
   submissions: HomeworkSubmissionItem[];
-  onCreateHomework: (input: HomeworkDraftInput) => void;
-  onDeleteHomework: (homeworkId: string) => void;
-  onCreateSubmission: (input: HomeworkSubmissionDraftInput) => void;
-  onDeleteSubmission: (submissionId: string) => void;
-  onGradeSubmission: (submissionId: string, score: number | null, comment: string) => void;
+  onCreateHomework: (input: HomeworkDraftInput) => Promise<string | null> | string | null;
+  onDeleteHomework: (homeworkId: string) => Promise<string | null> | string | null;
+  onCreateSubmission: (input: HomeworkSubmissionDraftInput) => Promise<string | null> | string | null;
+  onDeleteSubmission: (submissionId: string) => Promise<string | null> | string | null;
+  onGradeSubmission: (submissionId: string, score: number | null, comment: string) => Promise<string | null> | string | null;
 };
 
 const FORMAT_OPTIONS = ["pdf", "doc", "docx", "png", "jpg", "jpeg"] as const;
@@ -103,7 +103,7 @@ export function HomeworkScreen({
     );
   }
 
-  function handleCreateHomework() {
+  async function handleCreateHomework() {
     const nextTitle = title.trim();
     const nextDescription = description.trim();
     const nextDueDate = dueDate.trim();
@@ -132,13 +132,18 @@ export function HomeworkScreen({
       return;
     }
 
-    onCreateHomework({
+    const nextError = await onCreateHomework({
       title: nextTitle,
       description: nextDescription,
       dueAt: dueAt.toISOString(),
       allowedFormats,
       maxScore: nextMaxScore
     });
+
+    if (nextError) {
+      setError(nextError);
+      return;
+    }
 
     setTitle("");
     setDescription("");
@@ -181,16 +186,18 @@ export function HomeworkScreen({
           return;
         }
 
-        onCreateSubmission({
-          homeworkId: homework.id,
-          studentLogin: userLogin,
-          studentName: userName,
-          fileName: file.name,
-          fileType: extension,
-          fileData: result
-        });
+        void (async () => {
+          const nextError = await onCreateSubmission({
+            homeworkId: homework.id,
+            studentLogin: userLogin,
+            studentName: userName,
+            fileName: file.name,
+            fileType: extension,
+            fileData: result
+          });
 
-        setError("");
+          setError(nextError ?? "");
+        })();
       };
 
       reader.readAsDataURL(file);
@@ -212,12 +219,13 @@ export function HomeworkScreen({
     link.remove();
   }
 
-  function handleSaveGrade(submission: HomeworkSubmissionItem, homework: HomeworkItem) {
+  async function handleSaveGrade(submission: HomeworkSubmissionItem, homework: HomeworkItem) {
     const rawScore = (scoreDrafts[submission.id] ?? (submission.score !== null ? String(submission.score) : "")).trim();
     const rawComment = commentDrafts[submission.id] ?? submission.teacherComment ?? "";
 
     if (!rawScore) {
-      onGradeSubmission(submission.id, null, rawComment.trim());
+      const nextError = await onGradeSubmission(submission.id, null, rawComment.trim());
+      setError(nextError ?? "");
       return;
     }
 
@@ -229,8 +237,8 @@ export function HomeworkScreen({
     }
 
     const normalizedScore = Math.max(0, Math.min(homework.maxScore, parsedScore));
-    onGradeSubmission(submission.id, normalizedScore, rawComment.trim());
-    setError("");
+    const nextError = await onGradeSubmission(submission.id, normalizedScore, rawComment.trim());
+    setError(nextError ?? "");
   }
 
   return (
@@ -439,7 +447,12 @@ export function HomeworkScreen({
                           />
                           <AppButton
                             label="Удалить сдачу"
-                            onPress={() => onDeleteSubmission(mySubmission.id)}
+                            onPress={async () => {
+                              const nextError = await onDeleteSubmission(mySubmission.id);
+                              if (nextError) {
+                                setError(nextError);
+                              }
+                            }}
                             theme={theme}
                             variant="ghost"
                             fullWidth={false}
@@ -452,7 +465,12 @@ export function HomeworkScreen({
                     <View style={styles.actionRow}>
                       <AppButton
                         label="Удалить задание"
-                        onPress={() => onDeleteHomework(homework.id)}
+                        onPress={async () => {
+                          const nextError = await onDeleteHomework(homework.id);
+                          if (nextError) {
+                            setError(nextError);
+                          }
+                        }}
                         theme={theme}
                         variant="ghost"
                         fullWidth={false}
@@ -527,7 +545,12 @@ export function HomeworkScreen({
                                 />
                                 <AppButton
                                   label="Удалить сдачу"
-                                  onPress={() => onDeleteSubmission(submission.id)}
+                                  onPress={async () => {
+                                    const nextError = await onDeleteSubmission(submission.id);
+                                    if (nextError) {
+                                      setError(nextError);
+                                    }
+                                  }}
                                   theme={theme}
                                   variant="ghost"
                                   fullWidth={false}

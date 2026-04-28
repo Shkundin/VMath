@@ -1,4 +1,4 @@
-import { err, type ClassroomTestingAnswerKey, type ClassroomTestingQuestionView, type ClassroomTestingSessionView, type TeacherBranchSummary, type ClassroomMeetingView, type ClassroomHomeworkView, type ClassroomHomeworkSubmissionView, type ClassroomTestingSubmissionView } from "@vm/shared";
+import { err, type ClassroomResourceKind, type ClassroomResourceView, type ClassroomTestingAnswerKey, type ClassroomTestingQuestionView, type ClassroomTestingSessionView, type TeacherBranchSummary, type ClassroomMeetingView, type ClassroomHomeworkView, type ClassroomHomeworkSubmissionView, type ClassroomTestingSubmissionView } from "@vm/shared";
 import { HttpClient } from "../http/httpClient";
 
 export class ClassroomService {
@@ -54,6 +54,35 @@ export class ClassroomService {
   async deleteHomework(homeworkId: string): Promise<void> {
     this.assertId("homeworkId", homeworkId);
     await this.http.deleteJson(`/api/v1/classroom/homeworks/${encodeURIComponent(homeworkId)}`);
+  }
+
+  async listResources(
+    teacherLogin: string,
+    kind: ClassroomResourceKind
+  ): Promise<ClassroomResourceView[]> {
+    this.assertTeacherLogin(teacherLogin);
+    const response = await this.http.getJson<ClassroomResourceView[]>(
+      `/api/v1/classroom/teachers/${encodeURIComponent(teacherLogin)}/resources?kind=${encodeURIComponent(kind)}`
+    );
+    return Array.isArray(response) ? response : [];
+  }
+
+  async createResource(input: {
+    kind: ClassroomResourceKind;
+    title: string;
+    url?: string;
+    note?: string;
+    fileName?: string;
+    fileType?: string;
+    fileData?: string;
+    mimeType?: string;
+  }): Promise<ClassroomResourceView> {
+    return this.http.postJson<ClassroomResourceView>("/api/v1/classroom/resources", input);
+  }
+
+  async deleteResource(resourceId: string): Promise<void> {
+    this.assertId("resourceId", resourceId);
+    await this.http.deleteJson(`/api/v1/classroom/resources/${encodeURIComponent(resourceId)}`);
   }
 
   async listHomeworkSubmissions(teacherLogin: string): Promise<ClassroomHomeworkSubmissionView[]> {

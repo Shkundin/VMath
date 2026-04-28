@@ -3,6 +3,8 @@ import type {
   ClassroomHomeworkSubmissionView,
   ClassroomHomeworkView,
   ClassroomMeetingView,
+  ClassroomResourceKind,
+  ClassroomResourceView,
   ClassroomTestingAnswerKey,
   ClassroomTestingQuestionView,
   ClassroomTestingSessionView,
@@ -61,6 +63,22 @@ interface HomeworkSubmissionRow extends QueryResultRow {
   submitted_at: string;
   teacher_comment: string;
   score: string | number | null;
+}
+
+interface ResourceRow extends QueryResultRow {
+  id: string;
+  teacher_id: string;
+  teacher_login: string;
+  teacher_name: string;
+  kind: ClassroomResourceKind;
+  title: string;
+  url: string;
+  note: string;
+  file_name: string | null;
+  file_type: string | null;
+  file_data: string | null;
+  mime_type: string | null;
+  created_at: string;
 }
 
 interface TestingSessionRow extends QueryResultRow {
@@ -416,6 +434,143 @@ export class ClassroomService {
 
     if (result.rowCount === 0) {
       throw new AppException("NOT_FOUND", HttpStatus.NOT_FOUND, "Homework not found");
+    }
+
+    return { ok: true };
+  }
+
+  async listResources(
+    _currentUser: AuthenticatedUser,
+    teacherLogin: string,
+    kind?: ClassroomResourceKind
+  ): Promise<ClassroomResourceView[]> {
+    const teacher = await this.requireTeacherByLogin(teacherLogin);
+    const params: unknown[] = [teacher.id];
+    const filters = [`r.teacher_id = $1`];
+
+    if (kind) {
+      params.push(kind);
+      filters.push(`r.kind = $${params.length}`);
+    }
+
+    const result = await this.database.query<ResourceRow>(
+      `
+        select
+          r.id,
+          r.teacher_id,
+          teacher.login as teacher_login,
+          teacher.full_name as teacher_name,
+          r.kind,
+          r.title,
+          r.url,
+          r.note,
+          r.file_name,
+          r.file_type,
+          r.file_data,
+          r.mime_type,
+          r.created_at
+        from teacher_resources r
+        join users teacher on teacher.id = r.teacher_id
+        where ${filters.join(" and ")}
+        order by r.created_at desc
+      `,
+      params
+    );
+
+    return result.rows.map((row) => this.mapResource(row));
+  }
+
+  async createResource(
+    currentUser: AuthenticatedUser,
+    input: {
+      kind: ClassroomResourceKind;
+      title: string;
+      url?: string;
+      note?: string;
+      fileName?: string;
+      fileType?: string;
+      fileData?: string;
+      mimeType?: string;
+    }
+  ): Promise<ClassroomResourceView> {
+    this.assertTeacher(currentUser);
+
+    const title = input.title.trim();
+    const url = input.url?.trim() || "";
+    const fileData = input.fileData?.trim() || "";
+
+    if (!["video", "photo"].includes(input.kind)) {
+      throw new AppException("VALIDATION", HttpStatus.BAD_REQUEST, "Resource kind is invalid");
+    }
+
+    if (!title || (!url && !fileData)) {
+      throw new AppException("VALIDATION", HttpStatus.BAD_REQUEST, "Resource title and URL or file are required");
+    }
+
+    const created = await this.database.one<ResourceRow>(
+      `
+        insert into teacher_resources (
+          id,
+          teacher_id,
+          kind,
+          title,
+          url,
+          note,
+          file_name,
+          file_type,
+          file_data,
+          mime_type,
+          created_at,
+          updated_at
+        )
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), now())
+        returning
+          id,
+          teacher_id,
+          $11::text as teacher_login,
+          $12::text as teacher_name,
+          kind,
+          title,
+          url,
+          note,
+          file_name,
+          file_type,
+          file_data,
+          mime_type,
+          created_at
+      `,
+      [
+        randomUUID(),
+        currentUser.userId,
+        input.kind,
+        title,
+        url,
+        input.note?.trim() || "",
+        input.fileName?.trim() || null,
+        input.fileType?.trim().toLowerCase() || null,
+        fileData || null,
+        input.mimeType?.trim() || null,
+        currentUser.login,
+        currentUser.login
+      ]
+    );
+
+    return this.mapResource(created);
+  }
+
+  async deleteResource(currentUser: AuthenticatedUser, resourceId: string): Promise<{ ok: true }> {
+    this.assertTeacher(currentUser);
+
+    const result = await this.database.query(
+      `
+        delete from teacher_resources
+        where id = $1 and teacher_id = $2
+      `,
+      [resourceId, currentUser.userId]
+    );
+
+    if (result.rowCount === 0) {
+      throw new AppException("NOT_FOUND", HttpStatus.NOT_FOUND, "Resource not found");
     }
 
     return { ok: true };
@@ -1062,6 +1217,23 @@ export class ClassroomService {
       submittedAt: row.submitted_at,
       teacherComment: row.teacher_comment,
       score: toNumber(row.score),
+      teacherLogin: row.teacher_login
+    };
+  }
+
+  private mapResource(row: ResourceRow): ClassroomResourceView {
+    return {
+      id: row.id,
+      kind: row.kind,
+      title: row.title,
+      url: row.url,
+      note: row.note,
+      fileName: row.file_name,
+      fileType: row.file_type,
+      fileData: row.file_data,
+      mimeType: row.mime_type,
+      createdBy: row.teacher_name,
+      createdAt: row.created_at,
       teacherLogin: row.teacher_login
     };
   }

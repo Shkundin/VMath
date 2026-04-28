@@ -43,8 +43,8 @@ type PhotoMaterialsScreenProps = {
     fileType?: string;
     fileData?: string;
     mimeType?: string;
-  }) => void;
-  onDeleteMaterial: (materialId: string) => void;
+  }) => Promise<string | null> | string | null;
+  onDeleteMaterial: (materialId: string) => Promise<string | null> | string | null;
 };
 
 export function PhotoMaterialsScreen({
@@ -87,7 +87,7 @@ export function PhotoMaterialsScreen({
     );
   }, [materials, query]);
 
-  function handleCreate() {
+  async function handleCreate() {
     const nextTitle = title.trim();
     const nextResourceUrl = resourceUrl.trim();
     const nextNote = note.trim();
@@ -97,7 +97,7 @@ export function PhotoMaterialsScreen({
       return;
     }
 
-    onCreateMaterial({
+    const nextError = await onCreateMaterial({
       title: nextTitle,
       resourceUrl: nextResourceUrl,
       note: nextNote,
@@ -106,6 +106,11 @@ export function PhotoMaterialsScreen({
       fileData: pickedFile?.fileData,
       mimeType: pickedFile?.mimeType
     });
+
+    if (nextError) {
+      setErrorText(nextError);
+      return;
+    }
 
     setTitle("");
     setResourceUrl("");
@@ -279,7 +284,12 @@ export function PhotoMaterialsScreen({
                   {isTeacher ? (
                     <AppButton
                       label="Удалить"
-                      onPress={() => onDeleteMaterial(material.id)}
+                      onPress={async () => {
+                        const nextError = await onDeleteMaterial(material.id);
+                        if (nextError) {
+                          setErrorText(nextError);
+                        }
+                      }}
                       theme={theme}
                       variant="ghost"
                       fullWidth={isPhone}

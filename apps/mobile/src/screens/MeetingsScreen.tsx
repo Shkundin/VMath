@@ -31,8 +31,8 @@ type MeetingsScreenProps = {
   theme: AppTheme;
   isTeacher: boolean;
   meetings: MeetingItem[];
-  onCreateMeeting: (input: MeetingDraftInput) => void;
-  onDeleteMeeting: (meetingId: string) => void;
+  onCreateMeeting: (input: MeetingDraftInput) => Promise<string | null> | string | null;
+  onDeleteMeeting: (meetingId: string) => Promise<string | null> | string | null;
 };
 
 type MeetingFilter = "all" | "live" | "soon" | "done";
@@ -104,7 +104,7 @@ export function MeetingsScreen({
     return sortedMeetings.filter((meeting) => getMeetingStatus(meeting, nowTs) === filter);
   }, [filter, nowTs, sortedMeetings]);
 
-  function handleCreate() {
+  async function handleCreate() {
     const nextTitle = title.trim();
     const nextUrl = url.trim();
     const nextDate = scheduledDate.trim();
@@ -128,7 +128,7 @@ export function MeetingsScreen({
       return;
     }
 
-    onCreateMeeting({
+    const nextError = await onCreateMeeting({
       title: nextTitle,
       platform: platform.trim(),
       url: nextUrl,
@@ -136,6 +136,11 @@ export function MeetingsScreen({
       durationMin: nextDuration,
       description: description.trim()
     });
+
+    if (nextError) {
+      setError(nextError);
+      return;
+    }
 
     setTitle("");
     setUrl("");
@@ -418,7 +423,12 @@ export function MeetingsScreen({
                     {isTeacher ? (
                       <AppButton
                         label="Удалить"
-                        onPress={() => onDeleteMeeting(meeting.id)}
+                        onPress={async () => {
+                          const nextError = await onDeleteMeeting(meeting.id);
+                          if (nextError) {
+                            setError(nextError);
+                          }
+                        }}
                         theme={theme}
                         variant="ghost"
                         fullWidth={false}

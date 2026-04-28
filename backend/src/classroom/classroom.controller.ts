@@ -5,11 +5,13 @@ import {
   Get,
   Param,
   Post,
+  Query,
   UseGuards
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from "@nestjs/swagger";
 import {
   IsArray,
+  IsIn,
   IsInt,
   IsObject,
   IsOptional,
@@ -17,7 +19,7 @@ import {
   Max,
   Min
 } from "class-validator";
-import type { ClassroomTestingAnswerKey } from "@vm/shared";
+import type { ClassroomResourceKind, ClassroomTestingAnswerKey } from "@vm/shared";
 import { JwtAccessGuard } from "../auth/jwt-access.guard";
 import { CurrentUser } from "../common/http";
 import type { AuthenticatedUser } from "../common/http";
@@ -72,6 +74,39 @@ class CreateHomeworkSubmissionDto {
 
   @IsString()
   fileData!: string;
+}
+
+class CreateResourceDto {
+  @IsString()
+  @IsIn(["video", "photo"])
+  kind!: ClassroomResourceKind;
+
+  @IsString()
+  title!: string;
+
+  @IsOptional()
+  @IsString()
+  url?: string;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+
+  @IsOptional()
+  @IsString()
+  fileName?: string;
+
+  @IsOptional()
+  @IsString()
+  fileType?: string;
+
+  @IsOptional()
+  @IsString()
+  fileData?: string;
+
+  @IsOptional()
+  @IsString()
+  mimeType?: string;
 }
 
 class GradeHomeworkSubmissionDto {
@@ -195,6 +230,35 @@ export class ClassroomController {
     @Param("homeworkId") homeworkId: string
   ) {
     return this.classroomService.deleteHomework(currentUser, homeworkId);
+  }
+
+  @Get("teachers/:teacherLogin/resources")
+  @ApiOperation({ summary: "List teacher shared video and photo resources" })
+  async listResources(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("teacherLogin") teacherLogin: string,
+    @Query("kind") kind?: ClassroomResourceKind
+  ) {
+    return this.classroomService.listResources(currentUser, teacherLogin, kind);
+  }
+
+  @Post("resources")
+  @ApiOperation({ summary: "Create a teacher shared resource" })
+  @ApiBody({ type: CreateResourceDto })
+  async createResource(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body() body: CreateResourceDto
+  ) {
+    return this.classroomService.createResource(currentUser, body);
+  }
+
+  @Delete("resources/:resourceId")
+  @ApiOperation({ summary: "Delete teacher shared resource" })
+  async deleteResource(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("resourceId") resourceId: string
+  ) {
+    return this.classroomService.deleteResource(currentUser, resourceId);
   }
 
   @Get("teachers/:teacherLogin/homework-submissions")
