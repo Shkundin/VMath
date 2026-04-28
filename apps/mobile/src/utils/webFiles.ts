@@ -19,6 +19,7 @@ const DOWNLOAD_ONLY_EXTENSIONS = new Set([
   "xlsx",
   "zip"
 ]);
+const MAX_UPLOAD_FILE_SIZE = 20 * 1024 * 1024;
 
 export function getFileExtension(fileName: string): string {
   const parts = fileName.toLowerCase().split(".");
@@ -55,6 +56,11 @@ export function pickWebFile(options: {
     const file = input.files?.[0];
 
     if (!file) {
+      return;
+    }
+
+    if (file.size > MAX_UPLOAD_FILE_SIZE) {
+      options.onError("Файл слишком большой. Максимальный размер для загрузки - 20 MB.");
       return;
     }
 

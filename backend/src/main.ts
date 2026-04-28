@@ -2,13 +2,15 @@ import "reflect-metadata";
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory, Reflector } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { WsAdapter } from "@nestjs/platform-ws";
 import { GlobalExceptionFilter, RequestLoggingInterceptor } from "./common/http";
 import { AppModule } from "./app.module";
 import { AppConfigService } from "./config/app-config";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
     bufferLogs: true
   });
 
@@ -16,6 +18,10 @@ async function bootstrap() {
   const reflector = app.get(Reflector);
   const httpAdapter = app.getHttpAdapter();
   const allowAnyCorsOrigin = config.corsOrigins.includes("*");
+  const bodyLimit = process.env.HTTP_BODY_LIMIT?.trim() || "35mb";
+
+  app.useBodyParser("json", { limit: bodyLimit });
+  app.useBodyParser("urlencoded", { extended: true, limit: bodyLimit });
 
   app.enableCors({
     origin: allowAnyCorsOrigin ? true : config.corsOrigins,
@@ -49,8 +55,8 @@ async function bootstrap() {
     ignoreGlobalPrefix: true
   });
   SwaggerModule.setup("api/docs", app, document);
-  httpAdapter.get("/api/v1/openapi.json", (_req: unknown, res: { json: (body: unknown) => void }) =>
-    res.json(document)
+  httpAdapter.get("/api/v1/openapi.json", (_req, res) =>
+    httpAdapter.reply(res, document)
   );
 
   await app.listen(config.port);

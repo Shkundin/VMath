@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -24,9 +24,12 @@ import type {
   SessionState as ApiSessionState,
   ClassroomTestingSessionView,
   ClassroomTestingSubmissionView,
+  LectureBlock,
   LectureDetails,
+  LectureLevel,
   QuizBlock,
   QuizQuestion,
+  Role,
   TeacherBranchSummary,
   TextBlock,
   UserProfile as ApiUserProfile
@@ -474,6 +477,59 @@ function createDraftLectureDetails(
     title: input.title,
     description: input.description,
     blocks: [theoryBlock, quizBlock]
+  };
+}
+
+function parseLectureSemester(value: string | number | undefined): number | undefined {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : undefined;
+  }
+
+  const match = String(value ?? "").match(/\d+/);
+  if (!match) {
+    return undefined;
+  }
+
+  const parsed = Number(match[0]);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function normalizeLectureLevel(value: string | undefined): LectureLevel {
+  const normalized = String(value ?? "").trim().toLowerCase();
+
+  if (normalized.includes("advanced") || normalized.includes("продвин")) {
+    return "advanced";
+  }
+
+  if (normalized.includes("intermediate") || normalized.includes("сред")) {
+    return "intermediate";
+  }
+
+  return "basic";
+}
+
+function toLectureBlockInputs(blocks: LectureBlock[]): Array<{
+  title?: string;
+  type?: LectureBlock["type"];
+  payload?: Record<string, unknown>;
+}> {
+  return blocks.map((block) => ({
+    title: block.title,
+    type: block.type,
+    payload: block.payload
+  }));
+}
+
+function buildLecturePublishPayload(lecture: LectureItem, details: LectureDetails) {
+  return {
+    title: lecture.title,
+    description: lecture.description,
+    semester: parseLectureSemester(lecture.semester),
+    level: normalizeLectureLevel(lecture.level),
+    tags: lecture.tags.filter((tag) => tag !== "draft"),
+    status: "published" as const,
+    availableForRoles: ["student", "teacher"] as Role[],
+    blocks: toLectureBlockInputs(details.blocks)
   };
 }
 
@@ -999,6 +1055,8 @@ export function AppNavigation() {
   const [activeTestingSession, setActiveTestingSession] = useState<ActiveTestingSession | null>(null);
   const [testingSubmissions, setTestingSubmissions] = useState<TestingSubmission[]>([]);
   const [activeLessonSessions, setActiveLessonSessions] = useState<ActiveSessionSummary[]>([]);
+  const catalogLecturesRef = useRef(catalogLectures);
+  const lectureDetailsByIdRef = useRef(lectureDetailsById);
 
   const [currentSession, setCurrentSession] = useState<SessionData | null>(null);
   const [currentSessionBlockId, setCurrentSessionBlockId] = useState<string | null>(null);
@@ -1102,6 +1160,14 @@ export function AppNavigation() {
   }, []);
 
   useEffect(() => {
+    catalogLecturesRef.current = catalogLectures;
+  }, [catalogLectures]);
+
+  useEffect(() => {
+    lectureDetailsByIdRef.current = lectureDetailsById;
+  }, [lectureDetailsById]);
+
+  useEffect(() => {
     const savedDrafts = readDraftStorage();
 
     if (savedDrafts) {
@@ -1129,6 +1195,10 @@ export function AppNavigation() {
   useEffect(() => {
     writeVideoLessons(videoLessons);
   }, [videoLessons]);
+
+  useEffect(() => {
+    writePhotoMaterials(photoMaterials);
+  }, [photoMaterials]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1673,6 +1743,89 @@ export function AppNavigation() {
     }
   }
 
+  async function publishDraftLectureToServer(
+    draftLectureId: string,
+    lecture: LectureItem,
+    details: LectureDetails
+  ) {
+    const accessToken = await authApi.getAccessToken();
+    if (!accessToken || user.role !== "teacher") {
+      return;
+    }
+
+    try {
+      const created = await catalogApi.createLecture(buildLecturePublishPayload(lecture, details));
+      const latestLecture =
+        catalogLecturesRef.current.find((item) => item.id === draftLectureId) ?? lecture;
+      const latestDetails = lectureDetailsByIdRef.current[draftLectureId] ?? details;
+      const synced =
+        latestDetails === details && latestLecture === lecture
+          ? created
+          : await catalogApi.updateLecture(
+              created.id,
+              buildLecturePublishPayload(latestLecture, latestDetails)
+            );
+      const publishedLecture = {
+        ...mapLectureDetailsToLectureItem(synced, latestLecture),
+        teacherLogin: user.login,
+        tags: latestLecture.tags.filter((tag) => tag !== "draft")
+      };
+
+      setCatalogLectures((current) => [
+        ...current.filter((item) => item.id !== draftLectureId),
+        publishedLecture
+      ]);
+      setLectureDetailsById((current) => {
+        const next = { ...current };
+        delete next[draftLectureId];
+        next[synced.id] = synced;
+        return next;
+      });
+      setSelectedLecture((current) =>
+        current?.id === draftLectureId ? publishedLecture : current
+      );
+      setLastOpenedLectureId((current) => {
+        if (current === draftLectureId) {
+          void writeLastLectureId(synced.id);
+          return synced.id;
+        }
+
+        return current;
+      });
+      setCatalogMode("online");
+    } catch {
+      setCatalogMode("offline");
+    }
+  }
+
+  async function syncPublishedLectureToServer(lecture: LectureItem, details: LectureDetails) {
+    if (isDraftLecture(lecture.id) || user.role !== "teacher") {
+      return;
+    }
+
+    const accessToken = await authApi.getAccessToken();
+    if (!accessToken) {
+      return;
+    }
+
+    try {
+      const updated = await catalogApi.updateLecture(
+        lecture.id,
+        buildLecturePublishPayload(lecture, details)
+      );
+      const nextLecture = {
+        ...mapLectureDetailsToLectureItem(updated, lecture),
+        teacherLogin: user.login
+      };
+
+      setCatalogLectures((current) => upsertLecture(current, nextLecture));
+      setLectureDetailsById((current) => ({
+        ...current,
+        [updated.id]: updated
+      }));
+    } catch {}
+  }
+
   async function persistAuthenticatedUser(nextUser: UserProfile) {
     await writeAuthMeta({
       userLogin: nextUser.login,
@@ -2194,30 +2347,33 @@ export function AppNavigation() {
   }
 
   function handleUpdateDraftLectureMeta(lectureId: string, input: DraftLectureMetaInput) {
+    const currentLecture = catalogLectures.find((lecture) => lecture.id === lectureId) ?? null;
+    if (!currentLecture) {
+      return;
+    }
+
+    const nextLecture = {
+      ...currentLecture,
+      subject: input.subject,
+      semester: input.semester,
+      level: input.level
+    } as LectureItem & { videoUrl?: string };
+    const trimmedVideoUrl = input.videoUrl.trim();
+
+    if (trimmedVideoUrl) {
+      nextLecture.videoUrl = trimmedVideoUrl;
+    } else {
+      delete nextLecture.videoUrl;
+    }
+
     setCatalogLectures((current) =>
-      current.map((lecture) => {
-        if (lecture.id !== lectureId) {
-          return lecture;
-        }
-
-        const nextLecture = {
-          ...lecture,
-          subject: input.subject,
-          semester: input.semester,
-          level: input.level
-        } as LectureItem & { videoUrl?: string };
-
-        const trimmedVideoUrl = input.videoUrl.trim();
-
-        if (trimmedVideoUrl) {
-          nextLecture.videoUrl = trimmedVideoUrl;
-        } else {
-          delete nextLecture.videoUrl;
-        }
-
-        return nextLecture;
-      })
+      current.map((lecture) => (lecture.id === lectureId ? nextLecture : lecture))
     );
+
+    const details = lectureDetailsById[lectureId];
+    if (details) {
+      void syncPublishedLectureToServer(nextLecture, details);
+    }
   }
 
   function handleDeleteLecture(lectureId: string) {
@@ -2246,93 +2402,95 @@ export function AppNavigation() {
     setSelectedLecture(nextLecture);
     setLastOpenedLectureId(lectureId);
     void writeLastLectureId(lectureId);
+    void publishDraftLectureToServer(lectureId, nextLecture, nextDetails);
 
     return lectureId;
   }
 
   function handleAddDraftQuestion(lectureId: string, input: DraftQuestionInput) {
     const lecture = catalogLectures.find((item) => item.id === lectureId) ?? null;
+    const editable = ensureEditableLectureDetails(lecture, lectureDetailsById[lectureId]);
 
-    setLectureDetailsById((current) => {
-      const editable = ensureEditableLectureDetails(lecture, current[lectureId]);
+    if (!lecture || !editable) {
+      return;
+    }
 
-      if (!editable) {
-        return current;
+    const questionId = `question-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    const nextQuestion: QuizQuestion = {
+      id: questionId,
+      type: "single",
+      text: input.text,
+      options: [
+        { id: "A", text: input.optionA },
+        { id: "B", text: input.optionB },
+        { id: "C", text: input.optionC },
+        { id: "D", text: input.optionD }
+      ],
+      correctAnswerHint: input.explanation
+        ? `Correct answer: ${String(input.correctOptionKey).trim().toUpperCase()}. ${input.explanation}`
+        : `Correct answer: ${String(input.correctOptionKey).trim().toUpperCase()}.`
+    };
+
+    (nextQuestion as QuizQuestion & { correctOptionId?: string }).correctOptionId =
+      String(input.correctOptionKey).trim().toUpperCase();
+
+    let quizFound = false;
+
+    const nextBlocks = editable.blocks.map((block) => {
+      if (block.type !== "quiz") {
+        return block;
       }
 
-      const questionId = `question-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-      const nextQuestion: QuizQuestion = {
-        id: questionId,
-        type: "single",
-        text: input.text,
-        options: [
-          { id: "A", text: input.optionA },
-          { id: "B", text: input.optionB },
-          { id: "C", text: input.optionC },
-          { id: "D", text: input.optionD }
-        ],
-        correctAnswerHint: input.explanation
-          ? `Correct answer: ${String(input.correctOptionKey).trim().toUpperCase()}. ${input.explanation}`
-          : `Correct answer: ${String(input.correctOptionKey).trim().toUpperCase()}.`
-      };
-
-      (nextQuestion as QuizQuestion & { correctOptionId?: string }).correctOptionId =
-        String(input.correctOptionKey).trim().toUpperCase();
-
-      let quizFound = false;
-
-      const nextBlocks = editable.blocks.map((block) => {
-        if (block.type !== "quiz") {
-          return block;
-        }
-
-        quizFound = true;
-
-        return {
-          ...block,
-          payload: {
-            ...block.payload,
-            questions: [...block.payload.questions, nextQuestion]
-          }
-        };
-      });
-
-      if (!quizFound) {
-        nextBlocks.push({
-          id: `${lectureId}-quiz`,
-          type: "quiz",
-          title: "Questions",
-          payload: {
-            questions: [nextQuestion]
-          }
-        } as QuizBlock);
-      }
+      quizFound = true;
 
       return {
-        ...current,
-        [lectureId]: {
-          ...editable,
-          blocks: nextBlocks
+        ...block,
+        payload: {
+          ...block.payload,
+          questions: [...block.payload.questions, nextQuestion]
         }
       };
     });
+
+    if (!quizFound) {
+      nextBlocks.push({
+        id: `${lectureId}-quiz`,
+        type: "quiz",
+        title: "Questions",
+        payload: {
+          questions: [nextQuestion]
+        }
+      } as QuizBlock);
+    }
+
+    const nextDetails = {
+      ...editable,
+      blocks: nextBlocks
+    };
+
+    setLectureDetailsById((current) => ({
+      ...current,
+      [lectureId]: nextDetails
+    }));
+    void syncPublishedLectureToServer(lecture, nextDetails);
   }
 
   function handleDeleteDraftQuestion(lectureId: string, questionId: string) {
     const lecture = catalogLectures.find((item) => item.id === lectureId) ?? null;
+    const editable = ensureEditableLectureDetails(lecture, lectureDetailsById[lectureId]);
 
-    setLectureDetailsById((current) => {
-      const editable = ensureEditableLectureDetails(lecture, current[lectureId]);
-      if (!editable) {
-        return current;
-      }
+    if (!lecture || !editable) {
+      return;
+    }
 
-      return {
-        ...current,
-        [lectureId]: withQuestionDeleted(editable, questionId)
-      };
-    });
+    const nextDetails = withQuestionDeleted(editable, questionId);
+
+    setLectureDetailsById((current) => ({
+      ...current,
+      [lectureId]: nextDetails
+    }));
+    void syncPublishedLectureToServer(lecture, nextDetails);
   }
 
   async function handleCreateVideoLesson(input: {

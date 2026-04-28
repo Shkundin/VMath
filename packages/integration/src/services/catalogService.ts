@@ -1,4 +1,4 @@
-import { err, type LectureDetails, type LectureSummary } from "@vm/shared";
+import { err, type LectureBlock, type LectureDetails, type LectureLevel, type LectureSummary, type Role } from "@vm/shared";
 import { HttpClient } from "../http/httpClient";
 
 export class CatalogService {
@@ -44,5 +44,50 @@ export class CatalogService {
     }
 
     return this.http.getJson<LectureDetails["blocks"]>(`/api/v1/lectures/${id}/blocks`);
+  }
+
+  async createLecture(input: {
+    title: string;
+    description?: string;
+    semester?: number;
+    level?: LectureLevel;
+    tags?: string[];
+    status?: "draft" | "published" | "archived";
+    availableForRoles?: Role[];
+    blocks: Array<{
+      title?: string;
+      type?: LectureBlock["type"];
+      payload?: Record<string, unknown>;
+    }>;
+  }): Promise<LectureDetails> {
+    if (!input.title.trim()) {
+      throw err("VALIDATION", "Lecture title is required");
+    }
+
+    return this.http.postJson<LectureDetails>("/api/v1/lectures", input);
+  }
+
+  async updateLecture(
+    id: string,
+    input: {
+      title?: string;
+      description?: string;
+      semester?: number | null;
+      level?: LectureLevel;
+      tags?: string[];
+      status?: "draft" | "published" | "archived";
+      availableForRoles?: Role[];
+      blocks?: Array<{
+        title?: string;
+        type?: LectureBlock["type"];
+        payload?: Record<string, unknown>;
+      }>;
+    }
+  ): Promise<LectureDetails> {
+    if (!id.trim()) {
+      throw err("VALIDATION", "Lecture id is required");
+    }
+
+    return this.http.patchJson<LectureDetails>(`/api/v1/lectures/${encodeURIComponent(id)}`, input);
   }
 }
