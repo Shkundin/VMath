@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Platform, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import { AppButton } from "../components/ui/AppButton";
 import { Screen } from "../components/ui/Screen";
 import { ScreenHeader } from "../components/ui/ScreenHeader";
 import { SectionCard } from "../components/ui/SectionCard";
+import { StateCallout } from "../components/ui/StateCallout";
 import {
   getTeacherCurrentBlock,
   type TeacherManagedSession,
@@ -49,6 +50,37 @@ function readStoredStats(lectureId: string): StoredTeacherStats | null {
   } catch {
     return null;
   }
+}
+
+function formatDateTime(value?: string): string {
+  if (!value) {
+    return "—";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+
+  return date.toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function formatElapsed(totalSec: number): string {
+  const safeTotalSec = Math.max(0, totalSec);
+  const hours = Math.floor(safeTotalSec / 3600);
+  const minutes = Math.floor((safeTotalSec % 3600) / 60);
+  const seconds = safeTotalSec % 60;
+
+  if (hours > 0) {
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 function getSessionStatusLabel(status: TeacherManagedSession["status"]): string {
@@ -112,16 +144,22 @@ export function TeacherSessionControlScreen({
   const [storedStats, setStoredStats] = useState<StoredTeacherStats | null>(
     readStoredStats(session.lectureId)
   );
+  const [nowTs, setNowTs] = useState(Date.now());
+  const [copyState, setCopyState] = useState<"idle" | "success" | "fallback">("idle");
 
   useEffect(() => {
     setStoredStats(readStoredStats(session.lectureId));
+    setNowTs(Date.now());
+    setCopyState("idle");
 
     const intervalId = setInterval(() => {
       setStoredStats(readStoredStats(session.lectureId));
-    }, 800);
+      setNowTs(Date.now());
+    }, 1000);
 
     function handleStorage() {
       setStoredStats(readStoredStats(session.lectureId));
+      setNowTs(Date.now());
     }
 
     if (typeof window !== "undefined") {
@@ -134,7 +172,7 @@ export function TeacherSessionControlScreen({
         window.removeEventListener("storage", handleStorage);
       }
     };
-  }, [session.lectureId]);
+  }, [session.lectureId, session.sessionCode]);
 
   const participantStats = useMemo(
     () => ({
@@ -152,6 +190,38 @@ export function TeacherSessionControlScreen({
     session.participants.reduce((sum, item) => sum + (item.score ?? 0), 0);
   const lastCorrectCount = storedStats?.lastCorrectCount ?? null;
   const isActive = session.status === "active";
+  const engagedCount = participantStats.online + participantStats.inProgress + completedCount;
+  const averageScore =
+    completedCount > 0 ? Math.round((totalScore / completedCount) * 10) / 10 : null;
+  const startedAtLabel = formatDateTime(session.startedAt);
+  const elapsedSec = session.startedAt
+    ? Math.max(0, Math.floor((nowTs - new Date(session.startedAt).getTime()) / 1000))
+    : 0;
+
+  async function handleCopySessionCode() {
+    const webNavigator = (
+      globalThis as typeof globalThis & {
+        navigator?: {
+          clipboard?: {
+            writeText: (value: string) => Promise<void>;
+          };
+        };
+      }
+    ).navigator;
+
+    if (
+      Platform.OS === "web" &&
+      webNavigator?.clipboard?.writeText
+    ) {
+      try {
+        await webNavigator.clipboard.writeText(session.sessionCode);
+        setCopyState("success");
+        return;
+      } catch {}
+    }
+
+    setCopyState("fallback");
+  }
 
   return (
     <Screen theme={theme}>
@@ -176,19 +246,32 @@ export function TeacherSessionControlScreen({
           <Text style={styles.heroEyebrow}>VisualMath Session</Text>
           <Text style={styles.heroTitle}>{fixText(session.lectureTitle)}</Text>
           <Text style={styles.heroSubtitle}>
-            Код сессии {fixText(session.sessionCode)} • блок {session.currentBlockIndex + 1} из {session.blocks.length}
+            Код сессии {fixText(session.sessionCode)} • блок {session.currentBlockIndex + 1} из{" "}
+            {session.blocks.length}
           </Text>
 
           <View style={styles.heroMetaRow}>
             <HeroChip theme={theme} label={`Текущий блок: ${fixText(currentBlock)}`} />
             <HeroChip theme={theme} label={`Вопросов: ${session.questionPreview.length}`} />
+            <HeroChip
+              theme={theme}
+              label={
+                session.startedAt
+                  ? `Старт: ${startedAtLabel}`
+                  : "Сессия ещё не запущена"
+              }
+            />
           </View>
         </View>
 
         <View style={styles.heroAside}>
           <MetricCard theme={theme} value={String(completedCount)} label="Завершили" />
           <MetricCard theme={theme} value={String(participantStats.inProgress)} label="В процессе" />
-          <MetricCard theme={theme} value={String(totalScore)} label="Сумма баллов" />
+          <MetricCard
+            theme={theme}
+            value={session.startedAt ? formatElapsed(elapsedSec) : "00:00"}
+            label="Прошло времени"
+          />
         </View>
       </View>
 
@@ -196,7 +279,7 @@ export function TeacherSessionControlScreen({
         <SectionCard
           theme={theme}
           title="Управление сессией"
-          subtitle="Запуск, остановка и возврат в кабинет преподавателя."
+          subtitle="Запуск, остановка, копирование кода и возврат в кабинет преподавателя."
           style={styles.cardWide}
         >
           <View style={styles.actionStack}>
@@ -216,12 +299,29 @@ export function TeacherSessionControlScreen({
             />
 
             <AppButton
+              label="Копировать код сессии"
+              onPress={() => void handleCopySessionCode()}
+              theme={theme}
+              variant="secondary"
+            />
+
+            <AppButton
               label="Вернуться в кабинет"
               onPress={onBack}
               theme={theme}
               variant="ghost"
             />
           </View>
+
+          {copyState === "success" ? (
+            <Text style={styles.feedbackTextSuccess}>Код сессии скопирован.</Text>
+          ) : null}
+
+          {copyState === "fallback" ? (
+            <Text style={styles.feedbackTextNeutral}>
+              Скопируй код вручную: {fixText(session.sessionCode)}
+            </Text>
+          ) : null}
         </SectionCard>
 
         <SectionCard
@@ -275,6 +375,16 @@ export function TeacherSessionControlScreen({
             Последний результат:{" "}
             {lastCorrectCount === null ? "ещё нет ответов" : `${lastCorrectCount} правильных ответов`}
           </Text>
+
+          <View style={styles.performanceRow}>
+            <Text style={styles.performanceItem}>
+              Вовлечено: {engagedCount} из {session.participants.length}
+            </Text>
+            <Text style={styles.performanceItem}>
+              Средний балл: {averageScore === null ? "—" : averageScore}
+            </Text>
+            <Text style={styles.performanceItem}>Сумма баллов: {totalScore}</Text>
+          </View>
         </SectionCard>
 
         <SectionCard
@@ -284,7 +394,13 @@ export function TeacherSessionControlScreen({
           style={styles.cardNarrow}
         >
           {session.participants.length === 0 ? (
-            <Text style={styles.emptyText}>Пока нет участников в этой сессии.</Text>
+            <StateCallout
+              theme={theme}
+              tone="info"
+              icon="◌"
+              title="Пока нет участников"
+              description="Когда студенты подключатся к общей сессии, их статусы и результаты появятся здесь."
+            />
           ) : (
             session.participants.map((participant) => (
               <View key={participant.id} style={styles.participantRow}>
@@ -531,6 +647,20 @@ function createStyles(theme: AppTheme, width: number) {
     actionStack: {
       gap: theme.spacing.sm
     },
+    feedbackTextSuccess: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      lineHeight: 20,
+      color: theme.colors.success,
+      marginTop: theme.spacing.sm
+    },
+    feedbackTextNeutral: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      lineHeight: 20,
+      color: theme.colors.textSecondary,
+      marginTop: theme.spacing.sm
+    },
     currentBlockLabel: {
       fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
@@ -610,6 +740,16 @@ function createStyles(theme: AppTheme, width: number) {
       lineHeight: 22,
       color: theme.colors.text
     },
+    performanceRow: {
+      marginTop: theme.spacing.md
+    },
+    performanceItem: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      lineHeight: 20,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.xs
+    },
     participantRow: {
       borderRadius: theme.radius.lg,
       padding: theme.spacing.md,
@@ -665,11 +805,6 @@ function createStyles(theme: AppTheme, width: number) {
       fontFamily: theme.fonts.body,
       fontSize: theme.typography.caption,
       lineHeight: 20,
-      color: theme.colors.textSecondary
-    },
-    emptyText: {
-      fontFamily: theme.fonts.body,
-      fontSize: theme.typography.body,
       color: theme.colors.textSecondary
     }
   });

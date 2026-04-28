@@ -13,6 +13,7 @@ import { AppInput } from "../components/ui/AppInput";
 import { Screen } from "../components/ui/Screen";
 import { ScreenHeader } from "../components/ui/ScreenHeader";
 import { SectionCard } from "../components/ui/SectionCard";
+import { StateCallout } from "../components/ui/StateCallout";
 import { StatusPill } from "../components/ui/StatusPill";
 import type { AppTheme } from "../theme";
 import { fixText } from "../utils/fixText";
@@ -382,9 +383,17 @@ export function HomeworkScreen({
         subtitle={sortedHomeworks.length > 0 ? `Всего заданий: ${sortedHomeworks.length}` : "Пока заданий нет"}
       >
         {sortedHomeworks.length === 0 ? (
-          <Text style={styles.emptyText}>
-            {isTeacher ? "Пока нет созданных заданий." : "Преподаватель пока не добавил задания."}
-          </Text>
+          <StateCallout
+            theme={theme}
+            tone={isTeacher ? "info" : "warning"}
+            icon={isTeacher ? "+" : "◌"}
+            title={isTeacher ? "Пока нет созданных заданий" : "Заданий пока нет"}
+            description={
+              isTeacher
+                ? "Создай первое домашнее задание выше, и оно сразу появится в списке."
+                : "Когда преподаватель добавит задание, оно автоматически появится в этом разделе."
+            }
+          />
         ) : (
           <View style={styles.homeworkList}>
             {sortedHomeworks.map((homework) => {
@@ -481,7 +490,13 @@ export function HomeworkScreen({
                       <Text style={styles.teacherSubmissionsTitle}>Сдачи студентов</Text>
 
                       {relatedSubmissions.length === 0 ? (
-                        <Text style={styles.emptyText}>Пока никто не сдал это задание.</Text>
+                        <StateCallout
+                          theme={theme}
+                          tone="info"
+                          icon="◌"
+                          title="Пока нет сдач"
+                          description="Как только студенты загрузят файлы, они появятся здесь вместе с возможностью проверки."
+                        />
                       ) : (
                         relatedSubmissions.map((submission) => {
                           const scoreValue =

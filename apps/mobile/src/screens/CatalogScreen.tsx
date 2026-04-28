@@ -19,6 +19,14 @@ type CatalogScreenProps = {
   theme: AppTheme;
   lectures: LectureItem[];
   lastOpenedLecture: LectureItem | null;
+  studentProgress?: {
+    lecturesAvailable: number;
+    lecturesStarted: number;
+    homeworksSubmitted: number;
+    homeworksReviewed: number;
+    testsCompleted: number;
+    activeHomeworks: number;
+  };
   isLoading: boolean;
   hasError: boolean;
   isOffline: boolean;
@@ -30,6 +38,7 @@ export function CatalogScreen({
   theme,
   lectures,
   lastOpenedLecture,
+  studentProgress,
   isLoading,
   hasError,
   isOffline,
@@ -122,11 +131,54 @@ export function CatalogScreen({
         </View>
 
         <View style={styles.statsRail}>
-          <StatCard theme={theme} value={String(lectures.length)} label="Курсов" />
-          <StatCard theme={theme} value={String(totalBlocks)} label="Блоков" />
-          <StatCard theme={theme} value={isOffline ? "offline" : "online"} label="Режим" />
+          <StatCard
+            theme={theme}
+            value={String(studentProgress?.lecturesAvailable ?? lectures.length)}
+            label="Курсов"
+          />
+          <StatCard
+            theme={theme}
+            value={String(studentProgress?.homeworksSubmitted ?? 0)}
+            label="Сдач"
+          />
+          <StatCard
+            theme={theme}
+            value={String(studentProgress?.testsCompleted ?? 0)}
+            label="Тестов"
+          />
         </View>
       </View>
+
+      {studentProgress ? (
+        <SectionCard
+          title="Мой прогресс"
+          subtitle="Быстрая сводка по курсам, заданиям и тестам."
+          theme={theme}
+        >
+          <View style={styles.progressGrid}>
+            <MiniInfoTile
+              theme={theme}
+              label="Начато курсов"
+              value={String(studentProgress.lecturesStarted)}
+            />
+            <MiniInfoTile
+              theme={theme}
+              label="Активных домашних"
+              value={String(studentProgress.activeHomeworks)}
+            />
+            <MiniInfoTile
+              theme={theme}
+              label="Проверено домашних"
+              value={String(studentProgress.homeworksReviewed)}
+            />
+            <MiniInfoTile
+              theme={theme}
+              label="Доступно блоков"
+              value={String(totalBlocks)}
+            />
+          </View>
+        </SectionCard>
+      ) : null}
 
       {isOffline ? (
         <View style={styles.bannerInfo}>
@@ -652,6 +704,11 @@ function createStyles(theme: AppTheme, width: number) {
       flexWrap: "wrap",
       marginHorizontal: 0,
       marginBottom: theme.spacing.md
+    },
+    progressGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      marginHorizontal: 0
     },
     footerTile: {
       flexBasis: 140,

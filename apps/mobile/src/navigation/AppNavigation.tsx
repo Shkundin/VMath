@@ -965,6 +965,7 @@ export function AppNavigation() {
       (submission) => submission.sessionId === visibleActiveTestingSession.id
     );
   }, [testingSubmissions, visibleActiveTestingSession]);
+
   useEffect(() => {
     configureGoogleSignIn();
   }, []);
@@ -2862,6 +2863,51 @@ export function AppNavigation() {
   const lastOpenedLecture =
     visibleLectures.find((lecture) => lecture.id === lastOpenedLectureId) ?? null;
 
+  const studentProgress = useMemo(() => {
+    if (isTeacher) {
+      return null;
+    }
+
+    const startedLectureIds = new Set<string>();
+
+    if (lastOpenedLecture?.id) {
+      startedLectureIds.add(lastOpenedLecture.id);
+    }
+
+    if (selectedLecture?.id) {
+      startedLectureIds.add(selectedLecture.id);
+    }
+
+    const relevantTestingSubmissions = testingSubmissions.filter(
+      (submission) =>
+        submission.studentLogin === user.login &&
+        (!scopedTeacherLogin || submission.teacherLogin === scopedTeacherLogin)
+    );
+
+    const activeHomeworksCount = visibleHomeworks.filter(
+      (homework) => new Date(homework.dueAt).getTime() >= Date.now()
+    ).length;
+
+    return {
+      lecturesAvailable: visibleLectures.length,
+      lecturesStarted: startedLectureIds.size,
+      homeworksSubmitted: visibleHomeworkSubmissions.length,
+      homeworksReviewed: visibleHomeworkSubmissions.filter((submission) => submission.score !== null).length,
+      testsCompleted: relevantTestingSubmissions.length,
+      activeHomeworks: activeHomeworksCount
+    };
+  }, [
+    isTeacher,
+    lastOpenedLecture,
+    scopedTeacherLogin,
+    selectedLecture,
+    testingSubmissions,
+    user.login,
+    visibleHomeworks,
+    visibleHomeworkSubmissions,
+    visibleLectures
+  ]);
+
   const activeBottomTab: "catalog" | "teacher" | "profile" = isTeacher
     ? activeScreen === "profile"
       ? "profile"
@@ -3121,6 +3167,7 @@ export function AppNavigation() {
             theme={theme}
             lectures={visibleLectures}
             lastOpenedLecture={lastOpenedLecture}
+            studentProgress={studentProgress ?? undefined}
             isLoading={catalogMode === "loading"}
             hasError={catalogMode === "error"}
             isOffline={catalogMode === "offline"}
@@ -3318,6 +3365,7 @@ export function AppNavigation() {
             notificationsEnabled={notificationsEnabled}
             catalogMode={catalogMode}
             sessionMode={sessionMode}
+            studentProgress={studentProgress ?? undefined}
             selectedTeacherBranch={isTeacher ? null : selectedTeacherBranch}
             onToggleTheme={() =>
               setThemeMode((currentMode) =>
