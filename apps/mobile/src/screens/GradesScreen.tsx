@@ -23,6 +23,7 @@ type GradesScreenProps = {
   testingResults: TestingRunResult[];
   testingSubmissions: TestingSubmission[];
   onGradeSubmission: (submissionId: string, score: number | null, comment: string) => void;
+  onClearHomeworkResults: () => void;
   onClearTestingResults: (sessionIds: string[]) => void;
 };
 
@@ -106,6 +107,7 @@ export function GradesScreen({
   testingResults,
   testingSubmissions,
   onGradeSubmission,
+  onClearHomeworkResults,
   onClearTestingResults
 }: GradesScreenProps) {
   const { width } = useWindowDimensions();
@@ -177,6 +179,7 @@ export function GradesScreen({
     return total / testingRows.length;
   }, [testingRows]);
 
+  const canClearHomeworkResults = submissions.length > 0;
   const canClearTestingResults = isTeacher ? testingRows.length > 0 : testingSubmissions.length > 0;
 
   function handleClearTestingResults() {
@@ -270,6 +273,18 @@ export function GradesScreen({
             title="Домашние задания"
             subtitle="Здесь можно быстро проверить сдачи и выставить оценки."
           >
+            <View style={styles.sectionActions}>
+              <AppButton
+                label="Очистить итоги"
+                onPress={onClearHomeworkResults}
+                theme={theme}
+                variant="secondary"
+                fullWidth={isPhone}
+                disabled={!canClearHomeworkResults}
+                style={styles.inlineButton}
+              />
+            </View>
+
             {teacherRows.length === 0 ? (
               <Text style={styles.emptyText}>Пока нет данных по домашним заданиям.</Text>
             ) : (
@@ -506,6 +521,18 @@ export function GradesScreen({
             title="Мои оценки"
             subtitle="Итоги по всем домашним заданиям."
           >
+            <View style={styles.sectionActions}>
+              <AppButton
+                label="Очистить итоги"
+                onPress={onClearHomeworkResults}
+                theme={theme}
+                variant="secondary"
+                fullWidth={isPhone}
+                disabled={!canClearHomeworkResults}
+                style={styles.inlineButton}
+              />
+            </View>
+
             {studentRows.length === 0 ? (
               <Text style={styles.emptyText}>Пока нет данных по домашним заданиям.</Text>
             ) : (

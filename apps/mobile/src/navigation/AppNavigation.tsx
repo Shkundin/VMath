@@ -3544,6 +3544,23 @@ export function AppNavigation() {
     }
   }
 
+  function handleClearHomeworkResults() {
+    if (isTeacher) {
+      setHomeworkSubmissions((current: HomeworkSubmissionItem[]) =>
+        current.filter((submission: HomeworkSubmissionItem) => submission.teacherLogin !== user.login)
+      );
+      return;
+    }
+
+    setHomeworkSubmissions((current: HomeworkSubmissionItem[]) =>
+      current.filter(
+        (submission: HomeworkSubmissionItem) =>
+          submission.studentLogin !== user.login ||
+          submission.teacherLogin !== selectedTeacherLogin
+      )
+    );
+  }
+
   function handleSaveTestingResult(result: TestingRunResult) {
     setTestingResults((current) => [result, ...current].slice(0, 20));
   }
@@ -4266,6 +4283,7 @@ export function AppNavigation() {
                   )
             }
             onGradeSubmission={handleGradeHomeworkSubmission}
+            onClearHomeworkResults={handleClearHomeworkResults}
             onClearTestingResults={handleClearTestingResults}
           />
         ) : null}
