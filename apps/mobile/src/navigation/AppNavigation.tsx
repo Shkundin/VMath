@@ -3058,33 +3058,25 @@ export function AppNavigation() {
     title: string;
     durationMin: number;
     questions: ActiveTestingQuestion[];
-  }) {
+  }): Promise<string | null> {
     const accessToken = await authApi.getAccessToken();
 
-    if (accessToken) {
-      try {
-        const created = await classroomApi.startTestingSession({
-          title: input.title,
-          durationMin: input.durationMin,
-          questions: input.questions
-        });
-        setActiveTestingSession(mapTestingSessionViewToActiveSession(created));
-        setTestingSubmissions([]);
-        return;
-      } catch {
-      }
+    if (!accessToken) {
+      return fixText("Нет серверной сессии. Выйди и войди заново через логин и пароль, чтобы тест увидели студенты.");
     }
 
-    const nextSession: ActiveTestingSession = {
-      id: `active-testing-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      teacherLogin: user.login,
-      title: input.title.trim(),
-      durationMin: input.durationMin,
-      startedAt: new Date().toISOString(),
-      questions: input.questions
-    };
-
-    setActiveTestingSession(nextSession);
+    try {
+      const created = await classroomApi.startTestingSession({
+        title: input.title,
+        durationMin: input.durationMin,
+        questions: input.questions
+      });
+      setActiveTestingSession(mapTestingSessionViewToActiveSession(created));
+      setTestingSubmissions([]);
+      return null;
+    } catch (error: unknown) {
+      return fixText(toUserMessage(error));
+    }
   }
 
   async function handleFinishTestingSession() {
@@ -3144,77 +3136,33 @@ export function AppNavigation() {
     setActiveTestingSession(null);
   }
 
-  async function handleSubmitTestingAnswers(answers: Record<string, TestingAnswerKey>) {
+  async function handleSubmitTestingAnswers(answers: Record<string, TestingAnswerKey>): Promise<string | null> {
     if (isTeacher || !visibleActiveTestingSession) {
-      return;
+      return null;
     }
 
     const accessToken = await authApi.getAccessToken();
-    if (accessToken) {
-      try {
-        const created = await classroomApi.submitTestingAnswers(
-          visibleActiveTestingSession.id,
-          answers
-        );
-        const nextSubmission = mapTestingSubmissionViewToItem(created);
-        setTestingSubmissions((current) => [
-          nextSubmission,
-          ...current.filter(
-            (submission) =>
-              !(submission.sessionId === nextSubmission.sessionId && submission.studentLogin === nextSubmission.studentLogin)
-          )
-        ]);
-        return;
-      } catch {
-      }
+    if (!accessToken) {
+      return fixText("Нет серверной сессии. Выйди и войди заново, чтобы отправить ответ преподавателю.");
     }
 
-    const totalQuestions = visibleActiveTestingSession.questions.length;
-
-    let correctCount = 0;
-    let wrongCount = 0;
-    let skippedCount = 0;
-
-    for (const question of visibleActiveTestingSession.questions) {
-      const answer = answers[question.id];
-
-      if (!answer) {
-        skippedCount += 1;
-        continue;
-      }
-
-      if (answer === question.correctAnswerKey) {
-        correctCount += 1;
-      } else {
-        wrongCount += 1;
-      }
+    try {
+      const created = await classroomApi.submitTestingAnswers(
+        visibleActiveTestingSession.id,
+        answers
+      );
+      const nextSubmission = mapTestingSubmissionViewToItem(created);
+      setTestingSubmissions((current) => [
+        nextSubmission,
+        ...current.filter(
+          (submission) =>
+            !(submission.sessionId === nextSubmission.sessionId && submission.studentLogin === nextSubmission.studentLogin)
+        )
+      ]);
+      return null;
+    } catch (error: unknown) {
+      return fixText(toUserMessage(error));
     }
-
-    const percent =
-      totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
-
-    const nextSubmission: TestingSubmission = {
-      id: `testing-submission-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      sessionId: visibleActiveTestingSession.id,
-      teacherLogin: visibleActiveTestingSession.teacherLogin,
-      studentLogin: user.login,
-      studentName: fixText(user.fullName || user.login),
-      answers,
-      submittedAt: new Date().toISOString(),
-      correctCount,
-      wrongCount,
-      skippedCount,
-      totalQuestions,
-      percent
-    };
-
-    setTestingSubmissions((current) => [
-      nextSubmission,
-      ...current.filter(
-        (submission) =>
-          !(submission.sessionId === visibleActiveTestingSession.id && submission.studentLogin === user.login)
-      )
-    ]);
   }
 
   function handleMenuNavigate(
@@ -3342,7 +3290,7 @@ export function AppNavigation() {
     return (
       <LoginScreen
         theme={theme}
-        onLogin={handleLogin}
+        onLogin={handleBackendLogin}
         onGoogleLogin={handleGoogleOAuthLogin}
         onVkLogin={handleVkOAuthLogin}
         vkWebWidget={

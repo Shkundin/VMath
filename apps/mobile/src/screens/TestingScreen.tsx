@@ -46,9 +46,9 @@ type TestingScreenProps = {
     title: string;
     durationMin: number;
     questions: ActiveTestingQuestion[];
-  }) => void;
+  }) => Promise<string | null> | string | null;
   onFinishSession: () => void;
-  onSubmitStudentAnswers: (answers: Record<string, TestingAnswerKey>) => void;
+  onSubmitStudentAnswers: (answers: Record<string, TestingAnswerKey>) => Promise<string | null> | string | null;
   onOpenGrades: () => void;
 };
 
@@ -160,7 +160,7 @@ export function TestingScreen({
     setDraftQuestions((current) => current.filter((question) => question.id !== questionId));
   }
 
-  function handleStart() {
+  async function handleStart() {
     const parsedDuration = Number(durationMin.replace(",", ".").trim());
 
     if (draftQuestions.length === 0) {
@@ -173,16 +173,21 @@ export function TestingScreen({
       return;
     }
 
-    onStartSession({
+    const nextError = await onStartSession({
       title: testTitle.trim() || "Экспресс-тест",
       durationMin: parsedDuration,
       questions: draftQuestions
     });
 
+    if (nextError) {
+      setErrorText(nextError);
+      return;
+    }
+
     setErrorText("");
   }
 
-  function handleSubmitStudent() {
+  async function handleSubmitStudent() {
     if (!activeSession) {
       return;
     }
@@ -196,7 +201,13 @@ export function TestingScreen({
       }
     }
 
-    onSubmitStudentAnswers(preparedAnswers);
+    const nextError = await onSubmitStudentAnswers(preparedAnswers);
+    if (nextError) {
+      setErrorText(nextError);
+      return;
+    }
+
+    setErrorText("");
   }
 
   function handleSelectStudentAnswer(questionId: string, answerKey: TestingAnswerKey) {
