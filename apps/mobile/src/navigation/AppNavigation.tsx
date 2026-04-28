@@ -870,6 +870,20 @@ function mergeSharedTeacherItems<T extends { id: string; teacherLogin?: string }
   return Array.from(next.values());
 }
 
+function mergeItemsById<T extends { id: string }>(storedItems: T[], currentItems: T[]): T[] {
+  const next = new Map<string, T>();
+
+  for (const item of storedItems) {
+    next.set(item.id, item);
+  }
+
+  for (const item of currentItems) {
+    next.set(item.id, item);
+  }
+
+  return Array.from(next.values());
+}
+
 function getVisibleTeacherScopedItems<T extends { teacherLogin?: string }>(
   items: T[],
   isTeacher: boolean,
@@ -1193,6 +1207,26 @@ export function AppNavigation() {
   useEffect(() => {
     lectureDetailsByIdRef.current = lectureDetailsById;
   }, [lectureDetailsById]);
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof window === "undefined") {
+      return;
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (
+        event.key !== VIDEO_LESSONS_STORAGE_KEY &&
+        event.key !== PHOTO_MATERIALS_STORAGE_KEY
+      ) {
+        return;
+      }
+
+      void hydrateSharedLocalState();
+    };
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
 
   useEffect(() => {
     const savedDrafts = readDraftStorage();
@@ -1564,15 +1598,6 @@ export function AppNavigation() {
 
         const currentTeacherLogin = isTeacher ? user.login : selectedTeacherLogin;
         if (!currentTeacherLogin) {
-          if (!isTeacher) {
-            setVideoLessons([]);
-            setPhotoMaterials([]);
-            setMeetings([]);
-            setHomeworks([]);
-            setHomeworkSubmissions([]);
-            setActiveTestingSession(null);
-            setTestingSubmissions([]);
-          }
           return;
         }
 
@@ -1704,6 +1729,7 @@ export function AppNavigation() {
 
   function handleSelectTeacherBranch(nextTeacherLogin: string) {
     setSelectedTeacherLogin(nextTeacherLogin);
+    void hydrateSharedLocalState();
     resetStudentFlow();
     resetTeacherFlow();
     setActiveScreen("catalog");
@@ -1711,6 +1737,7 @@ export function AppNavigation() {
 
   function handleSelectTeacherBranchInline(nextTeacherLogin: string) {
     setSelectedTeacherLogin(nextTeacherLogin);
+    void hydrateSharedLocalState();
     resetStudentFlow();
     resetTeacherFlow();
   }
@@ -1938,6 +1965,7 @@ export function AppNavigation() {
 
     setUser(nextUser);
     setIsAuthenticated(true);
+    void hydrateSharedLocalState();
 
     try {
       await refreshCatalogFromApi(nextUser.role === "teacher" ? nextUser.login : undefined);
@@ -2412,6 +2440,52 @@ export function AppNavigation() {
       writeTestingSubmissions(testingSubmissions),
       writeCatalogSnapshot(catalogLectures)
     ]);
+  }
+
+  async function hydrateSharedLocalState() {
+    const [
+      storedMeetings,
+      storedHomeworks,
+      storedHomeworkSubmissions
+    ] = await Promise.all([
+      readMeetings(),
+      readHomeworks(),
+      readHomeworkSubmissions()
+    ]);
+
+    const storedVideoLessons = readVideoLessons();
+    const storedPhotoMaterials = readPhotoMaterials();
+
+    if (storedVideoLessons.length > 0) {
+      setVideoLessons((current) => mergeItemsById(storedVideoLessons, current));
+    }
+
+    if (storedPhotoMaterials.length > 0) {
+      setPhotoMaterials((current) => mergeItemsById(storedPhotoMaterials, current));
+    }
+
+    if (Array.isArray(storedMeetings) && storedMeetings.length > 0) {
+      setMeetings((current) =>
+        mergeItemsById(storedMeetings, current).sort(
+          (left, right) =>
+            new Date(left.scheduledAt).getTime() - new Date(right.scheduledAt).getTime()
+        )
+      );
+    }
+
+    if (Array.isArray(storedHomeworks) && storedHomeworks.length > 0) {
+      setHomeworks((current) =>
+        mergeItemsById(storedHomeworks, current).sort(
+          (left, right) => new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime()
+        )
+      );
+    }
+
+    if (Array.isArray(storedHomeworkSubmissions) && storedHomeworkSubmissions.length > 0) {
+      setHomeworkSubmissions((current) =>
+        mergeItemsById(storedHomeworkSubmissions, current)
+      );
+    }
   }
 
   async function handleBackendLogout() {
