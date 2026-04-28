@@ -21,14 +21,6 @@ type ProfileScreenProps = {
   notificationsEnabled: boolean;
   catalogMode: DemoDataMode;
   sessionMode: DemoDataMode;
-  studentProgress?: {
-    lecturesAvailable: number;
-    lecturesStarted: number;
-    homeworksSubmitted: number;
-    homeworksReviewed: number;
-    testsCompleted: number;
-    activeHomeworks: number;
-  };
   selectedTeacherBranch?: TeacherBranch | null;
   onToggleTheme: () => void;
   onToggleNotifications: () => void;
@@ -46,7 +38,6 @@ export function ProfileScreen({
   notificationsEnabled,
   catalogMode,
   sessionMode,
-  studentProgress,
   selectedTeacherBranch,
   onToggleTheme,
   onToggleNotifications,
@@ -157,27 +148,11 @@ export function ProfileScreen({
           </View>
         </SectionCard>
 
-        {isStudent && studentProgress ? (
-          <SectionCard
-            theme={theme}
-            title="Мой прогресс"
-            subtitle="Текущее состояние обучения по основным сценариям."
-            style={styles.cardNarrow}
-          >
-            <View style={styles.infoGrid}>
-              <InfoTile theme={theme} label="Курсов доступно" value={String(studentProgress.lecturesAvailable)} />
-              <InfoTile theme={theme} label="Курсов начато" value={String(studentProgress.lecturesStarted)} />
-              <InfoTile theme={theme} label="Сдач отправлено" value={String(studentProgress.homeworksSubmitted)} />
-              <InfoTile theme={theme} label="Тестов завершено" value={String(studentProgress.testsCompleted)} />
-            </View>
-          </SectionCard>
-        ) : null}
-
         <SectionCard
           theme={theme}
           title="Состояние приложения"
           subtitle="Короткий статус основных разделов."
-          style={isStudent && studentProgress ? styles.cardWide : styles.cardNarrow}
+          style={styles.cardNarrow}
         >
           <View style={styles.statusWrap}>
             <StatusPill

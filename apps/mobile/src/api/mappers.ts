@@ -225,7 +225,6 @@ export function mapSessionToTeacherManagedSession(params: {
     lectureId: lecture.id,
     lectureTitle: lecture.title,
     status: "draft",
-    startedAt: sessionState.updatedAt,
     blocks: lecture.blocks,
     currentBlockIndex: 0,
     questionPreview: [],
