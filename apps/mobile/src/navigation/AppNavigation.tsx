@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   useWindowDimensions
 } from "react-native";
@@ -845,6 +846,30 @@ function withTeacherScope<T extends { teacherLogin?: string }>(
   );
 }
 
+function createLocalSharedId(prefix: string): string {
+  return `local-${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function mergeSharedTeacherItems<T extends { id: string; teacherLogin?: string }>(
+  serverItems: T[],
+  currentItems: T[],
+  teacherLogin: string
+): T[] {
+  const next = new Map<string, T>();
+
+  for (const item of serverItems) {
+    next.set(item.id, item);
+  }
+
+  for (const item of currentItems) {
+    if (item.teacherLogin === teacherLogin && !next.has(item.id)) {
+      next.set(item.id, item);
+    }
+  }
+
+  return Array.from(next.values());
+}
+
 function getVisibleTeacherScopedItems<T extends { teacherLogin?: string }>(
   items: T[],
   isTeacher: boolean,
@@ -1047,6 +1072,8 @@ export function AppNavigation() {
   const [homeworkSubmissions, setHomeworkSubmissions] = useState<HomeworkSubmissionItem[]>([]);
   const [teacherBranches, setTeacherBranches] = useState<TeacherBranch[]>([]);
   const [selectedTeacherLogin, setSelectedTeacherLogin] = useState<string | null>(null);
+  const [teacherCodeInput, setTeacherCodeInput] = useState("");
+  const [teacherCodeError, setTeacherCodeError] = useState("");
   const [latexDocument, setLatexDocument] = useState<LatexDocumentState>(
     createDefaultLatexDocument()
   );
@@ -1574,12 +1601,45 @@ export function AppNavigation() {
           return;
         }
 
-        setMeetings(meetingViews.map(mapMeetingViewToItem));
-        setHomeworks(homeworkViews.map(mapHomeworkViewToItem));
-        setVideoLessons(videoResourceViews.map(mapResourceViewToVideoLesson));
-        setPhotoMaterials(photoResourceViews.map(mapResourceViewToPhotoMaterial));
-        setHomeworkSubmissions(
-          homeworkSubmissionViews.map(mapHomeworkSubmissionViewToItem)
+        setMeetings((current) =>
+          mergeSharedTeacherItems(
+            meetingViews.map(mapMeetingViewToItem),
+            current,
+            currentTeacherLogin
+          ).sort(
+            (left, right) =>
+              new Date(left.scheduledAt).getTime() - new Date(right.scheduledAt).getTime()
+          )
+        );
+        setHomeworks((current) =>
+          mergeSharedTeacherItems(
+            homeworkViews.map(mapHomeworkViewToItem),
+            current,
+            currentTeacherLogin
+          ).sort(
+            (left, right) => new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime()
+          )
+        );
+        setVideoLessons((current) =>
+          mergeSharedTeacherItems(
+            videoResourceViews.map(mapResourceViewToVideoLesson),
+            current,
+            currentTeacherLogin
+          )
+        );
+        setPhotoMaterials((current) =>
+          mergeSharedTeacherItems(
+            photoResourceViews.map(mapResourceViewToPhotoMaterial),
+            current,
+            currentTeacherLogin
+          )
+        );
+        setHomeworkSubmissions((current) =>
+          mergeSharedTeacherItems(
+            homeworkSubmissionViews.map(mapHomeworkSubmissionViewToItem),
+            current,
+            currentTeacherLogin
+          )
         );
         setActiveTestingSession(
           testingSessionView ? mapTestingSessionViewToActiveSession(testingSessionView) : null
@@ -1649,6 +1709,12 @@ export function AppNavigation() {
     setActiveScreen("catalog");
   }
 
+  function handleSelectTeacherBranchInline(nextTeacherLogin: string) {
+    setSelectedTeacherLogin(nextTeacherLogin);
+    resetStudentFlow();
+    resetTeacherFlow();
+  }
+
   function handleDisconnectTeacherBranch() {
     setSelectedTeacherLogin(null);
     resetStudentFlow();
@@ -1682,6 +1748,29 @@ export function AppNavigation() {
 
     handleSelectTeacherBranch(matchedBranch.teacherLogin);
     return { ok: true, branch: matchedBranch };
+  }
+
+  function handleJoinTeacherBranchInline(joinCode: string) {
+    const normalizedCode = normalizeTeacherJoinCode(joinCode);
+
+    if (!normalizedCode) {
+      setTeacherCodeError("Введите код преподавателя.");
+      return;
+    }
+
+    const matchedBranch =
+      teacherBranches.find(
+        (branch) => normalizeTeacherJoinCode(branch.joinCode) === normalizedCode
+      ) ?? null;
+
+    if (!matchedBranch) {
+      setTeacherCodeError("Курс с таким кодом не найден. Проверь код и попробуй снова.");
+      return;
+    }
+
+    handleSelectTeacherBranchInline(matchedBranch.teacherLogin);
+    setTeacherCodeInput("");
+    setTeacherCodeError("");
   }
 
   async function refreshCatalogFromApi(nextTeacherLogin?: string) {
@@ -2309,7 +2398,25 @@ export function AppNavigation() {
     }
   }
 
+  async function persistSharedStateBeforeLogout() {
+    writeVideoLessons(videoLessons);
+    writePhotoMaterials(photoMaterials);
+
+    await Promise.all([
+      writeMeetings(meetings),
+      writeHomeworks(homeworks),
+      writeHomeworkSubmissions(homeworkSubmissions),
+      writeTeacherBranches(teacherBranches),
+      writeSelectedTeacherLogin(selectedTeacherLogin),
+      writeActiveTestingSession(activeTestingSession),
+      writeTestingSubmissions(testingSubmissions),
+      writeCatalogSnapshot(catalogLectures)
+    ]);
+  }
+
   async function handleBackendLogout() {
+    await persistSharedStateBeforeLogout();
+
     try {
       await authApi.logout();
     } catch {}
@@ -2514,7 +2621,21 @@ export function AppNavigation() {
 
     const accessToken = await authApi.getAccessToken();
     if (!accessToken) {
-      return fixText("Нет серверной сессии. Выйди и войди заново, чтобы видео увидели студенты.");
+      const localLesson: VideoLessonItem = {
+        id: createLocalSharedId("video"),
+        title: nextTitle,
+        url: nextUrl,
+        authorName: user.fullName || user.login,
+        createdAt: new Date().toISOString(),
+        teacherLogin: user.login,
+        fileName: nextFileName || undefined,
+        fileType: nextFileType || undefined,
+        fileData: nextFileData || undefined,
+        mimeType: nextMimeType || (nextFileData ? "video/mp4" : undefined)
+      };
+
+      setVideoLessons((current) => [localLesson, ...current]);
+      return null;
     }
 
     try {
@@ -2539,6 +2660,13 @@ export function AppNavigation() {
   }
 
   async function handleDeleteVideoLesson(lessonId: string): Promise<string | null> {
+    if (lessonId.startsWith("local-")) {
+      setVideoLessons((current: VideoLessonItem[]) =>
+        current.filter((lesson: VideoLessonItem) => lesson.id !== lessonId)
+      );
+      return null;
+    }
+
     const accessToken = await authApi.getAccessToken();
     if (!accessToken) {
       return fixText("Нет серверной сессии. Выйди и войди заново, чтобы удалить видео.");
@@ -2556,6 +2684,8 @@ export function AppNavigation() {
   }
 
   async function handleLogout() {
+    await persistSharedStateBeforeLogout();
+
     setIsAuthenticated(false);
     setActiveScreen("catalog");
     setSelectedLecture(null);
@@ -3035,7 +3165,22 @@ export function AppNavigation() {
 
     const accessToken = await authApi.getAccessToken();
     if (!accessToken) {
-      return fixText("Нет серверной сессии. Выйди и войди заново, чтобы материал увидели студенты.");
+      const localMaterial: PhotoMaterialItem = {
+        id: createLocalSharedId("photo"),
+        title: nextTitle,
+        resourceUrl: nextResourceUrl,
+        note: nextNote,
+        authorName: user.fullName || user.login,
+        createdAt: new Date().toISOString(),
+        teacherLogin: user.login,
+        fileName: nextFileName || undefined,
+        fileType: nextFileType || undefined,
+        fileData: nextFileData || undefined,
+        mimeType: nextMimeType || (nextFileData ? "application/octet-stream" : undefined)
+      };
+
+      setPhotoMaterials((current) => [localMaterial, ...current]);
+      return null;
     }
 
     try {
@@ -3061,6 +3206,13 @@ export function AppNavigation() {
   }
 
   async function handleDeletePhotoMaterial(materialId: string): Promise<string | null> {
+    if (materialId.startsWith("local-")) {
+      setPhotoMaterials((current: PhotoMaterialItem[]) =>
+        current.filter((material: PhotoMaterialItem) => material.id !== materialId)
+      );
+      return null;
+    }
+
     const accessToken = await authApi.getAccessToken();
     if (!accessToken) {
       return fixText("Нет серверной сессии. Выйди и войди заново, чтобы удалить материал.");
@@ -3081,7 +3233,21 @@ export function AppNavigation() {
     const accessToken = await authApi.getAccessToken();
 
     if (!accessToken) {
-      return fixText("Нет серверной сессии. Выйди и войди заново, чтобы встречу увидели студенты.");
+      const localMeeting: MeetingItem = {
+        id: createLocalSharedId("meeting"),
+        ...input,
+        createdBy: user.fullName || user.login,
+        createdAt: new Date().toISOString(),
+        teacherLogin: user.login
+      };
+
+      setMeetings((current: MeetingItem[]) =>
+        [localMeeting, ...current].sort(
+          (left, right) =>
+            new Date(left.scheduledAt).getTime() - new Date(right.scheduledAt).getTime()
+        )
+      );
+      return null;
     }
 
     try {
@@ -3100,6 +3266,13 @@ export function AppNavigation() {
   }
 
   async function handleDeleteMeeting(meetingId: string): Promise<string | null> {
+    if (meetingId.startsWith("local-")) {
+      setMeetings((current: MeetingItem[]) =>
+        current.filter((meeting: MeetingItem) => meeting.id !== meetingId)
+      );
+      return null;
+    }
+
     const accessToken = await authApi.getAccessToken();
     if (!accessToken) {
       return fixText("Нет серверной сессии. Выйди и войди заново, чтобы удалить встречу.");
@@ -3120,7 +3293,21 @@ export function AppNavigation() {
     const accessToken = await authApi.getAccessToken();
 
     if (!accessToken) {
-      return fixText("Нет серверной сессии. Выйди и войди заново, чтобы ДЗ увидели студенты.");
+      const localHomework: HomeworkItem = {
+        id: createLocalSharedId("homework"),
+        ...input,
+        createdBy: user.fullName || user.login,
+        createdAt: new Date().toISOString(),
+        teacherLogin: user.login
+      };
+
+      setHomeworks((current: HomeworkItem[]) =>
+        [localHomework, ...current].sort(
+          (left, right) =>
+            new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime()
+        )
+      );
+      return null;
     }
 
     try {
@@ -3139,6 +3326,16 @@ export function AppNavigation() {
   }
 
   async function handleDeleteHomework(homeworkId: string): Promise<string | null> {
+    if (homeworkId.startsWith("local-")) {
+      setHomeworks((current: HomeworkItem[]) =>
+        current.filter((homework: HomeworkItem) => homework.id !== homeworkId)
+      );
+      setHomeworkSubmissions((current: HomeworkSubmissionItem[]) =>
+        current.filter((submission: HomeworkSubmissionItem) => submission.homeworkId !== homeworkId)
+      );
+      return null;
+    }
+
     const accessToken = await authApi.getAccessToken();
     if (!accessToken) {
       return fixText("Нет серверной сессии. Выйди и войди заново, чтобы удалить ДЗ.");
@@ -3734,6 +3931,25 @@ export function AppNavigation() {
       ) : null}
 
       <View style={styles.content}>
+        {activeScreen !== "teacherBranchSelect" ? (
+          <TeacherCodePanel
+            theme={theme}
+            isTeacher={isTeacher}
+            teacherCode={ownTeacherBranch?.joinCode ?? createTeacherJoinCode(user.login)}
+            selectedBranch={selectedTeacherBranch}
+            codeValue={teacherCodeInput}
+            error={teacherCodeError}
+            onChangeCode={(value) => {
+              setTeacherCodeInput(value);
+              if (teacherCodeError) {
+                setTeacherCodeError("");
+              }
+            }}
+            onSubmitCode={() => handleJoinTeacherBranchInline(teacherCodeInput)}
+            onDisconnect={handleDisconnectTeacherBranch}
+          />
+        ) : null}
+
         {!isTeacher && activeScreen === "teacherBranchSelect" ? (
           <TeacherBranchSelectScreen
             theme={theme}
@@ -3986,6 +4202,130 @@ export function AppNavigation() {
   );
 }
 
+type TeacherCodePanelProps = {
+  theme: AppTheme;
+  isTeacher: boolean;
+  teacherCode: string;
+  selectedBranch: TeacherBranch | null;
+  codeValue: string;
+  error: string;
+  onChangeCode: (value: string) => void;
+  onSubmitCode: () => void;
+  onDisconnect: () => void;
+};
+
+function TeacherCodePanel({
+  theme,
+  isTeacher,
+  teacherCode,
+  selectedBranch,
+  codeValue,
+  error,
+  onChangeCode,
+  onSubmitCode,
+  onDisconnect
+}: TeacherCodePanelProps) {
+  if (isTeacher) {
+    return (
+      <View
+        style={[
+          styles.teacherCodePanel,
+          {
+            backgroundColor: theme.colors.surfaceElevated,
+            borderColor: theme.colors.border
+          }
+        ]}
+      >
+        <View style={styles.teacherCodeTextBlock}>
+          <Text style={[styles.teacherCodeEyebrow, { color: theme.colors.textSecondary }]}>
+            Код преподавателя
+          </Text>
+          <Text style={[styles.teacherCodeTitle, { color: theme.colors.text }]}>
+            {teacherCode}
+          </Text>
+          <Text style={[styles.teacherCodeHint, { color: theme.colors.textSecondary }]}>
+            Студент вводит этот код в любой вкладке и сразу видит ваши материалы.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View
+      style={[
+        styles.teacherCodePanel,
+        {
+          backgroundColor: theme.colors.surfaceElevated,
+          borderColor: theme.colors.border
+        }
+      ]}
+    >
+      <View style={styles.teacherCodeTextBlock}>
+        <Text style={[styles.teacherCodeEyebrow, { color: theme.colors.textSecondary }]}>
+          Подключение к преподавателю
+        </Text>
+        <Text style={[styles.teacherCodeHint, { color: theme.colors.textSecondary }]}>
+          {selectedBranch
+            ? `Сейчас открыты материалы: ${selectedBranch.teacherName}`
+            : "Введите код преподавателя, чтобы открыть его встречи, ДЗ и материалы."}
+        </Text>
+        {error ? <Text style={[styles.teacherCodeError, { color: theme.colors.danger }]}>{error}</Text> : null}
+      </View>
+
+      <View style={styles.teacherCodeControls}>
+        <TextInput
+          value={codeValue}
+          onChangeText={onChangeCode}
+          placeholder={selectedBranch?.joinCode ?? "Код преподавателя"}
+          placeholderTextColor={theme.colors.textSecondary}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          style={[
+            styles.teacherCodeInput,
+            {
+              color: theme.colors.text,
+              borderColor: theme.colors.border,
+              backgroundColor: theme.colors.surface
+            }
+          ]}
+          onSubmitEditing={onSubmitCode}
+        />
+        <Pressable
+          onPress={onSubmitCode}
+          style={[
+            styles.teacherCodeButton,
+            {
+              backgroundColor: theme.colors.primary,
+              borderColor: theme.colors.primary
+            }
+          ]}
+        >
+          <Text style={[styles.teacherCodeButtonText, { color: "#FFFFFF" }]}>
+            Подключиться
+          </Text>
+        </Pressable>
+        {selectedBranch ? (
+          <Pressable
+            onPress={onDisconnect}
+            style={[
+              styles.teacherCodeButton,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border
+              }
+            ]}
+          >
+            <Text style={[styles.teacherCodeButtonText, { color: theme.colors.text }]}>
+              Сбросить
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
 type BottomTabsProps = {
   theme: AppTheme;
   isTeacher: boolean;
@@ -4088,6 +4428,66 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     minWidth: 0
+  },
+  teacherCodePanel: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+    flexWrap: "wrap"
+  },
+  teacherCodeTextBlock: {
+    flex: 1,
+    minWidth: 260
+  },
+  teacherCodeEyebrow: {
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    marginBottom: 3
+  },
+  teacherCodeTitle: {
+    fontSize: 24,
+    fontWeight: "900"
+  },
+  teacherCodeHint: {
+    fontSize: 14,
+    lineHeight: 20
+  },
+  teacherCodeError: {
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 4
+  },
+  teacherCodeControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8
+  },
+  teacherCodeInput: {
+    minWidth: 180,
+    minHeight: 42,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    fontSize: 15,
+    fontWeight: "800"
+  },
+  teacherCodeButton: {
+    minHeight: 42,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  teacherCodeButtonText: {
+    fontSize: 14,
+    fontWeight: "900"
   },
   centeredState: {
     flex: 1,
