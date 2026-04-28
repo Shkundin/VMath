@@ -894,17 +894,10 @@ function getVisibleTeacherScopedItems<T extends { teacherLogin?: string }>(
       return items;
     }
 
-    const unscoped = items.filter((item) => !item.teacherLogin);
-    return unscoped.length > 0 ? unscoped : items;
+    return [];
   }
 
-  const scoped = items.filter((item) => item.teacherLogin === scopedTeacherLogin);
-
-  if (scoped.length > 0) {
-    return scoped;
-  }
-
-  return items.filter((item) => !item.teacherLogin);
+  return items.filter((item) => item.teacherLogin === scopedTeacherLogin);
 }
 
 const TEACHER_STATS_KEY = "vm.teacher.session.stats.v1";
@@ -3431,6 +3424,35 @@ export function AppNavigation() {
 
   async function handleCreateHomeworkSubmission(input: HomeworkSubmissionDraftInput): Promise<string | null> {
     const accessToken = await authApi.getAccessToken();
+    const homeworkTeacherLogin =
+      homeworks.find((homework) => homework.id === input.homeworkId)?.teacherLogin ??
+      selectedTeacherLogin ??
+      "";
+
+    if (!accessToken || input.homeworkId.startsWith("local-")) {
+      const nextSubmission: HomeworkSubmissionItem = {
+        id: createLocalSharedId("submission"),
+        homeworkId: input.homeworkId,
+        studentLogin: input.studentLogin,
+        studentName: input.studentName,
+        fileName: input.fileName,
+        fileType: input.fileType,
+        fileData: input.fileData,
+        submittedAt: new Date().toISOString(),
+        teacherComment: "",
+        score: null,
+        teacherLogin: homeworkTeacherLogin
+      };
+
+      setHomeworkSubmissions((current: HomeworkSubmissionItem[]) => [
+        nextSubmission,
+        ...current.filter(
+          (submission: HomeworkSubmissionItem) =>
+            !(submission.homeworkId === nextSubmission.homeworkId && submission.studentLogin === nextSubmission.studentLogin)
+        )
+      ]);
+      return null;
+    }
 
     if (!accessToken) {
       return fixText("Нет серверной сессии. Выйди и войди заново, чтобы преподаватель увидел сдачу.");
@@ -3458,6 +3480,13 @@ export function AppNavigation() {
 
   async function handleDeleteHomeworkSubmission(submissionId: string): Promise<string | null> {
     const accessToken = await authApi.getAccessToken();
+    if (!accessToken || submissionId.startsWith("local-")) {
+      setHomeworkSubmissions((current: HomeworkSubmissionItem[]) =>
+        current.filter((submission: HomeworkSubmissionItem) => submission.id !== submissionId)
+      );
+      return null;
+    }
+
     if (!accessToken) {
       return fixText("Нет серверной сессии. Выйди и войди заново, чтобы удалить сдачу.");
     }
@@ -3479,6 +3508,21 @@ export function AppNavigation() {
     comment: string
   ): Promise<string | null> {
     const accessToken = await authApi.getAccessToken();
+    if (!accessToken || submissionId.startsWith("local-")) {
+      setHomeworkSubmissions((current: HomeworkSubmissionItem[]) =>
+        current.map((submission: HomeworkSubmissionItem) =>
+          submission.id === submissionId
+            ? {
+                ...submission,
+                score,
+                teacherComment: comment.trim()
+              }
+            : submission
+        )
+      );
+      return null;
+    }
+
     if (!accessToken) {
       return fixText("Нет серверной сессии. Выйди и войди заново, чтобы оценка сохранилась для студента.");
     }
