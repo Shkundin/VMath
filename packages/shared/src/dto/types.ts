@@ -87,6 +87,7 @@ export interface LectureSummary {
   tags?: string[];
   updatedAt?: string;
   authorId?: string;
+  authorLogin?: string;
   authorName?: string;
   subjectId?: string;
   subjectCode?: string;
@@ -306,4 +307,105 @@ export interface SessionStatsView {
     incorrectCount: number;
     skippedCount: number;
   }>;
+}
+
+export interface TeacherBranchSummary {
+  teacherLogin: string;
+  teacherName: string;
+  title: string;
+  description: string;
+  joinCode: string;
+  lectureCount: number;
+}
+
+export interface ClassroomMeetingView {
+  id: string;
+  title: string;
+  platform: string;
+  url: string;
+  scheduledAt: string;
+  durationMin: number;
+  description: string;
+  createdBy: string;
+  createdAt: string;
+  teacherLogin: string;
+}
+
+export interface ClassroomHomeworkView {
+  id: string;
+  title: string;
+  description: string;
+  dueAt: string;
+  allowedFormats: string[];
+  maxScore: number;
+  createdBy: string;
+  createdAt: string;
+  teacherLogin: string;
+}
+
+export interface ClassroomHomeworkSubmissionView {
+  id: string;
+  homeworkId: string;
+  studentLogin: string;
+  studentName: string;
+  fileName: string;
+  fileType: string;
+  fileData: string;
+  submittedAt: string;
+  teacherComment: string;
+  score: number | null;
+  teacherLogin: string;
+}
+
+export type ClassroomTestingAnswerKey = "A" | "B" | "C" | "D";
+
+export interface ClassroomTestingQuestionView {
+  id: string;
+  text: string;
+  options: Array<{
+    key: ClassroomTestingAnswerKey;
+    text: string;
+  }>;
+  correctAnswerKey: ClassroomTestingAnswerKey;
+  explanation: string;
+}
+
+export interface ClassroomTestingSessionView {
+  id: string;
+  teacherLogin: string;
+  title: string;
+  durationMin: number;
+  startedAt: string;
+  finishedAt?: string | null;
+  status: "active" | "finished";
+  questions: ClassroomTestingQuestionView[];
+}
+
+export interface ClassroomTestingSubmissionView {
+  id: string;
+  sessionId: string;
+  teacherLogin: string;
+  studentLogin: string;
+  studentName: string;
+  answers: Record<string, ClassroomTestingAnswerKey>;
+  submittedAt: string;
+  correctCount: number;
+  wrongCount: number;
+  skippedCount: number;
+  totalQuestions: number;
+  percent: number;
+}
+
+export interface ActiveSessionSummary {
+  sessionId: string;
+  sessionCode: string;
+  lectureId: string;
+  lectureTitle: string;
+  teacherId: string;
+  teacherLogin: string;
+  teacherName: string;
+  status: SessionStatus;
+  updatedAt: string;
+  startedAt?: string | null;
+  stoppedAt?: string | null;
 }

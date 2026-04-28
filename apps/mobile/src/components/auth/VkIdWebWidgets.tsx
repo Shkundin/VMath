@@ -156,7 +156,8 @@ function loadVkIdSdk(): Promise<VkIdSdk> {
 
 function toVkIdentity(
   userInfo: VkUserInfoResult,
-  fallbackUserId?: number | string
+  fallbackUserId?: number | string,
+  accessToken?: string
 ): SocialIdentity {
   const vkUser = userInfo.user ?? {};
   const subject = String(vkUser.user_id ?? fallbackUserId ?? "").trim();
@@ -179,7 +180,8 @@ function toVkIdentity(
     subject,
     email,
     fullName: fullName || email || `VK user ${subject}`,
-    avatarUrl: typeof vkUser.avatar === "string" ? vkUser.avatar.trim() || null : null
+    avatarUrl: typeof vkUser.avatar === "string" ? vkUser.avatar.trim() || null : null,
+    vkAccessToken: accessToken?.trim() || undefined
   };
 }
 
@@ -251,7 +253,7 @@ export function VkIdWebWidgets({
         }
 
         const userInfo = await sdk.Auth.userInfo(accessToken);
-        const identity = toVkIdentity(userInfo, tokenResult.user_id);
+        const identity = toVkIdentity(userInfo, tokenResult.user_id, accessToken);
 
         await onSuccessRef.current(identity);
       } catch (reason: unknown) {

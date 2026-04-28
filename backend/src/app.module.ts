@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "./auth/auth.module";
+import { ClassroomModule } from "./classroom/classroom.module";
 import { DatabaseModule } from "./database/database.module";
 import { HealthController } from "./health/health.controller";
 import { LecturesModule } from "./lectures/lectures.module";
@@ -12,6 +13,7 @@ import { UsersModule } from "./users/users.module";
   imports: [
     DatabaseModule,
     AuthModule,
+    ClassroomModule,
     UsersModule,
     ModulesModule,
     LecturesModule,

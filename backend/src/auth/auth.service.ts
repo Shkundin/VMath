@@ -306,6 +306,14 @@ export class AuthService {
     return this.loginWithExternalIdentity(identity, params);
   }
 
+  async loginWithVkAccessToken(
+    accessToken: string,
+    params: { ipAddress?: string; userAgent?: string }
+  ) {
+    const identity = await this.vkIdentityService.resolveAccessToken(accessToken);
+    return this.loginWithExternalIdentity(identity, params);
+  }
+
   async refresh(refreshToken: string, params: { ipAddress?: string; userAgent?: string }) {
     const payload = this.jwtTokenService.verifyRefreshToken(refreshToken);
     const tokenHash = this.passwordService.hashToken(refreshToken);

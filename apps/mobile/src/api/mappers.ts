@@ -112,6 +112,7 @@ export function mapLectureSummaryToLectureItem(
       summary.description ??
       previous?.description ??
       "Описание загрузится после открытия лекции.",
+    teacherLogin: summary.authorLogin ?? previous?.teacherLogin,
     blocks: previous?.blocks ?? [],
     participationRequirements:
       previous?.participationRequirements ?? ["Авторизация в приложении", "Доступ к сети"],
@@ -132,6 +133,7 @@ export function mapLectureDetailsToLectureItem(
     level: previous?.level ?? "Базовый",
     tags: previous?.tags ?? details.blocks.map((block) => block.type),
     description: details.description ?? previous?.description ?? "",
+    teacherLogin: details.authorLogin ?? previous?.teacherLogin,
     blocks: details.blocks.map(blockTitle),
     participationRequirements:
       previous?.participationRequirements ?? ["Авторизация в приложении", "Подключение к сети"],
@@ -169,14 +171,14 @@ export function mapSessionToSessionData(params: {
 
   return {
     sessionId: sessionState.sessionId,
-    sessionCode: sessionState.sessionId.toUpperCase(),
+    sessionCode: sessionState.sessionCode?.trim() || sessionState.sessionId.toUpperCase(),
     lectureId: lecture.id,
     lectureTitle: lecture.title,
     connectionStatus: "online",
-    status: "active",
+    status: sessionState.status === "stopped" ? "finished" : "active",
     currentBlockTitle: activeBlock?.title ?? "Активный блок",
     participantsCount: sessionState.participants.length,
-    startedAt: sessionState.updatedAt,
+    startedAt: sessionState.startedAt ?? sessionState.updatedAt,
     questions
   };
 }
@@ -221,10 +223,15 @@ export function mapSessionToTeacherManagedSession(params: {
 
   return {
     sessionId: sessionState.sessionId,
-    sessionCode: sessionState.sessionId.toUpperCase(),
+    sessionCode: sessionState.sessionCode?.trim() || sessionState.sessionId.toUpperCase(),
     lectureId: lecture.id,
     lectureTitle: lecture.title,
-    status: "draft",
+    status:
+      sessionState.status === "active"
+        ? "active"
+        : sessionState.status === "stopped"
+          ? "stopped"
+          : "draft",
     blocks: lecture.blocks,
     currentBlockIndex: 0,
     questionPreview: [],

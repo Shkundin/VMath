@@ -1,5 +1,6 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
 import type {
+  ActiveSessionSummary,
   QuizQuestion,
   Role,
   SessionState,
@@ -83,6 +84,8 @@ export class SessionsService {
     const result = await this.database.query<
       SessionRow & {
         lecture_title: string;
+        teacher_login: string;
+        teacher_name: string;
       }
     >(
       `
@@ -99,22 +102,30 @@ export class SessionsService {
           ls.updated_at,
           ls.started_at,
           ls.stopped_at,
-          l.title as lecture_title
+          l.title as lecture_title,
+          u.login as teacher_login,
+          u.full_name as teacher_name
         from lesson_sessions ls
         join lectures l on l.id = ls.lecture_id
+        join users u on u.id = ls.teacher_id
         where ${where.join(" and ")}
         order by ls.updated_at desc
       `,
       params
     );
 
-    return result.rows.map((row) => ({
+    return result.rows.map<ActiveSessionSummary>((row) => ({
       sessionId: row.id,
       sessionCode: row.session_code,
       lectureId: row.lecture_id,
       lectureTitle: row.lecture_title,
+      teacherId: row.teacher_id,
+      teacherLogin: row.teacher_login,
+      teacherName: row.teacher_name,
       status: row.status,
-      updatedAt: row.updated_at
+      updatedAt: row.updated_at,
+      startedAt: row.started_at,
+      stoppedAt: row.stopped_at
     }));
   }
 

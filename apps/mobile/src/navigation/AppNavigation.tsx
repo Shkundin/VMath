@@ -16,9 +16,17 @@ import {
   statusCodes
 } from "@react-native-google-signin/google-signin";
 import type {
+  ActiveSessionSummary,
+  ClassroomHomeworkSubmissionView,
+  ClassroomHomeworkView,
+  ClassroomMeetingView,
+  SessionState as ApiSessionState,
+  ClassroomTestingSessionView,
+  ClassroomTestingSubmissionView,
   LectureDetails,
   QuizBlock,
   QuizQuestion,
+  TeacherBranchSummary,
   TextBlock,
   UserProfile as ApiUserProfile
 } from "@vm/shared";
@@ -105,7 +113,7 @@ import {
   type TeacherBranch
 } from "../storage/teacherBranchesStorage";
 import { fixText } from "../utils/fixText";
-import { authApi, catalogApi, quizApi, sessionApi, toUserMessage } from "../api/mobileApi";
+import { authApi, catalogApi, classroomApi, quizApi, sessionApi, toUserMessage } from "../api/mobileApi";
 import {
   mapLectureDetailsToLectureItem,
   mapLectureSummaryToLectureItem,
@@ -176,6 +184,96 @@ function mapApiProfileToMobileUser(profile: ApiUserProfile): UserProfile {
     login: profile.login,
     role: profile.role === "teacher" ? "teacher" : "student",
     group: profile.groupName?.trim() || profile.group?.trim() || DEFAULT_STUDENT_GROUP
+  };
+}
+
+function mapBranchSummaryToBranch(summary: TeacherBranchSummary): TeacherBranch {
+  return {
+    teacherLogin: summary.teacherLogin,
+    teacherName: summary.teacherName,
+    title: summary.title,
+    description: summary.description,
+    createdAt: new Date().toISOString(),
+    joinCode: summary.joinCode
+  };
+}
+
+function mapMeetingViewToItem(view: ClassroomMeetingView): MeetingItem {
+  return {
+    id: view.id,
+    title: view.title,
+    platform: view.platform,
+    url: view.url,
+    scheduledAt: view.scheduledAt,
+    durationMin: view.durationMin,
+    description: view.description,
+    createdBy: view.createdBy,
+    createdAt: view.createdAt,
+    teacherLogin: view.teacherLogin
+  };
+}
+
+function mapHomeworkViewToItem(view: ClassroomHomeworkView): HomeworkItem {
+  return {
+    id: view.id,
+    title: view.title,
+    description: view.description,
+    dueAt: view.dueAt,
+    allowedFormats: view.allowedFormats,
+    maxScore: view.maxScore,
+    createdBy: view.createdBy,
+    createdAt: view.createdAt,
+    teacherLogin: view.teacherLogin
+  };
+}
+
+function mapHomeworkSubmissionViewToItem(
+  view: ClassroomHomeworkSubmissionView
+): HomeworkSubmissionItem {
+  return {
+    id: view.id,
+    homeworkId: view.homeworkId,
+    studentLogin: view.studentLogin,
+    studentName: view.studentName,
+    fileName: view.fileName,
+    fileType: view.fileType,
+    fileData: view.fileData,
+    submittedAt: view.submittedAt,
+    teacherComment: view.teacherComment,
+    score: view.score,
+    teacherLogin: view.teacherLogin
+  };
+}
+
+function mapTestingSessionViewToActiveSession(
+  view: ClassroomTestingSessionView
+): ActiveTestingSession {
+  return {
+    id: view.id,
+    teacherLogin: view.teacherLogin,
+    title: view.title,
+    durationMin: view.durationMin,
+    startedAt: view.startedAt,
+    questions: view.questions
+  };
+}
+
+function mapTestingSubmissionViewToItem(
+  view: ClassroomTestingSubmissionView
+): TestingSubmission {
+  return {
+    id: view.id,
+    sessionId: view.sessionId,
+    teacherLogin: view.teacherLogin,
+    studentLogin: view.studentLogin,
+    studentName: view.studentName,
+    answers: view.answers,
+    submittedAt: view.submittedAt,
+    correctCount: view.correctCount,
+    wrongCount: view.wrongCount,
+    skippedCount: view.skippedCount,
+    totalQuestions: view.totalQuestions,
+    percent: view.percent
   };
 }
 
@@ -868,8 +966,10 @@ export function AppNavigation() {
   const [testingResults, setTestingResults] = useState<TestingRunResult[]>([]);
   const [activeTestingSession, setActiveTestingSession] = useState<ActiveTestingSession | null>(null);
   const [testingSubmissions, setTestingSubmissions] = useState<TestingSubmission[]>([]);
+  const [activeLessonSessions, setActiveLessonSessions] = useState<ActiveSessionSummary[]>([]);
 
   const [currentSession, setCurrentSession] = useState<SessionData | null>(null);
+  const [currentSessionBlockId, setCurrentSessionBlockId] = useState<string | null>(null);
   const [currentResult, setCurrentResult] = useState<TaskResult | null>(null);
   const [currentTeacherSession, setCurrentTeacherSession] = useState<TeacherManagedSession | null>(null);
 
@@ -1314,31 +1414,82 @@ export function AppNavigation() {
 
     let isMounted = true;
 
-    async function syncTestingState() {
-      const [storedSession, storedSubmissions] = await Promise.all([
-        readActiveTestingSession(),
-        readTestingSubmissions()
-      ]);
-
-      if (!isMounted) {
+    async function syncSharedServerState() {
+      const accessToken = await authApi.getAccessToken();
+      if (!accessToken) {
         return;
       }
 
-      setActiveTestingSession(storedSession);
-      setTestingSubmissions(Array.isArray(storedSubmissions) ? storedSubmissions : []);
+      try {
+        const [branchSummaries, lessonSessions] = await Promise.all([
+          classroomApi.listTeacherBranches(),
+          sessionApi.listActiveSessions()
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setTeacherBranches(branchSummaries.map(mapBranchSummaryToBranch));
+        setActiveLessonSessions(lessonSessions);
+
+        const currentTeacherLogin = isTeacher ? user.login : selectedTeacherLogin;
+        if (!currentTeacherLogin) {
+          if (!isTeacher) {
+            setMeetings([]);
+            setHomeworks([]);
+            setHomeworkSubmissions([]);
+            setActiveTestingSession(null);
+            setTestingSubmissions([]);
+          }
+          return;
+        }
+
+        const [
+          meetingViews,
+          homeworkViews,
+          homeworkSubmissionViews,
+          testingSessionView
+        ] = await Promise.all([
+          classroomApi.listMeetings(currentTeacherLogin),
+          classroomApi.listHomeworks(currentTeacherLogin),
+          classroomApi.listHomeworkSubmissions(currentTeacherLogin),
+          classroomApi.getActiveTestingSession(currentTeacherLogin)
+        ]);
+
+        let testingSubmissionViews: ClassroomTestingSubmissionView[] = [];
+        if (testingSessionView?.id) {
+          testingSubmissionViews = await classroomApi.listTestingSubmissions(testingSessionView.id);
+        }
+
+        if (!isMounted) {
+          return;
+        }
+
+        setMeetings(meetingViews.map(mapMeetingViewToItem));
+        setHomeworks(homeworkViews.map(mapHomeworkViewToItem));
+        setHomeworkSubmissions(
+          homeworkSubmissionViews.map(mapHomeworkSubmissionViewToItem)
+        );
+        setActiveTestingSession(
+          testingSessionView ? mapTestingSessionViewToActiveSession(testingSessionView) : null
+        );
+        setTestingSubmissions(testingSubmissionViews.map(mapTestingSubmissionViewToItem));
+      } catch {
+      }
     }
 
-    void syncTestingState();
+    void syncSharedServerState();
 
     const timerId = setInterval(() => {
-      void syncTestingState();
-    }, 1500);
+      void syncSharedServerState();
+    }, 5000);
 
     return () => {
       isMounted = false;
       clearInterval(timerId);
     };
-  }, [isAuthenticated, isHydrating]);
+  }, [isAuthenticated, isHydrating, isTeacher, selectedTeacherLogin, user.login]);
 
   function ensureTeacherBranch(nextTeacherLogin: string, nextTeacherName: string) {
     setTeacherBranches((current) => {
@@ -1500,7 +1651,7 @@ export function AppNavigation() {
       setSelectedTeacherLogin(null);
       resetStudentFlow();
       resetTeacherFlow();
-      setActiveScreen("catalog");
+      setActiveScreen("teacherBranchSelect");
     }
 
     setUser(nextUser);
@@ -1540,52 +1691,38 @@ export function AppNavigation() {
       return;
     }
 
-    setActiveScreen("catalog");
+    setSelectedTeacherLogin(storedTeacherLogin);
+    setActiveScreen(storedTeacherLogin ? "catalog" : "teacherBranchSelect");
   }
 
-  function getSocialStudentLogin(identity: SocialIdentity): string {
-    const normalizedEmail = identity.email?.trim().toLowerCase() || "";
-    if (normalizedEmail) {
-      return normalizedEmail;
-    }
+  async function completeSocialStudentAuth(identity: SocialIdentity): Promise<string | null> {
+    try {
+      if (identity.provider === "google") {
+        const googleIdToken = identity.googleIdToken?.trim() || "";
+        if (!googleIdToken) {
+          return fixText("Google не вернул ID token для серверного входа.");
+        }
 
-    return `${identity.provider}_${identity.subject}`.trim().toLowerCase();
-  }
+        await authApi.loginWithGoogleIdToken(googleIdToken);
+      } else {
+        const vkAccessToken = identity.vkAccessToken?.trim() || "";
+        if (!vkAccessToken) {
+          return fixText("VK не вернул access token для серверного входа.");
+        }
 
-  async function persistLocalSocialStudent(identity: SocialIdentity): Promise<string | null> {
-    const socialLogin = getSocialStudentLogin(identity);
-    const existingAccount =
-      (await readStudentAccounts()).find((account) => account.login === socialLogin) ?? null;
-
-    let socialAccount = existingAccount;
-
-    if (!socialAccount) {
-      const registerResult = await registerStudentAccount({
-        login: socialLogin,
-        password: `${identity.provider}_oauth_${identity.subject}`,
-        fullName: identity.fullName.trim() || socialLogin,
-        group: DEFAULT_STUDENT_GROUP
-      });
-
-      if (!registerResult.ok) {
-        return fixText(registerResult.error);
+        await authApi.loginWithVkAccessToken(vkAccessToken);
       }
 
-      socialAccount = registerResult.account;
+      const profile = await authApi.me();
+      await persistAuthenticatedUser(mapApiProfileToMobileUser(profile));
+      return null;
+    } catch (error: unknown) {
+      return fixText(toUserMessage(error));
     }
-
-    await persistAuthenticatedUser({
-      fullName: socialAccount.fullName || identity.fullName || socialLogin,
-      login: socialAccount.login,
-      role: "student",
-      group: socialAccount.group || DEFAULT_STUDENT_GROUP
-    });
-
-    return null;
   }
 
   async function handleVkWidgetSuccess(identity: SocialIdentity) {
-    const nextError = await persistLocalSocialStudent(identity);
+    const nextError = await completeSocialStudentAuth(identity);
     if (nextError) {
       throw new Error(nextError);
     }
@@ -1952,7 +2089,7 @@ export function AppNavigation() {
 
     try {
       const googleIdentity = await signInWithGoogle();
-      return persistLocalSocialStudent(googleIdentity);
+      return completeSocialStudentAuth(googleIdentity);
     } catch (error: unknown) {
       if (error instanceof Error && error.message) {
         return fixText(error.message);
@@ -1969,7 +2106,7 @@ export function AppNavigation() {
 
     try {
       const vkIdentity = await signInWithVk();
-      return persistLocalSocialStudent(vkIdentity);
+      return completeSocialStudentAuth(vkIdentity);
     } catch (error: unknown) {
       if (error instanceof Error && error.message) {
         return fixText(error.message);
@@ -1988,6 +2125,7 @@ export function AppNavigation() {
     setActiveScreen("catalog");
     setSelectedLecture(null);
     setCurrentSession(null);
+    setCurrentSessionBlockId(null);
     setCurrentResult(null);
     setCurrentTeacherSession(null);
     setLastOpenedLectureId(null);
@@ -2006,6 +2144,7 @@ export function AppNavigation() {
   function resetStudentFlow() {
     setSelectedLecture(null);
     setCurrentSession(null);
+    setCurrentSessionBlockId(null);
     setCurrentResult(null);
     setSessionMode("online");
   }
@@ -2205,6 +2344,7 @@ export function AppNavigation() {
     setActiveScreen("catalog");
     setSelectedLecture(null);
     setCurrentSession(null);
+    setCurrentSessionBlockId(null);
     setCurrentResult(null);
     setCurrentTeacherSession(null);
     setLastOpenedLectureId(null);
@@ -2229,6 +2369,7 @@ export function AppNavigation() {
     setLastOpenedLectureId(lecture.id);
     void writeLastLectureId(lecture.id);
     setCurrentSession(null);
+    setCurrentSessionBlockId(null);
     setCurrentResult(null);
     setActiveScreen("details");
 
@@ -2255,6 +2396,7 @@ export function AppNavigation() {
 
     if (selectedLecture.id.startsWith("draft-lecture-")) {
       setCurrentSession(createMockSession(selectedLecture, details));
+      setCurrentSessionBlockId(null);
       setCurrentResult(null);
       setSessionMode("online");
       setActiveScreen("session");
@@ -2263,6 +2405,7 @@ export function AppNavigation() {
 
     if (!details) {
       setCurrentSession(createMockSession(selectedLecture));
+      setCurrentSessionBlockId(null);
       setCurrentResult(null);
       setSessionMode("offline");
       setActiveScreen("session");
@@ -2270,7 +2413,20 @@ export function AppNavigation() {
     }
 
     try {
-      const sessionState = await sessionApi.getSession(selectedLecture.id);
+      const matchingSession =
+        activeLessonSessions.find(
+          (session) =>
+            session.lectureId === selectedLecture.id &&
+            (!selectedTeacherLogin || session.teacherLogin === selectedTeacherLogin)
+        ) ?? null;
+
+      if (!matchingSession) {
+        throw new Error("No active teacher session for this lecture");
+      }
+
+      const sessionState = isTeacher
+        ? await sessionApi.getSession(matchingSession.sessionId)
+        : await sessionApi.joinSession({ sessionId: matchingSession.sessionId });
       const mappedSession = mapSessionToSessionData({
         lecture: selectedLecture,
         details,
@@ -2278,11 +2434,13 @@ export function AppNavigation() {
       });
 
       setCurrentSession(mappedSession);
+      setCurrentSessionBlockId(sessionState.activeBlockId);
       setCurrentResult(null);
       setSessionMode("online");
       setActiveScreen("session");
     } catch {
       setCurrentSession(createMockSession(selectedLecture, details));
+      setCurrentSessionBlockId(null);
       setCurrentResult(null);
       setSessionMode("offline");
       setActiveScreen("session");
@@ -2305,6 +2463,41 @@ export function AppNavigation() {
   async function handleSubmitTask(submission: TaskSubmission) {
     if (!currentSession) {
       return;
+    }
+
+    if (sessionMode === "online" && currentSessionBlockId) {
+      const details =
+        selectedLecture && selectedLecture.id === currentSession.lectureId
+          ? lectureDetailsById[currentSession.lectureId]
+          : lectureDetailsById[currentSession.lectureId];
+      const block =
+        details?.blocks.find((item) => item.id === currentSessionBlockId) ?? null;
+
+      if (block && (block.type === "quiz" || block.type === "checking_block")) {
+        try {
+          await quizApi.submit({
+            sessionId: currentSession.sessionId,
+            blockId: currentSessionBlockId,
+            answers: submission.answers.flatMap((answer) => {
+              const question = currentSession.questions.find(
+                (item) => item.id === answer.questionId
+              );
+
+              if (!question) {
+                return [];
+              }
+
+              return [
+                {
+                  questionId: answer.questionId,
+                  payload: mapTaskAnswerToApiPayload(question, answer)
+                }
+              ];
+            })
+          });
+        } catch {
+        }
+      }
     }
 
     const result = evaluateSubmission(currentSession, submission);
@@ -2364,13 +2557,60 @@ export function AppNavigation() {
     return createTeacherManagedSession(lecture, quizQuestions);
   }
 
+  function buildTeacherManagedSessionFromState(
+    lecture: LectureItem,
+    details: LectureDetails,
+    sessionState: ApiSessionState
+  ): TeacherManagedSession {
+    const baseSession = createTeacherSessionForLecture(lecture);
+    const mappedSession = mapSessionToTeacherManagedSession({ lecture, sessionState });
+    const currentBlockIndex = Math.max(
+      0,
+      details.blocks.findIndex((block) => block.id === sessionState.activeBlockId)
+    );
+
+    return {
+      ...baseSession,
+      ...mappedSession,
+      currentBlockIndex,
+      questionPreview: baseSession.questionPreview
+    };
+  }
+
   async function handleOpenManageTeacherSession(lecture: LectureItem) {
     setSelectedLecture(lecture);
-    setCurrentTeacherSession(createTeacherSessionForLecture(lecture));
+    const details = lectureDetailsById[lecture.id] ?? (await ensureLectureDetails(lecture));
+
+    if (!details || lecture.id.startsWith("draft-lecture-")) {
+      setCurrentTeacherSession(createTeacherSessionForLecture(lecture));
+      setActiveScreen("teacherSession");
+      return;
+    }
+
+    const matchingSession =
+      activeLessonSessions.find(
+        (session) => session.lectureId === lecture.id && session.teacherLogin === user.login
+      ) ?? null;
+
+    if (!matchingSession) {
+      setCurrentTeacherSession(createTeacherSessionForLecture(lecture));
+      setActiveScreen("teacherSession");
+      return;
+    }
+
+    try {
+      const sessionState = await sessionApi.getSession(matchingSession.sessionId);
+      setCurrentTeacherSession(
+        buildTeacherManagedSessionFromState(lecture, details, sessionState)
+      );
+    } catch {
+      setCurrentTeacherSession(createTeacherSessionForLecture(lecture));
+    }
+
     setActiveScreen("teacherSession");
   }
 
-  function handleLaunchSharedTeacherSession(lecture: LectureItem) {
+  async function handleLaunchSharedTeacherSession(lecture: LectureItem) {
     if (
       currentTeacherSession &&
       currentTeacherSession.lectureId === lecture.id &&
@@ -2381,11 +2621,43 @@ export function AppNavigation() {
       return;
     }
 
-    const nextSession = createTeacherSessionForLecture(lecture);
-    resetTeacherSessionStats(nextSession.lectureId);
     setSelectedLecture(lecture);
-    setCurrentTeacherSession(updateTeacherSessionStatus(nextSession, "active"));
-    setActiveScreen("teacherSession");
+    const details = lectureDetailsById[lecture.id] ?? (await ensureLectureDetails(lecture));
+
+    if (!details || lecture.id.startsWith("draft-lecture-")) {
+      const nextSession = createTeacherSessionForLecture(lecture);
+      resetTeacherSessionStats(nextSession.lectureId);
+      setCurrentTeacherSession(updateTeacherSessionStatus(nextSession, "active"));
+      setActiveScreen("teacherSession");
+      return;
+    }
+
+    try {
+      const matchingSession =
+        activeLessonSessions.find(
+          (session) => session.lectureId === lecture.id && session.teacherLogin === user.login
+        ) ?? null;
+
+      const draftState = matchingSession
+        ? await sessionApi.getSession(matchingSession.sessionId)
+        : await sessionApi.createSession(lecture.id);
+      const activeState =
+        draftState.status === "active"
+          ? draftState
+          : await sessionApi.startSession(draftState.sessionId);
+
+      resetTeacherSessionStats(lecture.id);
+      setCurrentTeacherSession(
+        buildTeacherManagedSessionFromState(lecture, details, activeState)
+      );
+      setActiveLessonSessions(await sessionApi.listActiveSessions());
+      setActiveScreen("teacherSession");
+    } catch {
+      const nextSession = createTeacherSessionForLecture(lecture);
+      resetTeacherSessionStats(nextSession.lectureId);
+      setCurrentTeacherSession(updateTeacherSessionStatus(nextSession, "active"));
+      setActiveScreen("teacherSession");
+    }
   }
 
   function handleBackToTeacherHome() {
@@ -2393,18 +2665,89 @@ export function AppNavigation() {
     setActiveScreen("teacherHome");
   }
 
-  function handleTeacherStartSession() {
+  async function handleTeacherStartSession() {
     if (!currentTeacherSession) {
       return;
     }
 
-    resetTeacherSessionStats(currentTeacherSession.lectureId);
-    setCurrentTeacherSession(updateTeacherSessionStatus(currentTeacherSession, "active"));
+    const lecture =
+      catalogLectures.find((item) => item.id === currentTeacherSession.lectureId) ?? selectedLecture;
+
+    if (!lecture) {
+      resetTeacherSessionStats(currentTeacherSession.lectureId);
+      setCurrentTeacherSession(updateTeacherSessionStatus(currentTeacherSession, "active"));
+      return;
+    }
+
+    const details = lectureDetailsById[lecture.id] ?? (await ensureLectureDetails(lecture));
+    if (!details || lecture.id.startsWith("draft-lecture-")) {
+      resetTeacherSessionStats(currentTeacherSession.lectureId);
+      setCurrentTeacherSession(updateTeacherSessionStatus(currentTeacherSession, "active"));
+      return;
+    }
+
+    try {
+      const matchingSession =
+        activeLessonSessions.find(
+          (session) => session.lectureId === lecture.id && session.teacherLogin === user.login
+        ) ?? null;
+      const draftState =
+        matchingSession
+          ? await sessionApi.getSession(matchingSession.sessionId)
+          : currentTeacherSession.sessionId.startsWith("teacher-session-")
+          ? await sessionApi.createSession(lecture.id)
+          : await sessionApi.getSession(currentTeacherSession.sessionId);
+      const activeState =
+        draftState.status === "active"
+          ? draftState
+          : await sessionApi.startSession(draftState.sessionId);
+
+      resetTeacherSessionStats(lecture.id);
+      setCurrentTeacherSession(
+        buildTeacherManagedSessionFromState(lecture, details, activeState)
+      );
+      setActiveLessonSessions(await sessionApi.listActiveSessions());
+    } catch {
+      resetTeacherSessionStats(currentTeacherSession.lectureId);
+      setCurrentTeacherSession(updateTeacherSessionStatus(currentTeacherSession, "active"));
+    }
   }
 
-  function handleTeacherStopSession() {
+  async function handleTeacherStopSession() {
     if (!currentTeacherSession) {
       return;
+    }
+
+    try {
+      const matchingSession =
+        currentTeacherSession.sessionId.startsWith("teacher-session-")
+          ? activeLessonSessions.find(
+              (session) =>
+                session.lectureId === currentTeacherSession.lectureId &&
+                session.teacherLogin === user.login
+            ) ?? null
+          : null;
+      const sessionIdToStop = matchingSession?.sessionId ?? currentTeacherSession.sessionId;
+
+      if (!sessionIdToStop.startsWith("teacher-session-")) {
+        const stoppedState = await sessionApi.stopSession(sessionIdToStop);
+        const lecture =
+          catalogLectures.find((item) => item.id === currentTeacherSession.lectureId) ?? selectedLecture;
+        const details =
+          lecture && (lectureDetailsById[lecture.id] ?? (await ensureLectureDetails(lecture)));
+
+        if (lecture && details) {
+          setCurrentTeacherSession(
+            buildTeacherManagedSessionFromState(lecture, details, stoppedState)
+          );
+        } else {
+          setCurrentTeacherSession(updateTeacherSessionStatus(currentTeacherSession, "stopped"));
+        }
+
+        setActiveLessonSessions(await sessionApi.listActiveSessions());
+        return;
+      }
+    } catch {
     }
 
     setCurrentTeacherSession(updateTeacherSessionStatus(currentTeacherSession, "stopped"));
@@ -2433,7 +2776,17 @@ export function AppNavigation() {
     }
 
     try {
-      await sessionApi.setActiveBlock(currentTeacherSession.sessionId, nextBlock.id);
+      const matchingSession =
+        currentTeacherSession.sessionId.startsWith("teacher-session-")
+          ? activeLessonSessions.find(
+              (session) =>
+                session.lectureId === currentTeacherSession.lectureId &&
+                session.teacherLogin === user.login
+            ) ?? null
+          : null;
+      const sessionIdToUpdate = matchingSession?.sessionId ?? currentTeacherSession.sessionId;
+
+      await sessionApi.setActiveBlock(sessionIdToUpdate, nextBlock.id);
       setCurrentTeacherSession({
         ...currentTeacherSession,
         currentBlockIndex: nextIndex
@@ -2490,7 +2843,24 @@ export function AppNavigation() {
     );
   }
 
-  function handleCreateMeeting(input: MeetingDraftInput) {
+  async function handleCreateMeeting(input: MeetingDraftInput) {
+    const accessToken = await authApi.getAccessToken();
+
+    if (accessToken) {
+      try {
+        const created = await classroomApi.createMeeting(input);
+        const nextMeeting = mapMeetingViewToItem(created);
+        setMeetings((current: MeetingItem[]) =>
+          [nextMeeting, ...current.filter((meeting: MeetingItem) => meeting.id !== nextMeeting.id)].sort(
+            (left, right) =>
+              new Date(left.scheduledAt).getTime() - new Date(right.scheduledAt).getTime()
+          )
+        );
+        return;
+      } catch {
+      }
+    }
+
     const nextMeeting: MeetingItem = {
       id: `meeting-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       title: input.title.trim(),
@@ -2512,13 +2882,38 @@ export function AppNavigation() {
     );
   }
 
-  function handleDeleteMeeting(meetingId: string) {
+  async function handleDeleteMeeting(meetingId: string) {
+    const accessToken = await authApi.getAccessToken();
+    if (accessToken) {
+      try {
+        await classroomApi.deleteMeeting(meetingId);
+      } catch {
+      }
+    }
+
     setMeetings((current: MeetingItem[]) =>
       current.filter((meeting: MeetingItem) => meeting.id !== meetingId)
     );
   }
 
-  function handleCreateHomework(input: HomeworkDraftInput) {
+  async function handleCreateHomework(input: HomeworkDraftInput) {
+    const accessToken = await authApi.getAccessToken();
+
+    if (accessToken) {
+      try {
+        const created = await classroomApi.createHomework(input);
+        const nextHomework = mapHomeworkViewToItem(created);
+        setHomeworks((current: HomeworkItem[]) =>
+          [nextHomework, ...current.filter((homework: HomeworkItem) => homework.id !== nextHomework.id)].sort(
+            (left, right) =>
+              new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime()
+          )
+        );
+        return;
+      } catch {
+      }
+    }
+
     const nextHomework: HomeworkItem = {
       id: `homework-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       title: input.title.trim(),
@@ -2539,7 +2934,15 @@ export function AppNavigation() {
     );
   }
 
-  function handleDeleteHomework(homeworkId: string) {
+  async function handleDeleteHomework(homeworkId: string) {
+    const accessToken = await authApi.getAccessToken();
+    if (accessToken) {
+      try {
+        await classroomApi.deleteHomework(homeworkId);
+      } catch {
+      }
+    }
+
     setHomeworks((current: HomeworkItem[]) =>
       current.filter((homework: HomeworkItem) => homework.id !== homeworkId)
     );
@@ -2549,7 +2952,29 @@ export function AppNavigation() {
     );
   }
 
-  function handleCreateHomeworkSubmission(input: HomeworkSubmissionDraftInput) {
+  async function handleCreateHomeworkSubmission(input: HomeworkSubmissionDraftInput) {
+    const accessToken = await authApi.getAccessToken();
+
+    if (accessToken) {
+      try {
+        const created = await classroomApi.createHomeworkSubmission(input.homeworkId, {
+          fileName: input.fileName,
+          fileType: input.fileType,
+          fileData: input.fileData
+        });
+        const nextSubmission = mapHomeworkSubmissionViewToItem(created);
+        setHomeworkSubmissions((current: HomeworkSubmissionItem[]) => [
+          nextSubmission,
+          ...current.filter(
+            (submission: HomeworkSubmissionItem) =>
+              !(submission.homeworkId === nextSubmission.homeworkId && submission.studentLogin === nextSubmission.studentLogin)
+          )
+        ]);
+        return;
+      } catch {
+      }
+    }
+
     const relatedHomework = homeworks.find((homework) => homework.id === input.homeworkId) ?? null;
 
     const nextSubmission: HomeworkSubmissionItem = {
@@ -2575,17 +3000,43 @@ export function AppNavigation() {
     ]);
   }
 
-  function handleDeleteHomeworkSubmission(submissionId: string) {
+  async function handleDeleteHomeworkSubmission(submissionId: string) {
+    const accessToken = await authApi.getAccessToken();
+    if (accessToken) {
+      try {
+        await classroomApi.deleteHomeworkSubmission(submissionId);
+      } catch {
+      }
+    }
+
     setHomeworkSubmissions((current: HomeworkSubmissionItem[]) =>
       current.filter((submission: HomeworkSubmissionItem) => submission.id !== submissionId)
     );
   }
 
-  function handleGradeHomeworkSubmission(
+  async function handleGradeHomeworkSubmission(
     submissionId: string,
     score: number | null,
     comment: string
   ) {
+    const accessToken = await authApi.getAccessToken();
+    if (accessToken) {
+      try {
+        const updated = await classroomApi.gradeHomeworkSubmission(submissionId, {
+          score,
+          comment
+        });
+        const nextSubmission = mapHomeworkSubmissionViewToItem(updated);
+        setHomeworkSubmissions((current: HomeworkSubmissionItem[]) =>
+          current.map((submission: HomeworkSubmissionItem) =>
+            submission.id === submissionId ? nextSubmission : submission
+          )
+        );
+        return;
+      } catch {
+      }
+    }
+
     setHomeworkSubmissions((current: HomeworkSubmissionItem[]) =>
       current.map((submission: HomeworkSubmissionItem) =>
         submission.id === submissionId
@@ -2603,11 +3054,27 @@ export function AppNavigation() {
     setTestingResults((current) => [result, ...current].slice(0, 20));
   }
 
-  function handleStartTestingSession(input: {
+  async function handleStartTestingSession(input: {
     title: string;
     durationMin: number;
     questions: ActiveTestingQuestion[];
   }) {
+    const accessToken = await authApi.getAccessToken();
+
+    if (accessToken) {
+      try {
+        const created = await classroomApi.startTestingSession({
+          title: input.title,
+          durationMin: input.durationMin,
+          questions: input.questions
+        });
+        setActiveTestingSession(mapTestingSessionViewToActiveSession(created));
+        setTestingSubmissions([]);
+        return;
+      } catch {
+      }
+    }
+
     const nextSession: ActiveTestingSession = {
       id: `active-testing-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       teacherLogin: user.login,
@@ -2620,9 +3087,23 @@ export function AppNavigation() {
     setActiveTestingSession(nextSession);
   }
 
-  function handleFinishTestingSession() {
+  async function handleFinishTestingSession() {
     if (!activeTestingSession || activeTestingSession.teacherLogin !== user.login) {
       return;
+    }
+
+    const accessToken = await authApi.getAccessToken();
+    if (accessToken) {
+      try {
+        const finished = await classroomApi.finishTestingSession(activeTestingSession.id);
+        setActiveTestingSession(
+          finished.status === "active"
+            ? mapTestingSessionViewToActiveSession(finished)
+            : null
+        );
+        return;
+      } catch {
+      }
     }
 
     const relatedSubmissions = testingSubmissions.filter(
@@ -2663,9 +3144,29 @@ export function AppNavigation() {
     setActiveTestingSession(null);
   }
 
-  function handleSubmitTestingAnswers(answers: Record<string, TestingAnswerKey>) {
+  async function handleSubmitTestingAnswers(answers: Record<string, TestingAnswerKey>) {
     if (isTeacher || !visibleActiveTestingSession) {
       return;
+    }
+
+    const accessToken = await authApi.getAccessToken();
+    if (accessToken) {
+      try {
+        const created = await classroomApi.submitTestingAnswers(
+          visibleActiveTestingSession.id,
+          answers
+        );
+        const nextSubmission = mapTestingSubmissionViewToItem(created);
+        setTestingSubmissions((current) => [
+          nextSubmission,
+          ...current.filter(
+            (submission) =>
+              !(submission.sessionId === nextSubmission.sessionId && submission.studentLogin === nextSubmission.studentLogin)
+          )
+        ]);
+        return;
+      } catch {
+      }
     }
 
     const totalQuestions = visibleActiveTestingSession.questions.length;

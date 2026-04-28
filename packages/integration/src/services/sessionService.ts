@@ -1,4 +1,4 @@
-import type { SessionState, WsEvent } from "@vm/shared";
+import type { ActiveSessionSummary, SessionState, WsEvent } from "@vm/shared";
 import { HttpClient } from "../http/httpClient";
 import { WsClient } from "../ws/wsClient";
 
@@ -11,8 +11,10 @@ export class SessionService {
     private readonly ws: WsClient
   ) {}
 
-  async createSession(lectureId: string): Promise<{ sessionId: string }> {
-    return this.http.postJson("/api/v1/sessions", { lectureId });
+  async createSession(lectureId: string): Promise<SessionState> {
+    const state = await this.http.postJson<SessionState>("/api/v1/sessions", { lectureId });
+    this.currentState = state;
+    return state;
   }
 
   async getSession(sessionId: string): Promise<SessionState> {
@@ -21,8 +23,9 @@ export class SessionService {
     return state;
   }
 
-  async listActiveSessions() {
-    return this.http.getJson("/api/v1/sessions/active");
+  async listActiveSessions(): Promise<ActiveSessionSummary[]> {
+    const response = await this.http.getJson<ActiveSessionSummary[]>("/api/v1/sessions/active");
+    return Array.isArray(response) ? response : [];
   }
 
   async joinSession(input: { sessionId?: string; sessionCode?: string }) {

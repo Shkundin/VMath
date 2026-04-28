@@ -20,6 +20,7 @@ interface LectureRow extends QueryResultRow {
   subject_code: string | null;
   subject_name: string | null;
   author_id: string;
+  author_login: string;
   author_name: string;
   semester: number | null;
   level: LectureLevel | null;
@@ -136,6 +137,7 @@ export class LecturesService {
           s.code as subject_code,
           s.title as subject_name,
           l.author_id,
+          u.login as author_login,
           u.full_name as author_name,
           l.semester,
           l.level,
@@ -422,6 +424,7 @@ export class LecturesService {
       tags: row.tags ?? [],
       updatedAt: row.updated_at,
       authorId: row.author_id,
+      authorLogin: row.author_login,
       authorName: row.author_name,
       subjectId: row.subject_id ?? undefined,
       subjectCode: row.subject_code ?? undefined,
@@ -466,6 +469,7 @@ export class LecturesService {
           s.code as subject_code,
           s.title as subject_name,
           l.author_id,
+          u.login as author_login,
           u.full_name as author_name,
           l.semester,
           l.level,

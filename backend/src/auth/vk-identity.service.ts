@@ -90,15 +90,38 @@ export class VkIdentityService {
       );
     }
 
-    const userInfoResponse = await fetch(`https://id.vk.ru/oauth2/user_info?client_id=${encodeURIComponent(clientId)}`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/x-www-form-urlencoded"
-      },
-      body: new URLSearchParams({
-        access_token: tokenPayload.access_token
-      }).toString()
+    return this.resolveAccessToken(tokenPayload.access_token, {
+      fallbackSubject: tokenPayload.user_id,
+      scope: tokenPayload.scope ?? null
     });
+  }
+
+  async resolveAccessToken(
+    accessToken: string,
+    options?: { fallbackSubject?: number | string | null; scope?: string | null }
+  ): Promise<VerifiedExternalIdentity> {
+    const clientId = this.configService.value.vkAppId?.trim();
+    if (!clientId) {
+      throw new AppException("HTTP", HttpStatus.SERVICE_UNAVAILABLE, "VK sign-in is not configured");
+    }
+
+    const normalizedAccessToken = accessToken.trim();
+    if (!normalizedAccessToken) {
+      throw new AppException("VALIDATION", HttpStatus.BAD_REQUEST, "VK access token is required");
+    }
+
+    const userInfoResponse = await fetch(
+      `https://id.vk.ru/oauth2/user_info?client_id=${encodeURIComponent(clientId)}`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({
+          access_token: normalizedAccessToken
+        }).toString()
+      }
+    );
 
     const userInfoPayload = (await userInfoResponse.json()) as VkUserInfoResponse;
     if (!userInfoResponse.ok || userInfoPayload.error) {
@@ -111,7 +134,7 @@ export class VkIdentityService {
     }
 
     const vkUser = userInfoPayload.user ?? {};
-    const subject = String(vkUser.user_id ?? tokenPayload.user_id ?? "").trim();
+    const subject = String(vkUser.user_id ?? options?.fallbackSubject ?? "").trim();
     if (!subject) {
       throw new AppException("AUTH", HttpStatus.UNAUTHORIZED, "VK user id is missing");
     }
@@ -135,7 +158,7 @@ export class VkIdentityService {
         avatar: vkUser.avatar ?? null,
         email,
         phone: vkUser.phone ?? null,
-        scope: tokenPayload.scope ?? null,
+        scope: options?.scope ?? null,
         subject
       }
     };

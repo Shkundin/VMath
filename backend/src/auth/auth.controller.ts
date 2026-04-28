@@ -86,6 +86,11 @@ class VkSocialAuthDto {
   state!: string;
 }
 
+class VkAccessTokenAuthDto {
+  @IsString()
+  accessToken!: string;
+}
+
 class LogoutDto {
   @IsOptional()
   @IsString()
@@ -188,6 +193,19 @@ export class AuthController {
     );
   }
 
+  @Post("social/vk/access-token")
+  @ApiOperation({ summary: "Login or register a student account using a VK access token" })
+  @ApiBody({ type: VkAccessTokenAuthDto })
+  @UseGuards(RateLimitGuard)
+  @RateLimit(8, 60_000)
+  async vkSocialAuthByAccessToken(
+    @Body() body: VkAccessTokenAuthDto,
+    @Ip() ipAddress: string,
+    @Headers("user-agent") userAgent?: string
+  ) {
+    return this.authService.loginWithVkAccessToken(body.accessToken, { ipAddress, userAgent });
+  }
+
   @Post("logout")
   @HttpCode(200)
   @ApiOperation({ summary: "Invalidate refresh token or all user sessions" })
@@ -276,5 +294,16 @@ export class LegacyAuthController {
       },
       { ipAddress, userAgent }
     );
+  }
+
+  @Post("social/vk/access-token")
+  @UseGuards(RateLimitGuard)
+  @RateLimit(8, 60_000)
+  async vkSocialAuthByAccessToken(
+    @Body() body: VkAccessTokenAuthDto,
+    @Ip() ipAddress: string,
+    @Headers("user-agent") userAgent?: string
+  ) {
+    return this.authService.loginWithVkAccessToken(body.accessToken, { ipAddress, userAgent });
   }
 }

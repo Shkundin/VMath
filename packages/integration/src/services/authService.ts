@@ -144,4 +144,23 @@ export class AuthService {
 
     await this.storage.set(nextTokens);
   }
+
+  async loginWithVkAccessToken(accessToken: string): Promise<void> {
+    if (!accessToken.trim()) {
+      throw err("VALIDATION", "VK access token is required");
+    }
+
+    const response = await this.http.postJson<LoginResponse>(
+      "/api/v1/auth/social/vk/access-token",
+      { accessToken }
+    );
+
+    const nextTokens: TokenPair = {
+      accessToken: response.accessToken,
+      refreshToken: response.refreshToken,
+      expiresAt: Date.now() + response.expiresInSec * 1000
+    };
+
+    await this.storage.set(nextTokens);
+  }
 }

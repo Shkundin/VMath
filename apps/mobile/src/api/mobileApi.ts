@@ -1,6 +1,7 @@
 import {
   AuthService,
   CatalogService,
+  ClassroomService,
   HttpClient,
   QuizService,
   SessionService,
@@ -78,6 +79,7 @@ export const authApi = new AuthService(httpClient, mobileTokenStorage);
 tokenProvider.bind(authApi);
 
 export const catalogApi = new CatalogService(httpClient);
+export const classroomApi = new ClassroomService(httpClient);
 export const sessionApi = new SessionService(httpClient, wsClient);
 export const quizApi = new QuizService(httpClient);
 

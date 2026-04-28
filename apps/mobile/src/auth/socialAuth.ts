@@ -52,6 +52,8 @@ export type SocialIdentity = {
   email: string | null;
   fullName: string;
   avatarUrl: string | null;
+  googleIdToken?: string;
+  vkAccessToken?: string;
 };
 
 let googleConfigured = false;
@@ -146,7 +148,11 @@ async function signInWithGoogleNative(): Promise<SocialIdentity> {
       subject,
       email,
       fullName,
-      avatarUrl: googleUser.photo ?? null
+      avatarUrl: googleUser.photo ?? null,
+      googleIdToken:
+        "idToken" in response.data && typeof response.data.idToken === "string"
+          ? response.data.idToken.trim() || undefined
+          : undefined
     };
   } catch (error: unknown) {
     if (error instanceof Error && error.message && !isErrorWithCode(error)) {
@@ -209,7 +215,8 @@ async function signInWithGoogleWeb(): Promise<SocialIdentity> {
     subject,
     email,
     fullName,
-    avatarUrl: typeof payload.picture === "string" ? payload.picture.trim() || null : null
+    avatarUrl: typeof payload.picture === "string" ? payload.picture.trim() || null : null,
+    googleIdToken: idToken
   };
 }
 
@@ -280,7 +287,8 @@ export async function signInWithVk(): Promise<SocialIdentity> {
     subject,
     email,
     fullName: fullName || email || `VK user ${subject}`,
-    avatarUrl: typeof vkUser.avatar === "string" ? vkUser.avatar.trim() || null : null
+    avatarUrl: typeof vkUser.avatar === "string" ? vkUser.avatar.trim() || null : null,
+    vkAccessToken: tokenPayload.access_token
   };
 }
 

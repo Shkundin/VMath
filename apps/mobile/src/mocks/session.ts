@@ -28,6 +28,7 @@ export type SessionData = {
   lectureTitle: string;
   connectionStatus: "online" | "offline";
   status: "active" | "waiting" | "finished";
+  activeBlockId?: string;
   currentBlockTitle: string;
   participantsCount: number;
   startedAt: string;

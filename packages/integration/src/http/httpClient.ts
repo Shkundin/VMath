@@ -60,6 +60,10 @@ export class HttpClient {
     });
   }
 
+  async deleteJson<T>(path: string): Promise<T> {
+    return this.request<T>(path, { method: "DELETE" });
+  }
+
   async putJson<T>(path: string, body: unknown): Promise<T> {
     return this.request<T>(path, {
       method: "PUT",
