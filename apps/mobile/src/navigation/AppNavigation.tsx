@@ -3548,6 +3548,28 @@ export function AppNavigation() {
     setTestingResults((current) => [result, ...current].slice(0, 20));
   }
 
+  function handleClearTestingResults(sessionIds: string[]) {
+    const sessionIdSet = new Set(sessionIds);
+
+    if (isTeacher) {
+      setTestingResults((current) =>
+        current.filter((result) => result.sessionId && !sessionIdSet.has(result.sessionId))
+      );
+      setTestingSubmissions((current) =>
+        current.filter((submission) => submission.teacherLogin !== user.login)
+      );
+      return;
+    }
+
+    setTestingSubmissions((current) =>
+      current.filter(
+        (submission) =>
+          submission.studentLogin !== user.login ||
+          submission.teacherLogin !== selectedTeacherLogin
+      )
+    );
+  }
+
   async function handleStartTestingSession(input: {
     title: string;
     durationMin: number;
@@ -4233,7 +4255,7 @@ export function AppNavigation() {
             userName={user.fullName || user.login}
             homeworks={visibleHomeworks}
             submissions={visibleHomeworkSubmissions}
-            testingResults={testingResults}
+            testingResults={isTeacher ? testingResults : []}
             testingSubmissions={
               isTeacher
                 ? testingSubmissions.filter((item) => item.teacherLogin === user.login)
@@ -4244,6 +4266,7 @@ export function AppNavigation() {
                   )
             }
             onGradeSubmission={handleGradeHomeworkSubmission}
+            onClearTestingResults={handleClearTestingResults}
           />
         ) : null}
 

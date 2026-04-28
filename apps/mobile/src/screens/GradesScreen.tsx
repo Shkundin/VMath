@@ -23,6 +23,7 @@ type GradesScreenProps = {
   testingResults: TestingRunResult[];
   testingSubmissions: TestingSubmission[];
   onGradeSubmission: (submissionId: string, score: number | null, comment: string) => void;
+  onClearTestingResults: (sessionIds: string[]) => void;
 };
 
 type StudentGradeRow = {
@@ -104,9 +105,11 @@ export function GradesScreen({
   submissions,
   testingResults,
   testingSubmissions,
-  onGradeSubmission
+  onGradeSubmission,
+  onClearTestingResults
 }: GradesScreenProps) {
   const { width } = useWindowDimensions();
+  const isPhone = width < 560;
   const styles = createStyles(theme, width);
 
   const [scoreDrafts, setScoreDrafts] = useState<Record<string, string>>({});
@@ -173,6 +176,16 @@ export function GradesScreen({
     const total = testingRows.reduce((sum, item) => sum + item.percent, 0);
     return total / testingRows.length;
   }, [testingRows]);
+
+  const canClearTestingResults = isTeacher ? testingRows.length > 0 : testingSubmissions.length > 0;
+
+  function handleClearTestingResults() {
+    onClearTestingResults(
+      testingRows
+        .map((item) => item.sessionId)
+        .filter((sessionId): sessionId is string => Boolean(sessionId))
+    );
+  }
 
   function handleSaveGrade(submission: HomeworkSubmissionItem, homework: HomeworkItem) {
     const rawScore = (scoreDrafts[submission.id] ?? (submission.score !== null ? String(submission.score) : "")).trim();
@@ -372,6 +385,18 @@ export function GradesScreen({
             title="Итоги по тестированию"
             subtitle="Сохранённые результаты экспресс-тестов и рейтинг студентов."
           >
+            <View style={styles.sectionActions}>
+              <AppButton
+                label="Очистить итоги"
+                onPress={handleClearTestingResults}
+                theme={theme}
+                variant="secondary"
+                fullWidth={isPhone}
+                disabled={!canClearTestingResults}
+                style={styles.inlineButton}
+              />
+            </View>
+
             {testingRows.length === 0 ? (
               <Text style={styles.emptyText}>Пока нет сохранённых результатов по тестированию.</Text>
             ) : (
@@ -541,6 +566,18 @@ export function GradesScreen({
             title="Мои тесты"
             subtitle="Результаты тестирования по выбранному преподавателю."
           >
+            <View style={styles.sectionActions}>
+              <AppButton
+                label="Очистить итоги"
+                onPress={handleClearTestingResults}
+                theme={theme}
+                variant="secondary"
+                fullWidth={isPhone}
+                disabled={!canClearTestingResults}
+                style={styles.inlineButton}
+              />
+            </View>
+
             {testingSubmissions.length === 0 ? (
               <Text style={styles.emptyText}>Пока нет результатов по тестированию.</Text>
             ) : (
@@ -804,6 +841,11 @@ function createStyles(theme: AppTheme, width: number) {
       fontSize: theme.typography.body,
       fontWeight: "700",
       color: theme.colors.text
+    },
+    sectionActions: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      marginBottom: theme.spacing.md
     },
     commentText: {
       fontSize: theme.typography.body,
