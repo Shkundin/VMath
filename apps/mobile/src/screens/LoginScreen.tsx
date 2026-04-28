@@ -129,6 +129,26 @@ export function LoginScreen({
     setSuccessText("");
   }
 
+  function renderVkWebWidget() {
+    if (!React.isValidElement(vkWebWidget)) {
+      return vkWebWidget;
+    }
+
+    return React.cloneElement(
+      vkWebWidget as React.ReactElement<{
+        onError?: (message: string) => void;
+        onStart?: () => void;
+      }>,
+      {
+        onError: (message: string) => {
+          setSuccessText("");
+          setError(message);
+        },
+        onStart: resetMessages
+      }
+    );
+  }
+
   function applyPreset(nextRole: LoginRole, nextMode: AuthMode) {
     resetMessages();
     setFullName("");
@@ -388,7 +408,7 @@ export function LoginScreen({
                   />
 
                   {vkWebWidget ? (
-                    <View style={styles.vkWidgetShell}>{vkWebWidget}</View>
+                    <View style={styles.vkWidgetShell}>{renderVkWebWidget()}</View>
                   ) : (
                     <AppButton
                       label={isVkSubmitting ? "Подключаем VK..." : vkLabel}

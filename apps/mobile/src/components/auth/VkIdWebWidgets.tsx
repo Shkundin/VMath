@@ -10,6 +10,8 @@ const VK_ID_SDK_SRC = "https://unpkg.com/@vkid/sdk@2.6.5/dist-sdk/umd/index.js";
 type VkIdWebWidgetsProps = {
   appId: string;
   appName: string;
+  onError?: (message: string) => void;
+  onStart?: () => void;
   onSuccess: (identity: SocialIdentity) => Promise<void> | void;
   redirectUrl: string;
   theme: AppTheme;
@@ -192,6 +194,8 @@ function getVkAlternativeOauthList(sdk: VkIdSdk): string[] {
 export function VkIdWebWidgets({
   appId,
   appName: _appName,
+  onError,
+  onStart,
   onSuccess,
   redirectUrl,
   theme
@@ -203,11 +207,15 @@ export function VkIdWebWidgets({
   );
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const onErrorRef = useRef(onError);
+  const onStartRef = useRef(onStart);
   const onSuccessRef = useRef(onSuccess);
 
   useEffect(() => {
+    onErrorRef.current = onError;
+    onStartRef.current = onStart;
     onSuccessRef.current = onSuccess;
-  }, [onSuccess]);
+  }, [onError, onStart, onSuccess]);
 
   useEffect(() => {
     if (Platform.OS !== "web") {
@@ -229,12 +237,15 @@ export function VkIdWebWidgets({
           : "Не удалось выполнить вход через VK.";
 
       if (!isDisposed) {
-        setError(fixText(message));
+        const safeMessage = fixText(message);
+        setError(onErrorRef.current ? "" : safeMessage);
+        onErrorRef.current?.(safeMessage);
       }
     };
 
     const handleLoginSuccess = async (sdk: VkIdSdk, payload: unknown) => {
       try {
+        onStartRef.current?.();
         setError("");
 
         const safePayload = (payload ?? {}) as VkLoginSuccessPayload;
