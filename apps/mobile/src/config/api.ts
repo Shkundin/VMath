@@ -1,7 +1,7 @@
 import { Platform } from "react-native";
 
 const LOCAL_API_BASE_URL = "http://127.0.0.1:8787";
-const DEFAULT_PRODUCTION_API_BASE_URL = "https://visualmath-server.onrender.com";
+const DEFAULT_PRODUCTION_API_BASE_URL = "https://vmath.onrender.com";
 
 const envBaseUrl =
   process.env.EXPO_PUBLIC_VM_API_BASE_URL?.trim() ||
@@ -17,10 +17,6 @@ function normalizeApiBaseUrl(value: string): string {
 }
 
 function getDefaultBaseUrl(): string {
-  if (envBaseUrl) {
-    return normalizeApiBaseUrl(envBaseUrl);
-  }
-
   if (Platform.OS === "web" && typeof window !== "undefined") {
     const { hostname, origin } = window.location;
     const isLocalHost =
@@ -29,19 +25,42 @@ function getDefaultBaseUrl(): string {
       hostname === "0.0.0.0";
 
     if (isLocalHost) {
-      return LOCAL_API_BASE_URL;
+      return envBaseUrl ? normalizeApiBaseUrl(envBaseUrl) : LOCAL_API_BASE_URL;
     }
 
-    const normalizedHost = hostname.trim().toLowerCase();
-    const looksLikeBackendHost = normalizedHost.endsWith(".onrender.com");
+    return origin;
+  }
 
-    return looksLikeBackendHost ? origin : DEFAULT_PRODUCTION_API_BASE_URL;
+  if (envBaseUrl) {
+    return normalizeApiBaseUrl(envBaseUrl);
   }
 
   return LOCAL_API_BASE_URL;
 }
 
+function getDefaultWsUrl(): string {
+  if (envWsUrl) {
+    return envWsUrl.replace(/\/+$/, "");
+  }
+
+  if (Platform.OS === "web" && typeof window !== "undefined") {
+    const { hostname, origin } = window.location;
+    const normalizedHost = hostname.trim().toLowerCase();
+    const isLocalHost =
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "0.0.0.0";
+    const looksLikeBackendHost = normalizedHost.endsWith(".onrender.com");
+
+    if (!isLocalHost && !looksLikeBackendHost) {
+      return `${DEFAULT_PRODUCTION_API_BASE_URL.replace(/^http/i, "ws")}/ws`;
+    }
+
+    return `${origin.replace(/^http/i, "ws")}/ws`;
+  }
+
+  return `${API_BASE_URL.replace(/^http/i, "ws")}/ws`;
+}
+
 export const API_BASE_URL = getDefaultBaseUrl().replace(/\/+$/, "");
-export const WS_BASE_URL = envWsUrl
-  ? envWsUrl.replace(/\/+$/, "")
-  : `${API_BASE_URL.replace(/^http/i, "ws")}/ws`;
+export const WS_BASE_URL = getDefaultWsUrl();

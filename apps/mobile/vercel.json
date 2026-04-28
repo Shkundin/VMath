@@ -3,6 +3,10 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/v1/:path*",
+      "destination": "https://vmath.onrender.com/api/v1/:path*"
+    },
+    {
       "source": "/auth/google",
       "destination": "/"
     },
