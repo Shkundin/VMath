@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import { AppButton } from "../components/ui/AppButton";
 import { ErrorState } from "../components/ui/ErrorState";
+import { LatexText } from "../components/ui/LatexText";
 import { OfflineState } from "../components/ui/OfflineState";
 import { Screen } from "../components/ui/Screen";
 import { ScreenHeader } from "../components/ui/ScreenHeader";
@@ -12,11 +13,13 @@ import type { LectureItem } from "../mocks/lectures";
 import type { Question, SessionData } from "../mocks/session";
 import type { AppTheme } from "../theme";
 import { fixText } from "../utils/fixText";
+import type { LectureBlock, LectureDetails } from "@vm/shared";
 
 type SessionScreenProps = {
   theme: AppTheme;
   lecture: LectureItem;
   session: SessionData;
+  lectureDetails?: LectureDetails | null;
   isOffline?: boolean;
   hasError?: boolean;
   onRetry?: () => void;
@@ -28,6 +31,7 @@ export function SessionScreen({
   theme,
   lecture,
   session,
+  lectureDetails,
   isOffline = false,
   hasError = false,
   onRetry,
@@ -39,6 +43,10 @@ export function SessionScreen({
 
   const previewQuestions = session.questions.slice(0, 3);
   const remainingQuestions = Math.max(session.questions.length - previewQuestions.length, 0);
+  const activeBlock =
+    lectureDetails?.blocks.find((block) => block.id === session.activeBlockId) ??
+    lectureDetails?.blocks.find((block) => block.title === session.currentBlockTitle) ??
+    null;
 
   return (
     <Screen theme={theme}>
@@ -98,6 +106,23 @@ export function SessionScreen({
 
       {isOffline ? <OfflineState theme={theme} onRetry={onRetry} /> : null}
       {hasError ? <ErrorState theme={theme} onRetry={onRetry} /> : null}
+
+      <SectionCard
+        theme={theme}
+        title="Сейчас у студента"
+        subtitle="Этот блок меняется, когда преподаватель переключает занятие."
+      >
+        {activeBlock ? (
+          <ActiveBlockPreview theme={theme} block={activeBlock} />
+        ) : (
+          <View style={styles.emptyBlockPreview}>
+            <Text style={styles.emptyBlockTitle}>{fixText(session.currentBlockTitle)}</Text>
+            <Text style={styles.emptyBlockText}>
+              {fixText("Контент блока загрузится после подключения к активной сессии.")}
+            </Text>
+          </View>
+        )}
+      </SectionCard>
 
       <View style={styles.grid}>
         <SectionCard
@@ -195,6 +220,55 @@ export function SessionScreen({
         </View>
       </SectionCard>
     </Screen>
+  );
+}
+
+type ActiveBlockPreviewProps = {
+  theme: AppTheme;
+  block: LectureBlock;
+};
+
+function ActiveBlockPreview({ theme, block }: ActiveBlockPreviewProps) {
+  const styles = createStyles(theme, 1200);
+
+  if (block.type === "text") {
+    return <LatexText theme={theme} content={block.payload.markdown} />;
+  }
+
+  if (block.type === "formula") {
+    return <LatexText theme={theme} content={block.payload.markdown || `$$${block.payload.latex}$$`} />;
+  }
+
+  if (block.type === "quiz") {
+    return (
+      <View style={styles.activeQuizWrap}>
+        <Text style={styles.activeQuizTitle}>{fixText(block.title ?? "Проверочный блок")}</Text>
+        {block.payload.questions.slice(0, 3).map((question, index) => (
+          <View key={question.id} style={styles.activeQuizQuestion}>
+            <Text style={styles.blockIndex}>{fixText(`Вопрос ${index + 1}`)}</Text>
+            <LatexText theme={theme} content={question.text} compact />
+          </View>
+        ))}
+      </View>
+    );
+  }
+
+  if (block.type === "visual") {
+    return (
+      <View style={styles.emptyBlockPreview}>
+        <Text style={styles.emptyBlockTitle}>{fixText(block.title ?? "Визуальный блок")}</Text>
+        <Text style={styles.emptyBlockText}>
+          {fixText(block.payload.caption || "Интерактивный визуальный блок.")}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.emptyBlockPreview}>
+      <Text style={styles.emptyBlockTitle}>{fixText(block.title ?? "Блок")}</Text>
+      <Text style={styles.emptyBlockText}>{fixText("Блок готов к показу.")}</Text>
+    </View>
   );
 }
 
@@ -385,6 +459,40 @@ function createStyles(theme: AppTheme, width: number) {
     },
     statusWrap: {
       marginBottom: theme.spacing.sm
+    },
+    emptyBlockPreview: {
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surfaceMuted,
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.lg
+    },
+    emptyBlockTitle: {
+      fontSize: theme.typography.sectionTitle,
+      fontWeight: "700",
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm
+    },
+    emptyBlockText: {
+      fontSize: theme.typography.body,
+      lineHeight: 22,
+      color: theme.colors.textSecondary
+    },
+    activeQuizWrap: {
+      gap: theme.spacing.sm
+    },
+    activeQuizTitle: {
+      fontSize: theme.typography.sectionTitle,
+      fontWeight: "700",
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm
+    },
+    activeQuizQuestion: {
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surfaceMuted,
+      borderRadius: theme.radius.md,
+      padding: theme.spacing.md
     },
     blockList: {
       flexDirection: "row",

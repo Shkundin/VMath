@@ -176,6 +176,7 @@ export function mapSessionToSessionData(params: {
     lectureTitle: lecture.title,
     connectionStatus: "online",
     status: sessionState.status === "stopped" ? "finished" : "active",
+    activeBlockId: sessionState.activeBlockId,
     currentBlockTitle: activeBlock?.title ?? "Активный блок",
     participantsCount: sessionState.participants.length,
     startedAt: sessionState.startedAt ?? sessionState.updatedAt,

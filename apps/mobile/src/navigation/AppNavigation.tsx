@@ -1202,6 +1202,73 @@ export function AppNavigation() {
   }, [lectureDetailsById]);
 
   useEffect(() => {
+    if (
+      isTeacher ||
+      activeScreen !== "session" ||
+      sessionMode !== "online" ||
+      !currentSession ||
+      !selectedLecture ||
+      currentSession.sessionId.startsWith("session-draft-") ||
+      currentSession.sessionId.startsWith("session-lecture-")
+    ) {
+      return;
+    }
+
+    let isDisposed = false;
+
+    const refreshStudentSession = async () => {
+      try {
+        const sessionState = await sessionApi.getSession(currentSession.sessionId);
+        let details: LectureDetails | null =
+          lectureDetailsByIdRef.current[currentSession.lectureId] ??
+          (await ensureLectureDetails(selectedLecture));
+
+        if (
+          details &&
+          sessionState.activeBlockId &&
+          !details.blocks.some((block) => block.id === sessionState.activeBlockId)
+        ) {
+          details = await ensureLectureDetails(selectedLecture, { forceRefresh: true });
+        }
+
+        if (!details || isDisposed) {
+          return;
+        }
+
+        const lecture =
+          catalogLecturesRef.current.find((item) => item.id === currentSession.lectureId) ??
+          selectedLecture;
+        const mappedSession = mapSessionToSessionData({
+          lecture,
+          details,
+          sessionState
+        });
+
+        setCurrentSession(mappedSession);
+        setCurrentSessionBlockId(sessionState.activeBlockId);
+      } catch {
+      }
+    };
+
+    void refreshStudentSession();
+    const intervalId = setInterval(() => {
+      void refreshStudentSession();
+    }, 2500);
+
+    return () => {
+      isDisposed = true;
+      clearInterval(intervalId);
+    };
+  }, [
+    activeScreen,
+    currentSession?.lectureId,
+    currentSession?.sessionId,
+    isTeacher,
+    selectedLecture,
+    sessionMode
+  ]);
+
+  useEffect(() => {
     if (Platform.OS !== "web" || typeof window === "undefined") {
       return;
     }
@@ -1824,9 +1891,12 @@ export function AppNavigation() {
     }
   }
 
-  async function ensureLectureDetails(lecture: LectureItem): Promise<LectureDetails | null> {
+  async function ensureLectureDetails(
+    lecture: LectureItem,
+    options: { forceRefresh?: boolean } = {}
+  ): Promise<LectureDetails | null> {
     const cachedDetails = lectureDetailsById[lecture.id];
-    if (cachedDetails) {
+    if (cachedDetails && !options.forceRefresh) {
       return cachedDetails;
     }
 
@@ -2811,7 +2881,7 @@ export function AppNavigation() {
     setCurrentResult(null);
     setActiveScreen("details");
 
-    const details = await ensureLectureDetails(lecture);
+    const details = await ensureLectureDetails(lecture, { forceRefresh: !isTeacher });
     if (!details) {
       setCatalogMode("offline");
     }
@@ -2830,7 +2900,10 @@ export function AppNavigation() {
     setSessionMode("loading");
 
     const details =
-      lectureDetailsById[selectedLecture.id] ?? (await ensureLectureDetails(selectedLecture));
+      selectedLecture.id.startsWith("draft-lecture-")
+        ? lectureDetailsById[selectedLecture.id] ?? (await ensureLectureDetails(selectedLecture))
+        : await ensureLectureDetails(selectedLecture, { forceRefresh: true }) ??
+          lectureDetailsById[selectedLecture.id];
 
     if (selectedLecture.id.startsWith("draft-lecture-")) {
       setCurrentSession(createMockSession(selectedLecture, details));
@@ -2851,8 +2924,11 @@ export function AppNavigation() {
     }
 
     try {
+      const latestActiveSessions = await sessionApi.listActiveSessions();
+      setActiveLessonSessions(latestActiveSessions);
+
       const matchingSession =
-        activeLessonSessions.find(
+        latestActiveSessions.find(
           (session) =>
             session.lectureId === selectedLecture.id &&
             (!selectedTeacherLogin || session.teacherLogin === selectedTeacherLogin)
@@ -4170,6 +4246,7 @@ export function AppNavigation() {
             theme={theme}
             lecture={selectedLecture}
             session={currentSession}
+            lectureDetails={lectureDetailsById[currentSession.lectureId] ?? null}
             isOffline={sessionMode === "offline"}
             hasError={sessionMode === "error"}
             onRetry={() => void handleOpenSession()}
