@@ -88,11 +88,14 @@ import {
   validateStudentCredentials
 } from "../storage/localUsersStorage";
 import {
+  clearLastLectureId,
   readCatalogSnapshot,
+  readDeletedLectureIds,
   readLastLectureId,
   readNotificationsEnabled,
   readThemeMode,
   writeCatalogSnapshot,
+  writeDeletedLectureIds,
   writeLastLectureId,
   writeNotificationsEnabled,
   writeThemeMode
@@ -816,21 +819,37 @@ function isDraftLecture(lectureId: string): boolean {
 
 function mergeDraftLecturesIntoCatalog(
   apiLectures: LectureItem[],
-  currentLectures: LectureItem[]
+  currentLectures: LectureItem[],
+  deletedLectureIds: string[] = []
 ): LectureItem[] {
   const next = new Map<string, LectureItem>();
+  const deleted = new Set(deletedLectureIds);
 
   for (const lecture of apiLectures) {
-    next.set(lecture.id, lecture);
+    if (!deleted.has(lecture.id)) {
+      next.set(lecture.id, lecture);
+    }
   }
 
   for (const lecture of currentLectures) {
-    if (isDraftLecture(lecture.id)) {
+    if (isDraftLecture(lecture.id) && !deleted.has(lecture.id)) {
       next.set(lecture.id, lecture);
     }
   }
 
   return Array.from(next.values());
+}
+
+function filterDeletedLectures(
+  lectures: LectureItem[],
+  deletedLectureIds: string[]
+): LectureItem[] {
+  if (deletedLectureIds.length === 0) {
+    return lectures;
+  }
+
+  const deleted = new Set(deletedLectureIds);
+  return lectures.filter((lecture) => !deleted.has(lecture.id));
 }
 
 function withTeacherScope<T extends { teacherLogin?: string }>(
@@ -1067,6 +1086,7 @@ export function AppNavigation() {
 
   const [user, setUser] = useState<UserProfile>(DEFAULT_USER);
   const [catalogLectures, setCatalogLectures] = useState<LectureItem[]>(mockLectures);
+  const [deletedLectureIds, setDeletedLectureIds] = useState<string[]>([]);
   const [selectedLecture, setSelectedLecture] = useState<LectureItem | null>(null);
   const [lastOpenedLectureId, setLastOpenedLectureId] = useState<string | null>(null);
 
@@ -1091,6 +1111,7 @@ export function AppNavigation() {
   const [activeLessonSessions, setActiveLessonSessions] = useState<ActiveSessionSummary[]>([]);
   const catalogLecturesRef = useRef(catalogLectures);
   const lectureDetailsByIdRef = useRef(lectureDetailsById);
+  const deletedLectureIdsRef = useRef(deletedLectureIds);
 
   const [currentSession, setCurrentSession] = useState<SessionData | null>(null);
   const [currentSessionBlockId, setCurrentSessionBlockId] = useState<string | null>(null);
@@ -1200,6 +1221,10 @@ export function AppNavigation() {
   useEffect(() => {
     lectureDetailsByIdRef.current = lectureDetailsById;
   }, [lectureDetailsById]);
+
+  useEffect(() => {
+    deletedLectureIdsRef.current = deletedLectureIds;
+  }, [deletedLectureIds]);
 
   useEffect(() => {
     if (
@@ -1328,6 +1353,7 @@ export function AppNavigation() {
       try {
         const [
           cachedLectures,
+          cachedDeletedLectureIds,
           cachedLastLectureId,
           cachedThemeMode,
           cachedNotificationsEnabled,
@@ -1341,6 +1367,7 @@ export function AppNavigation() {
           storedTestingSubmissions
         ] = await Promise.all([
           readCatalogSnapshot(),
+          readDeletedLectureIds(),
           readLastLectureId(),
           readThemeMode(),
           readNotificationsEnabled(),
@@ -1360,20 +1387,28 @@ export function AppNavigation() {
 
         const teacherScopedLogin = storedAuthMeta?.role === "teacher" ? storedAuthMeta.userLogin : null;
         const webDraftState = readWebDraftStateV4();
+        const deletedIds = Array.isArray(cachedDeletedLectureIds) ? cachedDeletedLectureIds : [];
+        setDeletedLectureIds(deletedIds);
 
         if (cachedLectures && cachedLectures.length > 0) {
           setCatalogLectures(
-            mergeWithDraftsV4(
-              withTeacherScope(cachedLectures, teacherScopedLogin),
-              webDraftState.lectures
+            filterDeletedLectures(
+              mergeWithDraftsV4(
+                withTeacherScope(cachedLectures, teacherScopedLogin),
+                webDraftState.lectures
+              ),
+              deletedIds
             )
           );
           setCatalogMode("offline");
         } else {
           setCatalogLectures(
-            mergeWithDraftsV4(
-              withTeacherScope(mockLectures, teacherScopedLogin),
-              webDraftState.lectures
+            filterDeletedLectures(
+              mergeWithDraftsV4(
+                withTeacherScope(mockLectures, teacherScopedLogin),
+                webDraftState.lectures
+              ),
+              deletedIds
             )
           );
         }
@@ -1484,7 +1519,10 @@ export function AppNavigation() {
                     }))
                   : nextLectures;
 
-              const mergedLectures = mergeWithDraftsV4(scopedLectures, webDraftState.lectures);
+              const mergedLectures = filterDeletedLectures(
+                mergeWithDraftsV4(scopedLectures, webDraftState.lectures),
+                deletedIds
+              );
 
               setCatalogLectures(mergedLectures);
               setLectureDetailsById((current) => ({
@@ -1530,8 +1568,16 @@ export function AppNavigation() {
       return;
     }
 
-    void writeCatalogSnapshot(catalogLectures);
-  }, [catalogLectures, isHydrating]);
+    void writeCatalogSnapshot(filterDeletedLectures(catalogLectures, deletedLectureIds));
+  }, [catalogLectures, deletedLectureIds, isHydrating]);
+
+  useEffect(() => {
+    if (isHydrating) {
+      return;
+    }
+
+    void writeDeletedLectureIds(deletedLectureIds);
+  }, [deletedLectureIds, isHydrating]);
 
   useEffect(() => {
     if (isHydrating) {
@@ -1880,7 +1926,11 @@ export function AppNavigation() {
           }))
         : nextLectures;
 
-      const mergedLectures = mergeDraftLecturesIntoCatalog(scopedLectures, catalogLectures);
+      const mergedLectures = mergeDraftLecturesIntoCatalog(
+        scopedLectures,
+        catalogLectures,
+        deletedLectureIdsRef.current
+      );
 
       setCatalogLectures(mergedLectures);
       setCatalogMode("online");
@@ -2501,7 +2551,8 @@ export function AppNavigation() {
       writeSelectedTeacherLogin(selectedTeacherLogin),
       writeActiveTestingSession(activeTestingSession),
       writeTestingSubmissions(testingSubmissions),
-      writeCatalogSnapshot(catalogLectures)
+      writeDeletedLectureIds(deletedLectureIds),
+      writeCatalogSnapshot(filterDeletedLectures(catalogLectures, deletedLectureIds))
     ]);
   }
 
@@ -2646,7 +2697,16 @@ export function AppNavigation() {
   }
 
   function handleDeleteLecture(lectureId: string) {
-    setCatalogLectures((current) => current.filter((lecture) => lecture.id !== lectureId));
+    const lecture = catalogLectures.find((item) => item.id === lectureId) ?? null;
+    const nextDeletedIds = [...new Set([...deletedLectureIdsRef.current, lectureId])];
+
+    setDeletedLectureIds(nextDeletedIds);
+    void writeDeletedLectureIds(nextDeletedIds);
+    setCatalogLectures((current) => {
+      const next = current.filter((item) => item.id !== lectureId);
+      void writeCatalogSnapshot(filterDeletedLectures(next, nextDeletedIds));
+      return next;
+    });
 
     setLectureDetailsById((current) => {
       const next = { ...current };
@@ -2655,7 +2715,23 @@ export function AppNavigation() {
     });
 
     setSelectedLecture((current) => (current?.id === lectureId ? null : current));
-    setLastOpenedLectureId((current) => (current === lectureId ? null : current));
+    setLastOpenedLectureId((current) => {
+      if (current === lectureId) {
+        void clearLastLectureId();
+        return null;
+      }
+
+      return current;
+    });
+
+    if (lecture && !isDraftLecture(lectureId) && user.role === "teacher") {
+      void catalogApi.updateLecture(lectureId, {
+        title: lecture.title,
+        description: lecture.description,
+        status: "archived",
+        availableForRoles: []
+      }).catch(() => {});
+    }
   }
 
   function handleCreateDraftLecture(input: DraftLectureInput): string | null {

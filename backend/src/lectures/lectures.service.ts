@@ -86,7 +86,7 @@ export class LecturesService {
     }
   ): Promise<LectureSummary[]> {
     const params: unknown[] = [];
-    const where: string[] = [];
+    const where: string[] = [`l.status <> 'archived'`];
 
     this.applyVisibilityFilter(currentUser, where, params);
 

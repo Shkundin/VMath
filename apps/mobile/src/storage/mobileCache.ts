@@ -7,6 +7,7 @@ const PREFIX = "vmMobileCache_v2";
 
 const STORAGE_KEYS = {
   catalogSnapshot: `${PREFIX}:catalogSnapshot_v2`,
+  deletedLectureIds: `${PREFIX}:deletedLectureIds_v1`,
   lastLectureId: `${PREFIX}:lastLectureId_v2`,
   themeMode: `${PREFIX}:themeMode_v2`,
   notificationsEnabled: `${PREFIX}:notificationsEnabled_v2`
@@ -38,12 +39,24 @@ export async function writeCatalogSnapshot(lectures: LectureItem[]): Promise<voi
   await writeJson(STORAGE_KEYS.catalogSnapshot, lectures);
 }
 
+export async function readDeletedLectureIds(): Promise<string[] | null> {
+  return readJson<string[]>(STORAGE_KEYS.deletedLectureIds);
+}
+
+export async function writeDeletedLectureIds(lectureIds: string[]): Promise<void> {
+  await writeJson(STORAGE_KEYS.deletedLectureIds, [...new Set(lectureIds)]);
+}
+
 export async function readLastLectureId(): Promise<string | null> {
   return AsyncStorage.getItem(STORAGE_KEYS.lastLectureId);
 }
 
 export async function writeLastLectureId(lectureId: string): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEYS.lastLectureId, lectureId);
+}
+
+export async function clearLastLectureId(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEYS.lastLectureId);
 }
 
 export async function readThemeMode(): Promise<ThemeMode | null> {
