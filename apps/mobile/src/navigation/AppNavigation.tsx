@@ -960,6 +960,96 @@ function writeTeacherSessionStats(value: TeacherSessionStatsRecord) {
   } catch {}
 }
 
+const LOCAL_ACTIVE_SESSIONS_KEY = "vm_mobile_web_active_lesson_sessions_v1";
+
+type LocalActiveLessonSession = ActiveSessionSummary & {
+  activeBlockId: string | null;
+  currentBlockIndex: number;
+};
+
+function readLocalActiveLessonSessions(): LocalActiveLessonSession[] {
+  try {
+    if (Platform.OS !== "web") {
+      return [];
+    }
+
+    const storage = (globalThis as typeof globalThis & { localStorage?: Storage }).localStorage;
+    if (!storage) {
+      return [];
+    }
+
+    const raw = storage.getItem(LOCAL_ACTIVE_SESSIONS_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw) as LocalActiveLessonSession[];
+    return Array.isArray(parsed) ? parsed.filter((session) => session.status === "active") : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalActiveLessonSessions(sessions: LocalActiveLessonSession[]) {
+  try {
+    if (Platform.OS !== "web") {
+      return;
+    }
+
+    const storage = (globalThis as typeof globalThis & { localStorage?: Storage }).localStorage;
+    if (!storage) {
+      return;
+    }
+
+    storage.setItem(LOCAL_ACTIVE_SESSIONS_KEY, JSON.stringify(sessions));
+  } catch {}
+}
+
+function upsertLocalActiveLessonSession(session: LocalActiveLessonSession) {
+  const current = readLocalActiveLessonSessions();
+  writeLocalActiveLessonSessions([
+    ...current.filter((item) => item.lectureId !== session.lectureId),
+    session
+  ]);
+}
+
+function removeLocalActiveLessonSession(lectureId: string) {
+  writeLocalActiveLessonSessions(
+    readLocalActiveLessonSessions().filter((session) => session.lectureId !== lectureId)
+  );
+}
+
+function buildLocalSessionState(input: {
+  session: LocalActiveLessonSession;
+  user: UserProfile;
+}): ApiSessionState {
+  const now = new Date().toISOString();
+
+  return {
+    sessionId: input.session.sessionId,
+    sessionCode: input.session.sessionCode,
+    lectureId: input.session.lectureId,
+    status: input.session.status,
+    activeBlockId: input.session.activeBlockId ?? "",
+    participants: [
+      {
+        userId: input.user.login,
+        fullName: input.user.fullName || input.user.login,
+        role: input.user.role,
+        status: "connected",
+        connectionStatus: "connected",
+        joinedAt: input.session.startedAt ?? now,
+        lastSeenAt: now,
+        leftAt: null,
+        score: null
+      }
+    ],
+    updatedAt: input.session.updatedAt,
+    startedAt: input.session.startedAt ?? input.session.updatedAt,
+    stoppedAt: input.session.stoppedAt ?? null
+  };
+}
+
 function resetTeacherSessionStats(lectureId: string) {
   const current = readTeacherSessionStats();
   current[lectureId] = {
@@ -1227,6 +1317,46 @@ export function AppNavigation() {
   }, [deletedLectureIds]);
 
   useEffect(() => {
+    if (Platform.OS !== "web" || !currentTeacherSession) {
+      return;
+    }
+
+    if (currentTeacherSession.status !== "active") {
+      removeLocalActiveLessonSession(currentTeacherSession.lectureId);
+      return;
+    }
+
+    const lecture =
+      catalogLecturesRef.current.find((item) => item.id === currentTeacherSession.lectureId) ??
+      selectedLecture;
+    const details = lectureDetailsByIdRef.current[currentTeacherSession.lectureId];
+    const activeBlock = details?.blocks[currentTeacherSession.currentBlockIndex] ?? null;
+    const now = new Date().toISOString();
+
+    if (!lecture) {
+      return;
+    }
+
+    upsertLocalActiveLessonSession({
+      sessionId: currentTeacherSession.sessionId.startsWith("teacher-session-")
+        ? `local-web-session-${currentTeacherSession.lectureId}`
+        : currentTeacherSession.sessionId,
+      sessionCode: currentTeacherSession.sessionCode,
+      lectureId: currentTeacherSession.lectureId,
+      lectureTitle: currentTeacherSession.lectureTitle,
+      teacherId: user.login,
+      teacherLogin: user.login,
+      teacherName: user.fullName || user.login,
+      status: "active",
+      activeBlockId: activeBlock?.id ?? null,
+      currentBlockIndex: currentTeacherSession.currentBlockIndex,
+      updatedAt: now,
+      startedAt: now,
+      stoppedAt: null
+    });
+  }, [currentTeacherSession, selectedLecture, user.fullName, user.login]);
+
+  useEffect(() => {
     if (
       isTeacher ||
       activeScreen !== "session" ||
@@ -1243,10 +1373,31 @@ export function AppNavigation() {
 
     const refreshStudentSession = async () => {
       try {
-        const sessionState = await sessionApi.getSession(currentSession.sessionId);
         let details: LectureDetails | null =
           lectureDetailsByIdRef.current[currentSession.lectureId] ??
           (await ensureLectureDetails(selectedLecture));
+
+        if (currentSession.sessionId.startsWith("local-web-session-")) {
+          const localSession =
+            readLocalActiveLessonSessions().find(
+              (session) => session.sessionId === currentSession.sessionId
+            ) ?? null;
+
+          if (!localSession || !details || isDisposed) {
+            return;
+          }
+
+          const lecture =
+            catalogLecturesRef.current.find((item) => item.id === currentSession.lectureId) ??
+            selectedLecture;
+          const sessionState = buildLocalSessionState({ session: localSession, user });
+
+          setCurrentSession(mapSessionToSessionData({ lecture, details, sessionState }));
+          setCurrentSessionBlockId(sessionState.activeBlockId);
+          return;
+        }
+
+        const sessionState = await sessionApi.getSession(currentSession.sessionId);
 
         if (
           details &&
@@ -1290,7 +1441,10 @@ export function AppNavigation() {
     currentSession?.sessionId,
     isTeacher,
     selectedLecture,
-    sessionMode
+    sessionMode,
+    user.fullName,
+    user.login,
+    user.role
   ]);
 
   useEffect(() => {
@@ -1686,6 +1840,7 @@ export function AppNavigation() {
     async function syncSharedServerState() {
       const accessToken = await authApi.getAccessToken();
       if (!accessToken) {
+        setActiveLessonSessions(readLocalActiveLessonSessions());
         return;
       }
 
@@ -1700,7 +1855,7 @@ export function AppNavigation() {
         }
 
         setTeacherBranches(branchSummaries.map(mapBranchSummaryToBranch));
-        setActiveLessonSessions(lessonSessions);
+        setActiveLessonSessions([...lessonSessions, ...readLocalActiveLessonSessions()]);
 
         const currentTeacherLogin = isTeacher ? user.login : selectedTeacherLogin;
         if (!currentTeacherLogin) {
@@ -2999,12 +3154,35 @@ export function AppNavigation() {
       return;
     }
 
+    const getMatchingLocalSession = () =>
+      readLocalActiveLessonSessions().find(
+        (session) =>
+          session.lectureId === selectedLecture.id &&
+          (!selectedTeacherLogin || session.teacherLogin === selectedTeacherLogin)
+      ) ?? null;
+
+    const openLocalSession = (localSession: LocalActiveLessonSession) => {
+      const sessionState = buildLocalSessionState({ session: localSession, user });
+      const mappedSession = mapSessionToSessionData({
+        lecture: selectedLecture,
+        details,
+        sessionState
+      });
+
+      setCurrentSession(mappedSession);
+      setCurrentSessionBlockId(sessionState.activeBlockId);
+      setCurrentResult(null);
+      setSessionMode("online");
+      setActiveScreen("session");
+    };
+
     try {
       const latestActiveSessions = await sessionApi.listActiveSessions();
-      setActiveLessonSessions(latestActiveSessions);
+      const localSessions = readLocalActiveLessonSessions();
+      setActiveLessonSessions([...latestActiveSessions, ...localSessions]);
 
       const matchingSession =
-        latestActiveSessions.find(
+        [...latestActiveSessions, ...localSessions].find(
           (session) =>
             session.lectureId === selectedLecture.id &&
             (!selectedTeacherLogin || session.teacherLogin === selectedTeacherLogin)
@@ -3012,6 +3190,11 @@ export function AppNavigation() {
 
       if (!matchingSession) {
         throw new Error("No active teacher session for this lecture");
+      }
+
+      if (matchingSession.sessionId.startsWith("local-web-session-")) {
+        openLocalSession(matchingSession as LocalActiveLessonSession);
+        return;
       }
 
       const sessionState = isTeacher
@@ -3029,6 +3212,13 @@ export function AppNavigation() {
       setSessionMode("online");
       setActiveScreen("session");
     } catch {
+      const localSession = getMatchingLocalSession();
+
+      if (localSession) {
+        openLocalSession(localSession);
+        return;
+      }
+
       setCurrentSession(createMockSession(selectedLecture, details));
       setCurrentSessionBlockId(null);
       setCurrentResult(null);

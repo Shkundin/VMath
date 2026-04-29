@@ -354,6 +354,8 @@ export function createMockSession(
   lecture: LectureItem,
   lectureDetails?: LectureDetails | null
 ): SessionData {
+  const activeBlock = lectureDetails?.blocks[0] ?? null;
+
   return {
     sessionId: `session-${lecture.id}`,
     sessionCode: lecture.id.toUpperCase().replace("LECTURE-", "VM-"),
@@ -361,7 +363,8 @@ export function createMockSession(
     lectureTitle: lecture.title,
     connectionStatus: "online",
     status: "active",
-    currentBlockTitle: "Проверочный блок",
+    activeBlockId: activeBlock?.id,
+    currentBlockTitle: activeBlock?.title ?? "Проверочный блок",
     participantsCount: lecture.id === "lecture-3" ? 18 : 24,
     startedAt: new Date().toISOString(),
     questions: buildQuestionsFromLectureDetails(lecture, lectureDetails)
