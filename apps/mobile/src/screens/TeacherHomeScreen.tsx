@@ -13,6 +13,7 @@ import type { LectureDetails, QuizQuestion } from "@vm/shared";
 import { AppButton } from "../components/ui/AppButton";
 import { AnswerOptionSelector } from "../components/ui/AnswerOptionSelector";
 import { AppInput } from "../components/ui/AppInput";
+import { LatexText } from "../components/ui/LatexText";
 import { Screen } from "../components/ui/Screen";
 import { ScreenHeader } from "../components/ui/ScreenHeader";
 import { SectionCard } from "../components/ui/SectionCard";
@@ -36,6 +37,7 @@ export type DraftLectureMetaInput = {
   semester: string;
   level: string;
   videoUrl: string;
+  theory: string;
 };
 
 export type DraftQuestionInput = {
@@ -108,6 +110,7 @@ export function TeacherHomeScreen({
   const [metaSemester, setMetaSemester] = useState("");
   const [metaLevel, setMetaLevel] = useState("");
   const [metaVideoUrl, setMetaVideoUrl] = useState("");
+  const [metaTheory, setMetaTheory] = useState("");
   const [metaSuccess, setMetaSuccess] = useState("");
 
   const [questionText, setQuestionText] = useState("");
@@ -177,6 +180,7 @@ export function TeacherHomeScreen({
       setMetaSemester("");
       setMetaLevel("");
       setMetaVideoUrl("");
+      setMetaTheory("");
       return;
     }
 
@@ -184,7 +188,8 @@ export function TeacherHomeScreen({
     setMetaSemester(expandedLecture.semester || "");
     setMetaLevel(expandedLecture.level || "");
     setMetaVideoUrl(teacherVideoUrl);
-  }, [expandedLecture, teacherVideoUrl]);
+    setMetaTheory(expandedTheory);
+  }, [expandedLecture, expandedTheory, teacherVideoUrl]);
 
   function resetQuestionForm() {
     setQuestionText("");
@@ -291,10 +296,11 @@ export function TeacherHomeScreen({
       subject: nextSubject,
       semester: nextSemester,
       level: nextLevel,
-      videoUrl: metaVideoUrl.trim()
+      videoUrl: metaVideoUrl.trim(),
+      theory: metaTheory.trim()
     });
 
-    setMetaSuccess("Параметры лекции обновлены.");
+    setMetaSuccess("Лекция обновлена.");
   }
 
   function handleAddQuestion() {
@@ -359,7 +365,7 @@ export function TeacherHomeScreen({
         theme={theme}
         value={theory}
         onChangeText={setTheory}
-        placeholder="Вставь основной текст лекции"
+        placeholder={"Вставь основной текст лекции. Можно писать LaTeX: $x^2$, $$\\int_0^1 x^2 dx$$"}
         multiline
         numberOfLines={8}
       />
@@ -577,6 +583,16 @@ export function TeacherHomeScreen({
                   autoCorrect={false}
                 />
 
+                <AppInput
+                  label="LaTeX/Markdown текст лекции"
+                  theme={theme}
+                  value={metaTheory}
+                  onChangeText={setMetaTheory}
+                  placeholder={"# Тема\nПояснение с формулой $a^2+b^2=c^2$.\n$$\\int_0^1 x^2 dx=\\frac13$$"}
+                  multiline
+                  numberOfLines={8}
+                />
+
                 {metaSuccess ? <Text style={styles.successText}>{fixText(metaSuccess)}</Text> : null}
 
                 <AppButton
@@ -594,9 +610,11 @@ export function TeacherHomeScreen({
                 subtitle="Предпросмотр основного материала."
                 style={isCompactLayout ? undefined : styles.editorCard}
               >
-                <Text style={styles.theoryPreview}>
-                  {fixText(expandedTheory || "Теория пока не добавлена.")}
-                </Text>
+                {expandedTheory ? (
+                  <LatexText theme={theme} content={expandedTheory} />
+                ) : (
+                  <Text style={styles.theoryPreview}>{fixText("Теория пока не добавлена.")}</Text>
+                )}
               </SectionCard>
             );
             const addQuestionSection = (
@@ -611,7 +629,7 @@ export function TeacherHomeScreen({
                   theme={theme}
                   value={questionText}
                   onChangeText={setQuestionText}
-                  placeholder="Введите вопрос"
+                  placeholder={"Введите вопрос. Например: чему равна $\\int_0^1 x dx$?"}
                   multiline
                   numberOfLines={3}
                 />
@@ -706,13 +724,15 @@ export function TeacherHomeScreen({
                   expandedQuestions.map((question, index) => (
                     <View key={question.id} style={styles.questionCard}>
                       <Text style={styles.questionTitle}>
-                        {index + 1}. {fixText(question.text)}
+                        {index + 1}.
                       </Text>
+                      <LatexText theme={theme} content={question.text} compact />
 
                       {question.options?.map((option) => (
-                        <Text key={option.id} style={styles.questionOption}>
-                          {option.id}. {fixText(option.text)}
-                        </Text>
+                        <View key={option.id} style={styles.questionOptionWrap}>
+                          <Text style={styles.questionOption}>{option.id}.</Text>
+                          <LatexText theme={theme} content={option.text} compact />
+                        </View>
                       ))}
 
                       {question.correctAnswerHint ? (
@@ -1334,6 +1354,12 @@ function createStyles(theme: AppTheme, width: number) {
       fontSize: theme.typography.body,
       lineHeight: 22,
       color: theme.colors.text,
+      marginBottom: theme.spacing.xs
+    },
+    questionOptionWrap: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      columnGap: theme.spacing.xs,
       marginBottom: theme.spacing.xs
     },
     questionHint: {

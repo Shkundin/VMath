@@ -69,6 +69,10 @@ function getRedirectUri(path: string): string {
   });
 }
 
+function getVkRedirectUri(): string {
+  return `vk${VK_APP_ID}://vk.ru/blank.html`;
+}
+
 function decodeJwtPayload<T>(token: string): T {
   const payloadPart = token.split(".")[1]?.trim() || "";
   const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
@@ -225,7 +229,7 @@ export async function signInWithVk(): Promise<SocialIdentity> {
     throw new Error("Сначала укажи EXPO_PUBLIC_VK_APP_ID.");
   }
 
-  const redirectUri = getRedirectUri("auth/vk");
+  const redirectUri = getVkRedirectUri();
   const request = new AuthRequest({
     clientId: VK_APP_ID,
     redirectUri,

@@ -20,6 +20,7 @@ export interface AppConfig {
   supabaseServiceRoleKey?: string | null;
   googleOauthClientIds?: string[];
   vkAppId?: string | null;
+  vkAppIds?: string[];
   accessTokenTtlSec: number;
   refreshTokenTtlSec: number;
 }
@@ -146,6 +147,16 @@ export function loadAppConfig(): AppConfig {
       []
     ),
     vkAppId: parseOptional("VK_APP_ID"),
+    vkAppIds: parseStringList(
+      [
+        process.env.VK_APP_IDS,
+        process.env.VK_APP_ID,
+        process.env.VK_ANDROID_APP_ID
+      ]
+        .filter(Boolean)
+        .join(","),
+      []
+    ),
     accessTokenTtlSec: parseNumber("JWT_ACCESS_TTL_SEC", 900),
     refreshTokenTtlSec: parseNumber("JWT_REFRESH_TTL_SEC", 60 * 60 * 24 * 30)
   };

@@ -35,6 +35,32 @@ interface VkUserInfoResponse {
 export class VkIdentityService {
   constructor(private readonly configService: AppConfigService) {}
 
+  private getClientIds(): string[] {
+    const ids = this.configService.value.vkAppIds ?? [];
+    if (ids.length > 0) {
+      return ids;
+    }
+
+    const legacyId = this.configService.value.vkAppId?.trim();
+    return legacyId ? [legacyId] : [];
+  }
+
+  private getClientIdForRedirect(redirectUri: string): string {
+    const clientIds = this.getClientIds();
+    const redirectAppId = redirectUri.match(/^vk(\d+):\/\//i)?.[1]?.trim();
+
+    if (redirectAppId && clientIds.includes(redirectAppId)) {
+      return redirectAppId;
+    }
+
+    const clientId = clientIds[0]?.trim();
+    if (!clientId) {
+      throw new AppException("HTTP", HttpStatus.SERVICE_UNAVAILABLE, "VK sign-in is not configured");
+    }
+
+    return clientId;
+  }
+
   async exchangeCode(input: {
     code: string;
     codeVerifier: string;
@@ -42,11 +68,6 @@ export class VkIdentityService {
     redirectUri: string;
     state: string;
   }): Promise<VerifiedExternalIdentity> {
-    const clientId = this.configService.value.vkAppId?.trim();
-    if (!clientId) {
-      throw new AppException("HTTP", HttpStatus.SERVICE_UNAVAILABLE, "VK sign-in is not configured");
-    }
-
     const code = input.code.trim();
     const codeVerifier = input.codeVerifier.trim();
     const deviceId = input.deviceId.trim();
@@ -61,6 +82,7 @@ export class VkIdentityService {
       );
     }
 
+    const clientId = this.getClientIdForRedirect(redirectUri);
     const query = new URLSearchParams({
       grant_type: "authorization_code",
       redirect_uri: redirectUri,
@@ -100,8 +122,8 @@ export class VkIdentityService {
     accessToken: string,
     options?: { fallbackSubject?: number | string | null; scope?: string | null }
   ): Promise<VerifiedExternalIdentity> {
-    const clientId = this.configService.value.vkAppId?.trim();
-    if (!clientId) {
+    const clientIds = this.getClientIds();
+    if (clientIds.length === 0) {
       throw new AppException("HTTP", HttpStatus.SERVICE_UNAVAILABLE, "VK sign-in is not configured");
     }
 
@@ -110,26 +132,37 @@ export class VkIdentityService {
       throw new AppException("VALIDATION", HttpStatus.BAD_REQUEST, "VK access token is required");
     }
 
-    const userInfoResponse = await fetch(
-      `https://id.vk.ru/oauth2/user_info?client_id=${encodeURIComponent(clientId)}`,
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/x-www-form-urlencoded"
-        },
-        body: new URLSearchParams({
-          access_token: normalizedAccessToken
-        }).toString()
-      }
-    );
+    let userInfoPayload: VkUserInfoResponse | null = null;
+    let lastUserInfoPayload: VkUserInfoResponse | null = null;
 
-    const userInfoPayload = (await userInfoResponse.json()) as VkUserInfoResponse;
-    if (!userInfoResponse.ok || userInfoPayload.error) {
+    for (const clientId of clientIds) {
+      const userInfoResponse = await fetch(
+        `https://id.vk.ru/oauth2/user_info?client_id=${encodeURIComponent(clientId)}`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/x-www-form-urlencoded"
+          },
+          body: new URLSearchParams({
+            access_token: normalizedAccessToken
+          }).toString()
+        }
+      );
+
+      const payload = (await userInfoResponse.json()) as VkUserInfoResponse;
+      lastUserInfoPayload = payload;
+      if (userInfoResponse.ok && !payload.error) {
+        userInfoPayload = payload;
+        break;
+      }
+    }
+
+    if (!userInfoPayload) {
       throw new AppException(
         "AUTH",
         HttpStatus.UNAUTHORIZED,
         "VK user info request failed",
-        userInfoPayload
+        lastUserInfoPayload
       );
     }
 

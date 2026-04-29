@@ -2546,7 +2546,32 @@ export function AppNavigation() {
 
     const details = lectureDetailsById[lectureId];
     if (details) {
-      void syncPublishedLectureToServer(nextLecture, details);
+      const nextBlocks = details.blocks.map((block) => {
+        if (block.type !== "text") {
+          return block;
+        }
+
+        return {
+          ...block,
+          payload: {
+            ...block.payload,
+            markdown: input.theory
+          }
+        };
+      });
+
+      const nextDetails = {
+        ...details,
+        title: nextLecture.title,
+        description: nextLecture.description,
+        blocks: nextBlocks
+      };
+
+      setLectureDetailsById((current) => ({
+        ...current,
+        [lectureId]: nextDetails
+      }));
+      void syncPublishedLectureToServer(nextLecture, nextDetails);
     }
   }
 

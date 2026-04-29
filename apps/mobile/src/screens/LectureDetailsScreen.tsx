@@ -10,12 +10,14 @@ import {
 import type {
   LectureBlock,
   LectureDetails,
+  FormulaBlock,
   QuizBlock,
   TextBlock,
   VisualBlock
 } from "@vm/shared";
 
 import { AppButton } from "../components/ui/AppButton";
+import { LatexText } from "../components/ui/LatexText";
 import { Screen } from "../components/ui/Screen";
 import { ScreenHeader } from "../components/ui/ScreenHeader";
 import { SectionCard } from "../components/ui/SectionCard";
@@ -290,11 +292,30 @@ function BlockSummary({ theme, block }: BlockSummaryProps) {
     );
   }
 
+  if (block.type === "formula") {
+    const formulaBlock = block as FormulaBlock;
+    return (
+      <LatexText
+        theme={theme}
+        compact
+        content={formulaBlock.payload.markdown || `$$${formulaBlock.payload.latex}$$`}
+      />
+    );
+  }
+
   if (block.type === "visual") {
     const visualBlock = block as VisualBlock;
     return (
       <Text numberOfLines={3} style={styles.blockSummaryText}>
         {fixText(visualBlock.payload.caption || "Интерактивный визуальный модуль для этой лекции.")}
+      </Text>
+    );
+  }
+
+  if (block.type !== "quiz" && block.type !== "checking_block") {
+    return (
+      <Text numberOfLines={3} style={styles.blockSummaryText}>
+        {fixText("Медиа-блок лекции. Открой занятие, чтобы посмотреть содержимое.")}
       </Text>
     );
   }
@@ -318,10 +339,6 @@ function BlockPreview({ theme, block, index }: BlockPreviewProps) {
 
   if (block.type === "text") {
     const textBlock = block as TextBlock;
-    const lines = textBlock.payload.markdown
-      .split("\n")
-      .map((line) => line.replace(/^#+\s*/, "").trim())
-      .filter(Boolean);
 
     return (
       <SectionCard
@@ -329,14 +346,24 @@ function BlockPreview({ theme, block, index }: BlockPreviewProps) {
         title={`Блок ${index + 1}: текст`}
         subtitle={fixText(block.title || "Текстовый материал лекции")}
       >
-        {lines.slice(0, 5).map((line, lineIndex) => (
-          <Text
-            key={`${line}-${lineIndex}`}
-            style={line.startsWith("-") ? styles.listItem : styles.previewTextLine}
-          >
-            {line.startsWith("-") ? `• ${fixText(line.replace(/^-+\s*/, ""))}` : fixText(line)}
-          </Text>
-        ))}
+        <LatexText theme={theme} content={textBlock.payload.markdown} />
+      </SectionCard>
+    );
+  }
+
+  if (block.type === "formula") {
+    const formulaBlock = block as FormulaBlock;
+
+    return (
+      <SectionCard
+        theme={theme}
+        title={`Блок ${index + 1}: формула`}
+        subtitle={fixText(block.title || "LaTeX-формула")}
+      >
+        <LatexText
+          theme={theme}
+          content={formulaBlock.payload.markdown || `$$${formulaBlock.payload.latex}$$`}
+        />
       </SectionCard>
     );
   }
@@ -367,6 +394,20 @@ function BlockPreview({ theme, block, index }: BlockPreviewProps) {
     );
   }
 
+  if (block.type !== "quiz" && block.type !== "checking_block") {
+    return (
+      <SectionCard
+        theme={theme}
+        title={`Блок ${index + 1}: материал`}
+        subtitle={fixText(block.title || "Медиа-блок")}
+      >
+        <Text style={styles.sectionText}>
+          {fixText("Этот блок содержит дополнительный материал лекции.")}
+        </Text>
+      </SectionCard>
+    );
+  }
+
   const quizBlock = block as QuizBlock;
 
   return (
@@ -380,9 +421,10 @@ function BlockPreview({ theme, block, index }: BlockPreviewProps) {
       </Text>
 
       {quizBlock.payload.questions.map((question, questionIndex) => (
-        <Text key={`${question.text}-${questionIndex}`} style={styles.listItem}>
-          {questionIndex + 1}. {fixText(question.text)}
-        </Text>
+        <View key={`${question.text}-${questionIndex}`} style={styles.quizPreviewQuestion}>
+          <Text style={styles.listItem}>{questionIndex + 1}.</Text>
+          <LatexText theme={theme} compact content={question.text} />
+        </View>
       ))}
     </SectionCard>
   );
@@ -391,6 +433,10 @@ function BlockPreview({ theme, block, index }: BlockPreviewProps) {
 function blockLabel(block: LectureBlock): string {
   if (block.type === "text") {
     return "Текст";
+  }
+
+  if (block.type === "formula") {
+    return "Формула";
   }
 
   if (block.type === "visual") {
@@ -629,6 +675,9 @@ function createStyles(theme: AppTheme, width: number) {
       color: theme.colors.text,
       marginBottom: theme.spacing.sm,
       lineHeight: 22
+    },
+    quizPreviewQuestion: {
+      marginBottom: theme.spacing.sm
     }
   });
 }

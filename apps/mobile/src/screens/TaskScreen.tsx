@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-na
 
 import { AppButton } from "../components/ui/AppButton";
 import { AppInput } from "../components/ui/AppInput";
+import { LatexText } from "../components/ui/LatexText";
 import { Screen } from "../components/ui/Screen";
 import { ScreenHeader } from "../components/ui/ScreenHeader";
 import { SectionCard } from "../components/ui/SectionCard";
@@ -321,7 +322,7 @@ export function TaskScreen({ theme, session, onBack, onSubmit }: TaskScreenProps
         subtitle={questionTypeLabel(currentQuestion)}
       >
         <View style={styles.questionHero}>
-          <Text style={styles.questionPrompt}>{fixText(currentQuestion.prompt)}</Text>
+          <LatexText theme={theme} content={currentQuestion.prompt} />
         </View>
 
         {currentQuestion.type === "single-choice"
@@ -350,7 +351,9 @@ export function TaskScreen({ theme, session, onBack, onSubmit }: TaskScreenProps
                         }
                       ]}
                     />
-                    <Text style={styles.optionText}>{fixText(option.label)}</Text>
+                    <View style={styles.optionText}>
+                      <LatexText theme={theme} content={option.label} compact />
+                    </View>
                   </View>
                 </Pressable>
               );
@@ -387,7 +390,9 @@ export function TaskScreen({ theme, session, onBack, onSubmit }: TaskScreenProps
                         }
                       ]}
                     />
-                    <Text style={styles.optionText}>{fixText(option.label)}</Text>
+                    <View style={styles.optionText}>
+                      <LatexText theme={theme} content={option.label} compact />
+                    </View>
                   </View>
                 </Pressable>
               );
@@ -628,10 +633,7 @@ function createStyles(theme: AppTheme, width: number) {
     },
     optionText: {
       flex: 1,
-      fontSize: theme.typography.body,
-      fontWeight: "700",
-      color: theme.colors.text,
-      lineHeight: 22
+      minWidth: 0
     },
     shortAnswerWrap: {
       marginTop: theme.spacing.xs
