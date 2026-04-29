@@ -300,7 +300,7 @@ function buildQuestionsFromLectureDetails(
   const quizBlock = lectureDetails?.blocks.find((block) => block.type === "quiz");
 
   if (!quizBlock || quizBlock.type !== "quiz" || quizBlock.payload.questions.length === 0) {
-    return lecture.id.startsWith("draft-") ? [] : lectureQuestions(lecture.id);
+    return [];
   }
 
   return quizBlock.payload.questions.map((question: any, index: number) => {
@@ -352,20 +352,28 @@ function buildQuestionsFromLectureDetails(
 
 export function createMockSession(
   lecture: LectureItem,
-  lectureDetails?: LectureDetails | null
+  lectureDetails?: LectureDetails | null,
+  options: {
+    connectionStatus?: "online" | "offline";
+    status?: "active" | "waiting" | "finished";
+    participantsCount?: number;
+  } = {}
 ): SessionData {
   const activeBlock = lectureDetails?.blocks[0] ?? null;
 
   return {
     sessionId: `session-${lecture.id}`,
-    sessionCode: lecture.id.toUpperCase().replace("LECTURE-", "VM-"),
+    sessionCode:
+      (options.connectionStatus ?? "offline") === "online"
+        ? lecture.id.toUpperCase().replace("LECTURE-", "VM-")
+        : "Нет активной сессии",
     lectureId: lecture.id,
     lectureTitle: lecture.title,
-    connectionStatus: "online",
-    status: "active",
+    connectionStatus: options.connectionStatus ?? "offline",
+    status: options.status ?? "waiting",
     activeBlockId: activeBlock?.id,
-    currentBlockTitle: activeBlock?.title ?? "Проверочный блок",
-    participantsCount: lecture.id === "lecture-3" ? 18 : 24,
+    currentBlockTitle: activeBlock?.title ?? "Сессия не найдена",
+    participantsCount: options.participantsCount ?? 0,
     startedAt: new Date().toISOString(),
     questions: buildQuestionsFromLectureDetails(lecture, lectureDetails)
   };

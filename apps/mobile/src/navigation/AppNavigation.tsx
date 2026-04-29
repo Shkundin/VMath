@@ -3137,7 +3137,13 @@ export function AppNavigation() {
           lectureDetailsById[selectedLecture.id];
 
     if (selectedLecture.id.startsWith("draft-lecture-")) {
-      setCurrentSession(createMockSession(selectedLecture, details));
+      setCurrentSession(
+        createMockSession(selectedLecture, details, {
+          connectionStatus: "online",
+          status: "active",
+          participantsCount: 1
+        })
+      );
       setCurrentSessionBlockId(null);
       setCurrentResult(null);
       setSessionMode("online");
@@ -3146,7 +3152,7 @@ export function AppNavigation() {
     }
 
     if (!details) {
-      setCurrentSession(createMockSession(selectedLecture));
+      setCurrentSession(createMockSession(selectedLecture, null));
       setCurrentSessionBlockId(null);
       setCurrentResult(null);
       setSessionMode("offline");
