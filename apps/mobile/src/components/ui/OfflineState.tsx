@@ -15,8 +15,8 @@ type OfflineStateProps = {
 
 export function OfflineState({
   theme,
-  title = "Нет подключения к сети",
-  description = "Показаны последние доступные данные. Проверь интернет и попробуй снова.",
+  title = "Материалы открыты из сохраненной версии",
+  description = "Можно продолжать обучение. Когда данные обновятся, приложение аккуратно подтянет свежие лекции и результаты.",
   onRetry
 }: OfflineStateProps) {
   const { width } = useWindowDimensions();
@@ -30,7 +30,7 @@ export function OfflineState({
       </View>
       {onRetry ? (
         <AppButton
-          label="Повторить"
+          label="Обновить"
           onPress={onRetry}
           theme={theme}
           variant="secondary"

@@ -1,5 +1,5 @@
 ﻿import React, { useMemo, useState } from "react";
-import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import { AppButton } from "../components/ui/AppButton";
 import { AppInput } from "../components/ui/AppInput";
@@ -117,6 +117,7 @@ export function GradesScreen({
   const [scoreDrafts, setScoreDrafts] = useState<Record<string, string>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [errorText, setErrorText] = useState("");
+  const [activeResultsTab, setActiveResultsTab] = useState<"homework" | "testing">("homework");
 
   const studentRows = useMemo(() => {
     return [...homeworks]
@@ -266,8 +267,49 @@ export function GradesScreen({
         </View>
       </View>
 
+      <View style={styles.tabsRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected: activeResultsTab === "homework" }}
+          onPress={() => setActiveResultsTab("homework")}
+          style={[
+            styles.tabButton,
+            activeResultsTab === "homework" ? styles.tabButtonActive : null
+          ]}
+        >
+          <Text
+            style={[
+              styles.tabButtonText,
+              activeResultsTab === "homework" ? styles.tabButtonTextActive : null
+            ]}
+          >
+            {fixText("Домашние задания")}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected: activeResultsTab === "testing" }}
+          onPress={() => setActiveResultsTab("testing")}
+          style={[
+            styles.tabButton,
+            activeResultsTab === "testing" ? styles.tabButtonActive : null
+          ]}
+        >
+          <Text
+            style={[
+              styles.tabButtonText,
+              activeResultsTab === "testing" ? styles.tabButtonTextActive : null
+            ]}
+          >
+            {fixText("Результаты тестов")}
+          </Text>
+        </Pressable>
+      </View>
+
       {isTeacher ? (
         <>
+          {activeResultsTab === "homework" ? (
           <SectionCard
             theme={theme}
             title="Домашние задания"
@@ -394,7 +436,9 @@ export function GradesScreen({
               ))
             )}
           </SectionCard>
+          ) : null}
 
+          {activeResultsTab === "testing" ? (
           <SectionCard
             theme={theme}
             title="Итоги по тестированию"
@@ -513,9 +557,11 @@ export function GradesScreen({
               </>
             )}
           </SectionCard>
+          ) : null}
         </>
       ) : (
         <>
+          {activeResultsTab === "homework" ? (
           <SectionCard
             theme={theme}
             title="Мои оценки"
@@ -587,7 +633,9 @@ export function GradesScreen({
               ))
             )}
           </SectionCard>
+          ) : null}
 
+          {activeResultsTab === "testing" ? (
           <SectionCard
             theme={theme}
             title="Мои тесты"
@@ -635,6 +683,7 @@ export function GradesScreen({
               ))
             )}
           </SectionCard>
+          ) : null}
         </>
       )}
     </Screen>
@@ -787,6 +836,37 @@ function createStyles(theme: AppTheme, width: number) {
     },
     heroStats: {
       width: isCompact ? "100%" : 250
+    },
+    tabsRow: {
+      flexDirection: isPhone ? "column" : "row",
+      gap: theme.spacing.sm,
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.xs,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      marginBottom: theme.spacing.lg
+    },
+    tabButton: {
+      flex: 1,
+      minHeight: 44,
+      borderRadius: theme.radius.md,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm
+    },
+    tabButtonActive: {
+      backgroundColor: theme.colors.primary
+    },
+    tabButtonText: {
+      fontSize: theme.typography.body,
+      fontWeight: "700",
+      color: theme.colors.text,
+      textAlign: "center"
+    },
+    tabButtonTextActive: {
+      color: "#FFFFFF"
     },
     miniStatCard: {
       borderRadius: theme.radius.lg,

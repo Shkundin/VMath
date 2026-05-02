@@ -22,9 +22,22 @@ import type { UserProfile } from "../mocks/user";
 import type { AppTheme } from "../theme";
 import { fixTextSafe as fixText } from "../utils/fixTextSafe";
 
+export type DraftLectureBlockInput =
+  | {
+      type: "theory";
+      title: string;
+      content: string;
+    }
+  | {
+      type: "practice";
+      title: string;
+      questions: DraftQuestionInput[];
+    };
+
 export type DraftLectureInput = {
   title: string;
   description: string;
+  blocks: DraftLectureBlockInput[];
   theory: string;
   videoUrl: string;
   subject: string;
@@ -96,6 +109,10 @@ export function TeacherHomeScreen({
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [draftBlockType, setDraftBlockType] = useState<"theory" | "practice">("theory");
+  const [draftBlockTitle, setDraftBlockTitle] = useState("");
+  const [draftBlocks, setDraftBlocks] = useState<DraftLectureBlockInput[]>([]);
+  const [draftPracticeQuestions, setDraftPracticeQuestions] = useState<DraftQuestionInput[]>([]);
   const [theory, setTheory] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [subject, setSubject] = useState("Математический анализ");
@@ -122,6 +139,14 @@ export function TeacherHomeScreen({
   const [questionExplanation, setQuestionExplanation] = useState("");
   const [questionError, setQuestionError] = useState("");
   const [questionSuccess, setQuestionSuccess] = useState("");
+
+  const [builderQuestionText, setBuilderQuestionText] = useState("");
+  const [builderOptionA, setBuilderOptionA] = useState("");
+  const [builderOptionB, setBuilderOptionB] = useState("");
+  const [builderOptionC, setBuilderOptionC] = useState("");
+  const [builderOptionD, setBuilderOptionD] = useState("");
+  const [builderCorrectOptionKey, setBuilderCorrectOptionKey] = useState<"A" | "B" | "C" | "D">("A");
+  const [builderQuestionExplanation, setBuilderQuestionExplanation] = useState("");
 
   const expandedLecture = useMemo(
     () => lectures.find((lecture) => lecture.id === expandedLectureId) ?? null,
@@ -203,6 +228,90 @@ export function TeacherHomeScreen({
     setQuestionSuccess("");
   }
 
+  function resetBuilderQuestionForm() {
+    setBuilderQuestionText("");
+    setBuilderOptionA("");
+    setBuilderOptionB("");
+    setBuilderOptionC("");
+    setBuilderOptionD("");
+    setBuilderCorrectOptionKey("A");
+    setBuilderQuestionExplanation("");
+  }
+
+  function handleAddBuilderTheoryBlock() {
+    const nextContent = theory.trim();
+    if (!nextContent) {
+      setCreateSuccess("");
+      setCreateError("Добавь LaTeX/Markdown для теоретического блока.");
+      return;
+    }
+
+    setDraftBlocks((current) => [
+      ...current,
+      {
+        type: "theory",
+        title: draftBlockTitle.trim() || `Теория ${current.length + 1}`,
+        content: nextContent
+      }
+    ]);
+    setDraftBlockTitle("");
+    setTheory("");
+    setCreateError("");
+    setCreateSuccess("Теоретический блок добавлен. Можно добавить следующий блок или завершить лекцию.");
+  }
+
+  function handleAddBuilderPracticeQuestion() {
+    if (!builderQuestionText.trim()) {
+      setCreateSuccess("");
+      setCreateError("Введите текст вопроса для практики.");
+      return;
+    }
+
+    if (!builderOptionA.trim() || !builderOptionB.trim() || !builderOptionC.trim() || !builderOptionD.trim()) {
+      setCreateSuccess("");
+      setCreateError("Заполни все четыре варианта ответа для практики.");
+      return;
+    }
+
+    setDraftPracticeQuestions((current) => [
+      ...current,
+      {
+        text: builderQuestionText.trim(),
+        optionA: builderOptionA.trim(),
+        optionB: builderOptionB.trim(),
+        optionC: builderOptionC.trim(),
+        optionD: builderOptionD.trim(),
+        correctOptionKey: builderCorrectOptionKey,
+        explanation: builderQuestionExplanation.trim()
+      }
+    ]);
+    resetBuilderQuestionForm();
+    setCreateError("");
+    setCreateSuccess("Вопрос добавлен в текущую практику.");
+  }
+
+  function handleAddBuilderPracticeBlock() {
+    if (draftPracticeQuestions.length === 0) {
+      setCreateSuccess("");
+      setCreateError("Добавь хотя бы один вопрос в практический блок.");
+      return;
+    }
+
+    setDraftBlocks((current) => [
+      ...current,
+      {
+        type: "practice",
+        title: draftBlockTitle.trim() || `Практика ${current.length + 1}`,
+        questions: draftPracticeQuestions
+      }
+    ]);
+    setDraftBlockTitle("");
+    setDraftPracticeQuestions([]);
+    resetBuilderQuestionForm();
+    setCreateError("");
+    setCreateSuccess("Практический блок добавлен. Можно добавить следующий блок или завершить лекцию.");
+  }
+
   function handleCreateLecture() {
     const nextTitle = title.trim();
     const nextDescription = description.trim();
@@ -223,9 +332,9 @@ export function TeacherHomeScreen({
       return;
     }
 
-    if (!nextTheory) {
+    if (draftBlocks.length === 0) {
       setCreateSuccess("");
-      setCreateError("Введите теоретический материал.");
+      setCreateError("Добавь хотя бы один блок лекции.");
       return;
     }
 
@@ -238,6 +347,7 @@ export function TeacherHomeScreen({
     const createdLectureId = onCreateDraftLecture({
       title: nextTitle,
       description: nextDescription,
+      blocks: draftBlocks,
       theory: nextTheory,
       subject: nextSubject,
       semester: nextSemester,
@@ -253,13 +363,17 @@ export function TeacherHomeScreen({
 
     setTitle("");
     setDescription("");
+    setDraftBlockType("theory");
+    setDraftBlockTitle("");
+    setDraftBlocks([]);
+    setDraftPracticeQuestions([]);
     setTheory("");
     setVideoUrl("");
     setSubject("Математический анализ");
     setSemester("1 семестр");
     setLevel("Базовый");
     setCreateError("");
-    setCreateSuccess("Лекция создана. Теперь можно открыть редактор и добавить вопросы.");
+    setCreateSuccess("Лекция создана полностью. Ее можно открыть, запустить или доработать ниже.");
     setExpandedLectureId(createdLectureId);
     resetQuestionForm();
   }
@@ -338,7 +452,7 @@ export function TeacherHomeScreen({
     <SectionCard
       theme={theme}
       title="Создать новую лекцию"
-      subtitle="Сначала создаём основу, потом открываем редактор и наполняем вопросами."
+      subtitle="Нажми создать лекцию, выбери первый блок и сразу наполни его материалом."
       style={isCompactLayout ? undefined : styles.dashboardWide}
     >
       <AppInput
@@ -360,15 +474,158 @@ export function TeacherHomeScreen({
         numberOfLines={3}
       />
 
+      <Text style={styles.fieldLabel}>{fixText("Добавь блок в лекцию")}</Text>
+      <View style={styles.blockTypeGrid}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected: draftBlockType === "theory" }}
+          onPress={() => setDraftBlockType("theory")}
+          style={[
+            styles.blockTypeCard,
+            draftBlockType === "theory" ? styles.blockTypeCardActive : null
+          ]}
+        >
+          <Text style={styles.blockTypeTitle}>{fixText("Теория")}</Text>
+          <Text style={styles.blockTypeText}>{fixText("LaTeX, Markdown, формулы и объяснение темы.")}</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected: draftBlockType === "practice" }}
+          onPress={() => setDraftBlockType("practice")}
+          style={[
+            styles.blockTypeCard,
+            draftBlockType === "practice" ? styles.blockTypeCardActive : null
+          ]}
+        >
+          <Text style={styles.blockTypeTitle}>{fixText("Практика")}</Text>
+          <Text style={styles.blockTypeText}>{fixText("Пустой тестовый блок, куда сразу добавляются вопросы.")}</Text>
+        </Pressable>
+      </View>
+
       <AppInput
-        label="Теоретический материал"
+        label="Название блока"
         theme={theme}
-        value={theory}
-        onChangeText={setTheory}
-        placeholder={"Вставь основной текст лекции. Можно писать LaTeX: $x^2$, $$\\int_0^1 x^2 dx$$"}
-        multiline
-        numberOfLines={8}
+        value={draftBlockTitle}
+        onChangeText={setDraftBlockTitle}
+        placeholder={draftBlockType === "theory" ? "Например: Определение" : "Например: Проверка понимания"}
       />
+
+      {draftBlockType === "theory" ? (
+        <>
+          <AppInput
+            label="LaTeX/Markdown для теории"
+            theme={theme}
+            value={theory}
+            onChangeText={setTheory}
+            placeholder={"# Тема\nПояснение с формулой $x^2$.\n$$\\int_0^1 x^2 dx=\\frac13$$"}
+            multiline
+            numberOfLines={8}
+          />
+
+          <AppButton
+            label="Добавить блок теории"
+            onPress={handleAddBuilderTheoryBlock}
+            theme={theme}
+            variant="secondary"
+            style={styles.actionTop}
+          />
+        </>
+      ) : (
+        <>
+          <View style={styles.practiceHint}>
+            <Text style={styles.practiceHintTitle}>{fixText("Практический блок")}</Text>
+            <Text style={styles.practiceHintText}>
+              {fixText(`В текущей практике вопросов: ${draftPracticeQuestions.length}. Добавь вопросы, затем сохрани блок.`)}
+            </Text>
+          </View>
+
+          <AppInput
+            label="Текст вопроса"
+            theme={theme}
+            value={builderQuestionText}
+            onChangeText={setBuilderQuestionText}
+            placeholder={"Например: чему равна $\\int_0^1 x dx$?"}
+            multiline
+            numberOfLines={3}
+          />
+
+          <View style={styles.formRow}>
+            <View style={styles.halfCol}>
+              <AppInput label="Вариант A" theme={theme} value={builderOptionA} onChangeText={setBuilderOptionA} placeholder="Первый вариант" />
+            </View>
+            <View style={styles.halfCol}>
+              <AppInput label="Вариант B" theme={theme} value={builderOptionB} onChangeText={setBuilderOptionB} placeholder="Второй вариант" />
+            </View>
+          </View>
+
+          <View style={styles.formRow}>
+            <View style={styles.halfCol}>
+              <AppInput label="Вариант C" theme={theme} value={builderOptionC} onChangeText={setBuilderOptionC} placeholder="Третий вариант" />
+            </View>
+            <View style={styles.halfCol}>
+              <AppInput label="Вариант D" theme={theme} value={builderOptionD} onChangeText={setBuilderOptionD} placeholder="Четвертый вариант" />
+            </View>
+          </View>
+
+          <AnswerOptionSelector
+            theme={theme}
+            label="Правильный ответ"
+            helperText="Выбери правильный вариант для этого вопроса."
+            options={[
+              { key: "A", label: "Вариант A", text: builderOptionA },
+              { key: "B", label: "Вариант B", text: builderOptionB },
+              { key: "C", label: "Вариант C", text: builderOptionC },
+              { key: "D", label: "Вариант D", text: builderOptionD }
+            ]}
+            selectedKey={builderCorrectOptionKey}
+            onSelect={setBuilderCorrectOptionKey}
+          />
+
+          <AppInput
+            label="Пояснение"
+            theme={theme}
+            value={builderQuestionExplanation}
+            onChangeText={setBuilderQuestionExplanation}
+            placeholder="Короткое пояснение к правильному ответу"
+            multiline
+            numberOfLines={3}
+          />
+
+          <View style={styles.actionsRow}>
+            <AppButton
+              label="Добавить вопрос"
+              onPress={handleAddBuilderPracticeQuestion}
+              theme={theme}
+              variant="secondary"
+              fullWidth={false}
+              style={styles.inlineButton}
+            />
+            <AppButton
+              label="Добавить блок практики"
+              onPress={handleAddBuilderPracticeBlock}
+              theme={theme}
+              variant="secondary"
+              fullWidth={false}
+              style={styles.inlineButton}
+            />
+          </View>
+        </>
+      )}
+
+      {draftBlocks.length > 0 ? (
+        <View style={styles.builderTimeline}>
+          {draftBlocks.map((block, index) => (
+            <View key={`${block.type}-${index}`} style={styles.builderTimelineItem}>
+              <Text style={styles.builderTimelineIndex}>{fixText(`Блок ${index + 1}`)}</Text>
+              <Text style={styles.builderTimelineTitle}>{fixText(block.title)}</Text>
+              <Text style={styles.builderTimelineMeta}>
+                {fixText(block.type === "theory" ? "Теория" : `Практика • вопросов: ${block.questions.length}`)}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       <View style={styles.formRow}>
         <View style={styles.formCol}>
@@ -416,7 +673,7 @@ export function TeacherHomeScreen({
       {createSuccess ? <Text style={styles.successText}>{fixText(createSuccess)}</Text> : null}
 
       <AppButton
-        label="Создать лекцию"
+        label="Завершить создание лекции"
         onPress={handleCreateLecture}
         theme={theme}
         style={styles.actionTop}
@@ -1169,6 +1426,97 @@ function createStyles(theme: AppTheme, width: number) {
     },
     actionTop: {
       marginTop: theme.spacing.sm
+    },
+    fieldLabel: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      fontWeight: "700",
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.sm
+    },
+    blockTypeGrid: {
+      flexDirection: isPhone ? "column" : "row",
+      columnGap: theme.spacing.sm,
+      marginBottom: theme.spacing.md
+    },
+    blockTypeCard: {
+      flex: 1,
+      minHeight: 104,
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.md,
+      backgroundColor: theme.colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      marginBottom: isPhone ? theme.spacing.sm : 0
+    },
+    blockTypeCardActive: {
+      backgroundColor: theme.colors.primarySoft,
+      borderColor: theme.colors.primary
+    },
+    blockTypeTitle: {
+      fontFamily: theme.fonts.display,
+      fontSize: theme.typography.sectionTitle,
+      fontWeight: "700",
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs
+    },
+    blockTypeText: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      lineHeight: 19,
+      color: theme.colors.textSecondary
+    },
+    practiceHint: {
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.md,
+      backgroundColor: theme.colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      marginBottom: theme.spacing.md
+    },
+    practiceHintTitle: {
+      fontFamily: theme.fonts.display,
+      fontSize: theme.typography.body,
+      fontWeight: "700",
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs
+    },
+    practiceHintText: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      lineHeight: 19,
+      color: theme.colors.textSecondary
+    },
+    builderTimeline: {
+      marginTop: theme.spacing.md,
+      marginBottom: theme.spacing.md
+    },
+    builderTimelineItem: {
+      borderRadius: theme.radius.md,
+      padding: theme.spacing.md,
+      backgroundColor: theme.colors.surfaceElevated,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      marginBottom: theme.spacing.sm
+    },
+    builderTimelineIndex: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      fontWeight: "700",
+      color: theme.colors.primary,
+      marginBottom: theme.spacing.xs
+    },
+    builderTimelineTitle: {
+      fontFamily: theme.fonts.display,
+      fontSize: theme.typography.body,
+      fontWeight: "700",
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs
+    },
+    builderTimelineMeta: {
+      fontFamily: theme.fonts.body,
+      fontSize: theme.typography.caption,
+      color: theme.colors.textSecondary
     },
     errorText: {
       color: theme.colors.danger,

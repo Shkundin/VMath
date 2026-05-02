@@ -51,7 +51,10 @@ export function LectureDetailsScreen({
     lecture.id.startsWith("draft-lecture-")
       ? ["Открой лекцию и перейди к занятию.", "После этого можно пройти проверочный блок."]
       : lecture.participationRequirements
-  );
+  ).filter((item) => {
+    const normalized = item.toLowerCase();
+    return !normalized.includes("сети") && !normalized.includes("подключ");
+  });
 
   return (
     <Screen theme={theme}>
@@ -179,57 +182,44 @@ export function LectureDetailsScreen({
 
       <SectionCard
         theme={theme}
-        title="Структура лекции"
-        subtitle="Блоки, которые входят в это занятие."
+        title="Презентация лекции"
+        subtitle="Студент проходит блоки по порядку: сначала один экран, затем следующий."
       >
         {blocks.length > 0 ? (
-          <View style={styles.blockList}>
+          <View style={styles.slideDeck}>
             {blocks.map((block, index) => (
-              <View key={`${block.type}-${index}`} style={styles.blockSummaryCard}>
-                <View style={styles.blockSummaryTop}>
-                  <Text style={styles.blockIndex}>Блок {index + 1}</Text>
-                  <View style={styles.blockTypeBadge}>
-                    <Text style={styles.blockTypeBadgeText}>{fixText(blockLabel(block))}</Text>
-                  </View>
+              <View key={`${block.type}-${index}`} style={styles.presentationSlide}>
+                <View style={styles.slideChrome}>
+                  <Text style={styles.slideCounter}>{`${index + 1} / ${blocks.length}`}</Text>
+                  <Text style={styles.slideKind}>{fixText(blockLabel(block))}</Text>
                 </View>
 
-                <Text style={styles.blockTitle}>{fixText(block.title || blockLabel(block))}</Text>
-                <BlockSummary theme={theme} block={block} />
+                <Text style={styles.slideTitle}>{fixText(block.title || blockLabel(block))}</Text>
+                <View style={styles.slideBody}>
+                  <BlockPreview theme={theme} block={block} embedded />
+                </View>
               </View>
             ))}
           </View>
         ) : (
-          <View style={styles.blockList}>
+          <View style={styles.slideDeck}>
             {fixTextList(
-              lecture.id.startsWith("draft-lecture-") ? ["Theory", "Questions"] : lecture.blocks
+              lecture.id.startsWith("draft-lecture-") ? ["Теория", "Практика"] : lecture.blocks
             ).map((block, index) => (
-              <View key={`${block}-${index}`} style={styles.blockSummaryCard}>
-                <View style={styles.blockSummaryTop}>
-                  <Text style={styles.blockIndex}>Блок {index + 1}</Text>
+              <View key={`${block}-${index}`} style={styles.presentationSlide}>
+                <View style={styles.slideChrome}>
+                  <Text style={styles.slideCounter}>{`${index + 1} / ${lecture.blocks.length || 2}`}</Text>
+                  <Text style={styles.slideKind}>{fixText(block)}</Text>
                 </View>
-                <Text style={styles.blockTitle}>{fixText(block)}</Text>
-                <Text style={styles.blockSummaryText}>
-                  Блок будет детализирован после загрузки данных лекции.
+                <Text style={styles.slideTitle}>{fixText(block)}</Text>
+                <Text style={styles.slidePlaceholder}>
+                  {fixText("Материал появится здесь как отдельный экран презентации.")}
                 </Text>
               </View>
             ))}
           </View>
         )}
       </SectionCard>
-
-      {blocks.length > 0 ? (
-        <SectionCard
-          theme={theme}
-          title="Preview содержимого"
-          subtitle="Краткий просмотр наполнения лекции."
-        >
-          {blocks.map((block, index) => (
-            <View key={`preview-${block.type}-${index}`} style={styles.previewSpacing}>
-              <BlockPreview theme={theme} block={block} index={index} />
-            </View>
-          ))}
-        </SectionCard>
-      ) : null}
     </Screen>
   );
 }
@@ -331,23 +321,19 @@ function BlockSummary({ theme, block }: BlockSummaryProps) {
 type BlockPreviewProps = {
   theme: AppTheme;
   block: LectureBlock;
-  index: number;
+  embedded?: boolean;
 };
 
-function BlockPreview({ theme, block, index }: BlockPreviewProps) {
+function BlockPreview({ theme, block, embedded = false }: BlockPreviewProps) {
   const styles = createStyles(theme, 1200);
 
   if (block.type === "text") {
     const textBlock = block as TextBlock;
 
     return (
-      <SectionCard
-        theme={theme}
-        title={`Блок ${index + 1}: текст`}
-        subtitle={fixText(block.title || "Текстовый материал лекции")}
-      >
+      <View style={embedded ? styles.embeddedPreview : undefined}>
         <LatexText theme={theme} content={textBlock.payload.markdown} />
-      </SectionCard>
+      </View>
     );
   }
 
@@ -355,16 +341,12 @@ function BlockPreview({ theme, block, index }: BlockPreviewProps) {
     const formulaBlock = block as FormulaBlock;
 
     return (
-      <SectionCard
-        theme={theme}
-        title={`Блок ${index + 1}: формула`}
-        subtitle={fixText(block.title || "LaTeX-формула")}
-      >
+      <View style={embedded ? styles.embeddedPreview : undefined}>
         <LatexText
           theme={theme}
           content={formulaBlock.payload.markdown || `$$${formulaBlock.payload.latex}$$`}
         />
-      </SectionCard>
+      </View>
     );
   }
 
@@ -378,11 +360,7 @@ function BlockPreview({ theme, block, index }: BlockPreviewProps) {
         : "scene";
 
     return (
-      <SectionCard
-        theme={theme}
-        title={`Блок ${index + 1}: визуализация`}
-        subtitle={fixText(visualBlock.payload.caption || "Интерактивная визуализация")}
-      >
+      <View style={embedded ? styles.embeddedPreview : undefined}>
         <Text style={styles.sectionText}>{fixText(`Сцена: ${sceneName}`)}</Text>
         <VisualModuleFallback
           theme={theme}
@@ -390,32 +368,24 @@ function BlockPreview({ theme, block, index }: BlockPreviewProps) {
           title="Preview визуального модуля"
           description="Пока здесь безопасный UI-fallback. Позже этот контейнер можно заменить на реальный рендер VM Graphics."
         />
-      </SectionCard>
+      </View>
     );
   }
 
   if (block.type !== "quiz" && block.type !== "checking_block") {
     return (
-      <SectionCard
-        theme={theme}
-        title={`Блок ${index + 1}: материал`}
-        subtitle={fixText(block.title || "Медиа-блок")}
-      >
+      <View style={embedded ? styles.embeddedPreview : undefined}>
         <Text style={styles.sectionText}>
           {fixText("Этот блок содержит дополнительный материал лекции.")}
         </Text>
-      </SectionCard>
+      </View>
     );
   }
 
   const quizBlock = block as QuizBlock;
 
   return (
-    <SectionCard
-      theme={theme}
-      title={`Блок ${index + 1}: проверка`}
-      subtitle="Проверочный блок лекции"
-    >
+    <View style={embedded ? styles.embeddedPreview : undefined}>
       <Text style={styles.sectionText}>
         {fixText(`Ограничение по времени: ${quizBlock.payload.timeLimitSec ?? 0} сек.`)}
       </Text>
@@ -426,7 +396,7 @@ function BlockPreview({ theme, block, index }: BlockPreviewProps) {
           <LatexText theme={theme} compact content={question.text} />
         </View>
       ))}
-    </SectionCard>
+    </View>
   );
 }
 
@@ -615,6 +585,60 @@ function createStyles(theme: AppTheme, width: number) {
       flexDirection: "row",
       flexWrap: "wrap",
       marginHorizontal: 0
+    },
+    slideDeck: {
+      gap: theme.spacing.md
+    },
+    presentationSlide: {
+      minHeight: isPhone ? 360 : 430,
+      borderRadius: theme.radius.xl,
+      padding: isPhone ? theme.spacing.lg : theme.spacing.xl,
+      backgroundColor: theme.colors.surfaceElevated,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      ...theme.shadow.md
+    },
+    slideChrome: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      flexWrap: "wrap",
+      marginBottom: theme.spacing.md
+    },
+    slideCounter: {
+      fontSize: theme.typography.caption,
+      fontWeight: "700",
+      color: theme.colors.primary
+    },
+    slideKind: {
+      minHeight: 30,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: 6,
+      borderRadius: theme.radius.pill,
+      overflow: "hidden",
+      backgroundColor: theme.colors.primarySoft,
+      color: theme.colors.primary,
+      fontSize: theme.typography.caption,
+      fontWeight: "700"
+    },
+    slideTitle: {
+      fontSize: isPhone ? 24 : 32,
+      lineHeight: isPhone ? 30 : 38,
+      fontWeight: "700",
+      color: theme.colors.text,
+      marginBottom: theme.spacing.lg
+    },
+    slideBody: {
+      flex: 1,
+      minHeight: 0
+    },
+    slidePlaceholder: {
+      fontSize: theme.typography.body,
+      lineHeight: 24,
+      color: theme.colors.textSecondary
+    },
+    embeddedPreview: {
+      width: "100%"
     },
     blockSummaryCard: {
       flexBasis: isPhone ? "100%" : 300,

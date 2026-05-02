@@ -73,7 +73,7 @@ import { TeacherBranchSelectScreen } from "../screens/TeacherBranchSelectScreen"
 import { LatexWorkspaceScreen } from "../screens/LatexWorkspaceScreen";
 import { TaskResultScreen } from "../screens/TaskResultScreen";
 import { TaskScreen } from "../screens/TaskScreen";
-import { TeacherHomeScreen, type DraftLectureInput, type DraftLectureMetaInput, type DraftQuestionInput } from "../screens/TeacherHomeScreen";
+import { TeacherHomeScreen, type DraftLectureBlockInput, type DraftLectureInput, type DraftLectureMetaInput, type DraftQuestionInput } from "../screens/TeacherHomeScreen";
 import { TeacherSessionControlScreen } from "../screens/TeacherSessionControlScreen";
 import { VkIdWebWidgets } from "../components/auth/VkIdWebWidgets";
 import {
@@ -440,8 +440,8 @@ function createDraftLectureItem(
     level: input.level.trim() || "\u0411\u0430\u0437\u043e\u0432\u044b\u0439",
     tags: ["draft", "teacher"],
     description: input.description.trim() || "\u041a\u0440\u0430\u0442\u043a\u043e\u0435 \u043e\u043f\u0438\u0441\u0430\u043d\u0438\u0435.",
-    blocks: ["\u0422\u0435\u043e\u0440\u0438\u044f", "\u041f\u0440\u043e\u0432\u0435\u0440\u043e\u0447\u043d\u044b\u0439 \u0431\u043b\u043e\u043a"],
-    participationRequirements: ["\u041e\u0442\u043a\u0440\u043e\u0439\u0442\u0435 \u043b\u0435\u043a\u0446\u0438\u044e \u0438 \u043d\u0430\u0447\u043d\u0438\u0442\u0435 \u0441\u0435\u0441\u0441\u0438\u044e"],
+    blocks: input.blocks.map((block) => block.title || (block.type === "theory" ? "\u0422\u0435\u043e\u0440\u0438\u044f" : "\u041f\u0440\u0430\u043a\u0442\u0438\u043a\u0430")),
+    participationRequirements: ["\u041e\u0442\u043a\u0440\u043e\u0439\u0442\u0435 \u043b\u0435\u043a\u0446\u0438\u044e \u0438 \u043d\u0430\u0447\u043d\u0438\u0442\u0435 \u0437\u0430\u043d\u044f\u0442\u0438\u0435"],
     estimatedDuration: "15 \u043c\u0438\u043d\u0443\u0442"
   };
 
@@ -458,29 +458,68 @@ function createDraftLectureDetails(
   lectureId: string,
   input: DraftLectureInput
 ): LectureDetails {
-  const theoryBlock: TextBlock = {
-    id: `${lectureId}-theory`,
-    type: "text",
-    title: "Theory",
-    payload: {
-      markdown: input.theory
-    }
-  };
-
-  const quizBlock: QuizBlock = {
-    id: `${lectureId}-quiz`,
-    type: "quiz",
-    title: "Questions",
-    payload: {
-      questions: []
-    }
-  };
+  const blocks = input.blocks.map((block, index) =>
+    createLectureBlockFromDraft(lectureId, block, index)
+  );
 
   return {
     id: lectureId,
     title: input.title,
     description: input.description,
-    blocks: [theoryBlock, quizBlock]
+    blocks
+  };
+}
+
+function createLectureBlockFromDraft(
+  lectureId: string,
+  block: DraftLectureBlockInput,
+  index: number
+): LectureBlock {
+  if (block.type === "theory") {
+    return {
+      id: `${lectureId}-theory-${index + 1}`,
+      type: "text",
+      title: block.title || "\u0422\u0435\u043e\u0440\u0438\u044f",
+      order: index + 1,
+      payload: {
+        markdown: block.content
+      }
+    } as TextBlock;
+  }
+
+  return {
+    id: `${lectureId}-practice-${index + 1}`,
+    type: "quiz",
+    title: block.title || "\u041f\u0440\u0430\u043a\u0442\u0438\u043a\u0430",
+    order: index + 1,
+    payload: {
+      questions: block.questions.map((question, questionIndex) =>
+        createQuizQuestionFromDraft(question, questionIndex)
+      )
+    }
+  } as QuizBlock;
+}
+
+function createQuizQuestionFromDraft(
+  input: DraftQuestionInput,
+  index: number
+): QuizQuestion {
+  return {
+    id: `question-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+    type: "single",
+    text: input.text,
+    options: [
+      { id: "A", text: input.optionA, isCorrect: input.correctOptionKey === "A" },
+      { id: "B", text: input.optionB, isCorrect: input.correctOptionKey === "B" },
+      { id: "C", text: input.optionC, isCorrect: input.correctOptionKey === "C" },
+      { id: "D", text: input.optionD, isCorrect: input.correctOptionKey === "D" }
+    ],
+    correctOptionId: input.correctOptionKey,
+    correctAnswerHint: input.explanation
+      ? `Correct answer: ${input.correctOptionKey}. ${input.explanation}`
+      : `Correct answer: ${input.correctOptionKey}.`,
+    explanation: input.explanation,
+    order: index + 1
   };
 }
 
@@ -2822,11 +2861,13 @@ export function AppNavigation() {
 
     const details = lectureDetailsById[lectureId];
     if (details) {
+      let theoryFound = false;
       const nextBlocks = details.blocks.map((block) => {
         if (block.type !== "text") {
           return block;
         }
 
+        theoryFound = true;
         return {
           ...block,
           payload: {
@@ -2835,6 +2876,17 @@ export function AppNavigation() {
           }
         };
       });
+
+      if (!theoryFound && input.theory.trim()) {
+        nextBlocks.unshift({
+          id: `${lectureId}-theory`,
+          type: "text",
+          title: "\u0422\u0435\u043e\u0440\u0438\u044f",
+          payload: {
+            markdown: input.theory.trim()
+          }
+        } as TextBlock);
+      }
 
       const nextDetails = {
         ...details,
