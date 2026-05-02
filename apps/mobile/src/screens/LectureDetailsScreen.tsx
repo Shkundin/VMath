@@ -530,6 +530,12 @@ function normalizeLatexContent(content: string): string {
     .split("\n")
     .map((line) => {
       const trimmed = line.trim();
+      const hasInlineFormula =
+        trimmed.includes("$") ||
+        trimmed.includes("\\(") ||
+        trimmed.includes("\\)") ||
+        trimmed.includes("\\[") ||
+        trimmed.includes("\\]");
       const isWrapped =
         trimmed.startsWith("$") ||
         trimmed.startsWith("\\(") ||
@@ -539,7 +545,7 @@ function normalizeLatexContent(content: string): string {
         trimmed.startsWith("* ");
       const looksLikeLatex = /\\[a-zA-Z]+|[_^]\{?/.test(trimmed);
 
-      if (!trimmed || isWrapped || !looksLikeLatex) {
+      if (!trimmed || hasInlineFormula || isWrapped || !looksLikeLatex) {
         return line;
       }
 
