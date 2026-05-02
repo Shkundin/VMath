@@ -61,11 +61,14 @@ import { GradesScreen } from "../screens/GradesScreen";
 import { TestingScreen, type TestingRunResult } from "../screens/TestingScreen";
 import {
   readActiveTestingSession,
+  readLectureTestResults,
   readTestingSubmissions,
   writeActiveTestingSession,
+  writeLectureTestResults,
   writeTestingSubmissions,
   type ActiveTestingQuestion,
   type ActiveTestingSession,
+  type LectureTestResult,
   type TestingAnswerKey,
   type TestingSubmission
 } from "../storage/testingStorage";
@@ -1245,6 +1248,7 @@ export function AppNavigation() {
   const [testingResults, setTestingResults] = useState<TestingRunResult[]>([]);
   const [activeTestingSession, setActiveTestingSession] = useState<ActiveTestingSession | null>(null);
   const [testingSubmissions, setTestingSubmissions] = useState<TestingSubmission[]>([]);
+  const [lectureTestResults, setLectureTestResults] = useState<LectureTestResult[]>([]);
   const [activeLessonSessions, setActiveLessonSessions] = useState<ActiveSessionSummary[]>([]);
   const catalogLecturesRef = useRef(catalogLectures);
   const lectureDetailsByIdRef = useRef(lectureDetailsById);
@@ -1565,7 +1569,8 @@ export function AppNavigation() {
           storedTeacherBranches,
           storedSelectedTeacherLogin,
           storedActiveTestingSession,
-          storedTestingSubmissions
+          storedTestingSubmissions,
+          storedLectureTestResults
         ] = await Promise.all([
           readCatalogSnapshot(),
           readDeletedLectureIds(),
@@ -1579,7 +1584,8 @@ export function AppNavigation() {
           readTeacherBranches(),
           readSelectedTeacherLogin(),
           readActiveTestingSession(),
-          readTestingSubmissions()
+          readTestingSubmissions(),
+          readLectureTestResults()
         ]);
 
         if (!isMounted) {
@@ -1659,6 +1665,10 @@ export function AppNavigation() {
 
         if (Array.isArray(storedTestingSubmissions) && storedTestingSubmissions.length > 0) {
           setTestingSubmissions(storedTestingSubmissions);
+        }
+
+        if (Array.isArray(storedLectureTestResults) && storedLectureTestResults.length > 0) {
+          setLectureTestResults(storedLectureTestResults);
         }
 
         if (storedAuthMeta?.userLogin) {
@@ -1876,6 +1886,14 @@ export function AppNavigation() {
 
     void writeTestingSubmissions(testingSubmissions);
   }, [testingSubmissions, isHydrating]);
+
+  useEffect(() => {
+    if (isHydrating) {
+      return;
+    }
+
+    void writeLectureTestResults(lectureTestResults);
+  }, [lectureTestResults, isHydrating]);
 
   useEffect(() => {
     if (!isAuthenticated || isHydrating) {
@@ -2768,6 +2786,7 @@ export function AppNavigation() {
       writeSelectedTeacherLogin(selectedTeacherLogin),
       writeActiveTestingSession(activeTestingSession),
       writeTestingSubmissions(testingSubmissions),
+      writeLectureTestResults(lectureTestResults),
       writeDeletedLectureIds(deletedLectureIds),
       writeCatalogSnapshot(filterDeletedLectures(catalogLectures, deletedLectureIds))
     ]);
@@ -3199,6 +3218,36 @@ export function AppNavigation() {
     if (!details) {
       setCatalogMode("offline");
     }
+  }
+
+  function handleSaveLectureTestResult(input: {
+    lectureId: string;
+    lectureTitle: string;
+    blockId: string;
+    blockTitle: string;
+    correctCount: number;
+    totalQuestions: number;
+    percent: number;
+  }) {
+    const result: LectureTestResult = {
+      id: `lecture-test-${input.lectureId}-${input.blockId}-${user.login}`,
+      lectureId: input.lectureId,
+      lectureTitle: input.lectureTitle,
+      blockId: input.blockId,
+      blockTitle: input.blockTitle,
+      teacherLogin: selectedLecture?.teacherLogin ?? selectedTeacherLogin ?? undefined,
+      studentLogin: user.login,
+      studentName: user.fullName || user.login,
+      submittedAt: new Date().toISOString(),
+      correctCount: input.correctCount,
+      totalQuestions: input.totalQuestions,
+      percent: input.percent
+    };
+
+    setLectureTestResults((current) => [
+      result,
+      ...current.filter((item) => item.id !== result.id)
+    ].slice(0, 100));
   }
 
   function handleBackToCatalog() {
@@ -4593,6 +4642,7 @@ export function AppNavigation() {
             lectureDetails={lectureDetailsById[selectedLecture.id] ?? null}
             onBack={handleBackToCatalog}
             onOpenSession={() => void handleOpenSession()}
+            onSaveLectureTestResult={handleSaveLectureTestResult}
           />
         ) : null}
 
@@ -4737,6 +4787,15 @@ export function AppNavigation() {
                     (item) =>
                       item.studentLogin === user.login &&
                       item.teacherLogin === selectedTeacherLogin
+                  )
+            }
+            lectureTestResults={
+              isTeacher
+                ? lectureTestResults.filter((item) => item.teacherLogin === user.login)
+                : lectureTestResults.filter(
+                    (item) =>
+                      item.studentLogin === user.login &&
+                      (!selectedTeacherLogin || item.teacherLogin === selectedTeacherLogin)
                   )
             }
             onGradeSubmission={handleGradeHomeworkSubmission}

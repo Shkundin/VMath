@@ -8,7 +8,7 @@ import { ScreenHeader } from "../components/ui/ScreenHeader";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatusPill } from "../components/ui/StatusPill";
 import type { HomeworkItem, HomeworkSubmissionItem } from "../storage/homeworkStorage";
-import type { TestingSubmission } from "../storage/testingStorage";
+import type { LectureTestResult, TestingSubmission } from "../storage/testingStorage";
 import type { AppTheme } from "../theme";
 import { fixText } from "../utils/fixText";
 import type { TestingRunResult } from "./TestingScreen";
@@ -22,6 +22,7 @@ type GradesScreenProps = {
   submissions: HomeworkSubmissionItem[];
   testingResults: TestingRunResult[];
   testingSubmissions: TestingSubmission[];
+  lectureTestResults: LectureTestResult[];
   onGradeSubmission: (submissionId: string, score: number | null, comment: string) => void;
   onClearHomeworkResults: () => void;
   onClearTestingResults: (sessionIds: string[]) => void;
@@ -106,6 +107,7 @@ export function GradesScreen({
   submissions,
   testingResults,
   testingSubmissions,
+  lectureTestResults,
   onGradeSubmission,
   onClearHomeworkResults,
   onClearTestingResults
@@ -117,7 +119,7 @@ export function GradesScreen({
   const [scoreDrafts, setScoreDrafts] = useState<Record<string, string>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [errorText, setErrorText] = useState("");
-  const [activeResultsTab, setActiveResultsTab] = useState<"homework" | "testing">("homework");
+  const [activeResultsTab, setActiveResultsTab] = useState<"homework" | "testing" | "lectureTesting">("homework");
 
   const studentRows = useMemo(() => {
     return [...homeworks]
@@ -182,6 +184,13 @@ export function GradesScreen({
 
   const canClearHomeworkResults = submissions.length > 0;
   const canClearTestingResults = isTeacher ? testingRows.length > 0 : testingSubmissions.length > 0;
+  const lectureTestingAverage = useMemo(() => {
+    if (lectureTestResults.length === 0) {
+      return null;
+    }
+
+    return lectureTestResults.reduce((sum, item) => sum + item.percent, 0) / lectureTestResults.length;
+  }, [lectureTestResults]);
 
   function handleClearTestingResults() {
     onClearTestingResults(
@@ -212,6 +221,58 @@ export function GradesScreen({
     onGradeSubmission(submission.id, normalizedScore, rawComment);
     setErrorText("");
   }
+
+  const lectureTestsSection = (
+    <SectionCard
+      theme={theme}
+      title={isTeacher ? "Тесты с лекций" : "Мои тесты с лекций"}
+      subtitle="Баллы за практические блоки, которые студент проходит прямо внутри лекции."
+    >
+      {lectureTestResults.length === 0 ? (
+        <Text style={styles.emptyText}>Пока нет результатов практики из лекций.</Text>
+      ) : (
+        <>
+          <View style={styles.infoGrid}>
+            <InfoTile theme={theme} label="Попыток" value={String(lectureTestResults.length)} />
+            <InfoTile
+              theme={theme}
+              label="Средний процент"
+              value={lectureTestingAverage !== null ? `${lectureTestingAverage.toFixed(1)}%` : "—"}
+            />
+          </View>
+
+          {[...lectureTestResults]
+            .sort((left, right) => new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime())
+            .map((result) => (
+              <View key={result.id} style={styles.resultCard}>
+                <View style={styles.resultTop}>
+                  <View style={styles.resultTextWrap}>
+                    <Text style={styles.resultTitle}>{fixText(result.lectureTitle)}</Text>
+                    <Text style={styles.resultMeta}>
+                      {fixText(`${result.blockTitle} • ${formatDateTime(result.submittedAt)}`)}
+                    </Text>
+                    {isTeacher ? (
+                      <Text style={styles.resultMeta}>{fixText(`Студент: ${result.studentName}`)}</Text>
+                    ) : null}
+                  </View>
+
+                  <StatusPill
+                    theme={theme}
+                    label={`${result.percent}%`}
+                    tone={result.percent >= 70 ? "success" : result.percent >= 40 ? "warning" : "neutral"}
+                  />
+                </View>
+
+                <View style={styles.infoGrid}>
+                  <InfoTile theme={theme} label="Верно" value={`${result.correctCount}/${result.totalQuestions}`} />
+                  <InfoTile theme={theme} label="Процент" value={`${result.percent}%`} />
+                </View>
+              </View>
+            ))}
+        </>
+      )}
+    </SectionCard>
+  );
 
   return (
     <Screen theme={theme}>
@@ -303,6 +364,25 @@ export function GradesScreen({
             ]}
           >
             {fixText("Результаты тестов")}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected: activeResultsTab === "lectureTesting" }}
+          onPress={() => setActiveResultsTab("lectureTesting")}
+          style={[
+            styles.tabButton,
+            activeResultsTab === "lectureTesting" ? styles.tabButtonActive : null
+          ]}
+        >
+          <Text
+            style={[
+              styles.tabButtonText,
+              activeResultsTab === "lectureTesting" ? styles.tabButtonTextActive : null
+            ]}
+          >
+            {fixText("Тесты с лекций")}
           </Text>
         </Pressable>
       </View>
@@ -558,6 +638,8 @@ export function GradesScreen({
             )}
           </SectionCard>
           ) : null}
+
+          {activeResultsTab === "lectureTesting" ? lectureTestsSection : null}
         </>
       ) : (
         <>
@@ -684,6 +766,8 @@ export function GradesScreen({
             )}
           </SectionCard>
           ) : null}
+
+          {activeResultsTab === "lectureTesting" ? lectureTestsSection : null}
         </>
       )}
     </Screen>

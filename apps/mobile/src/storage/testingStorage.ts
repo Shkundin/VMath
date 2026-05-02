@@ -37,8 +37,24 @@ export type TestingSubmission = {
   percent: number;
 };
 
+export type LectureTestResult = {
+  id: string;
+  lectureId: string;
+  lectureTitle: string;
+  blockId: string;
+  blockTitle: string;
+  teacherLogin?: string;
+  studentLogin: string;
+  studentName: string;
+  submittedAt: string;
+  correctCount: number;
+  totalQuestions: number;
+  percent: number;
+};
+
 const ACTIVE_SESSION_KEY = "vm.testing.active.session.v1";
 const TESTING_SUBMISSIONS_KEY = "vm.testing.submissions.v1";
+const LECTURE_TEST_RESULTS_KEY = "vm.testing.lecture.results.v1";
 
 function isWeb(): boolean {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
@@ -118,4 +134,15 @@ export async function writeTestingSubmissions(
   value: TestingSubmission[]
 ): Promise<void> {
   await writeJson(TESTING_SUBMISSIONS_KEY, value);
+}
+
+export async function readLectureTestResults(): Promise<LectureTestResult[]> {
+  const value = await readJson<LectureTestResult[]>(LECTURE_TEST_RESULTS_KEY, []);
+  return Array.isArray(value) ? value : [];
+}
+
+export async function writeLectureTestResults(
+  value: LectureTestResult[]
+): Promise<void> {
+  await writeJson(LECTURE_TEST_RESULTS_KEY, value);
 }

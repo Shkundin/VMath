@@ -34,13 +34,23 @@ type LectureDetailsScreenProps = {
   lectureDetails?: LectureDetails | null;
   onBack: () => void;
   onOpenSession: () => void;
+  onSaveLectureTestResult?: (result: {
+    lectureId: string;
+    lectureTitle: string;
+    blockId: string;
+    blockTitle: string;
+    correctCount: number;
+    totalQuestions: number;
+    percent: number;
+  }) => void;
 };
 
 export function LectureDetailsScreen({
   theme,
   lecture,
   lectureDetails,
-  onBack
+  onBack,
+  onSaveLectureTestResult
 }: LectureDetailsScreenProps) {
   const { width } = useWindowDimensions();
   const styles = createStyles(theme, width);
@@ -78,6 +88,25 @@ export function LectureDetailsScreen({
   }
 
   function checkBlock(blockId: string) {
+    const block = blocks.find((item) => item.id === blockId);
+    if ((block?.type === "quiz" || block?.type === "checking_block") && onSaveLectureTestResult) {
+      const quizBlock = block as QuizBlock;
+      const totalQuestions = quizBlock.payload.questions.length;
+      const correctCount = quizBlock.payload.questions.filter((question) =>
+        isQuestionAnswerCorrect(question, answers[question.id])
+      ).length;
+
+      onSaveLectureTestResult({
+        lectureId: lecture.id,
+        lectureTitle: lecture.title,
+        blockId: block.id,
+        blockTitle: block.title || "Практика",
+        correctCount,
+        totalQuestions,
+        percent: totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0
+      });
+    }
+
     setCheckedBlocks((current) => ({
       ...current,
       [blockId]: true

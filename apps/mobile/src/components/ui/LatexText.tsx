@@ -50,6 +50,41 @@ function normalizeLines(content: string): string[] {
   return content.replace(/\r\n/g, "\n").split("\n");
 }
 
+function latexToReadable(value: string): string {
+  let next = value.trim();
+
+  next = next.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, "($1)/($2)");
+  next = next.replace(/\\int_([^\\\s]+)\^([^\\\s]+)\s*/g, "∫[$1,$2] ");
+  next = next.replace(/\\int/g, "∫");
+  next = next.replace(/\\sum_\{?([^{}]+)\}?\^\{?([^{}]+)\}?/g, "Σ[$1..$2]");
+  next = next.replace(/\\sqrt\{([^{}]+)\}/g, "√($1)");
+  next = next.replace(/\\cdot/g, "·");
+  next = next.replace(/\\times/g, "×");
+  next = next.replace(/\\leq?|\\le/g, "≤");
+  next = next.replace(/\\geq?|\\ge/g, "≥");
+  next = next.replace(/\\neq?|\\ne/g, "≠");
+  next = next.replace(/\\infty/g, "∞");
+  next = next.replace(/\\alpha/g, "α");
+  next = next.replace(/\\beta/g, "β");
+  next = next.replace(/\\gamma/g, "γ");
+  next = next.replace(/\\pi/g, "π");
+  next = next.replace(/\\sin/g, "sin");
+  next = next.replace(/\\cos/g, "cos");
+  next = next.replace(/\\tan/g, "tan");
+  next = next.replace(/\\lim/g, "lim");
+  next = next.replace(/\\vec\{([^{}]+)\}/g, "→$1");
+  next = next.replace(/\\left|\\right/g, "");
+  next = next.replace(/\\,/g, " ");
+  next = next.replace(/\^\{([^{}]+)\}/g, "^$1");
+  next = next.replace(/_\{([^{}]+)\}/g, "_$1");
+  next = next.replace(/([_^])([A-Za-z0-9])/g, "$1$2");
+  next = next.replace(/[{}]/g, "");
+  next = next.replace(/\\/g, "");
+  next = next.replace(/\s+/g, " ").trim();
+
+  return next;
+}
+
 export function LatexText({ theme, content, compact = false }: LatexTextProps) {
   const { width } = useWindowDimensions();
   const styles = createStyles(theme, width, compact);
@@ -103,7 +138,7 @@ export function LatexText({ theme, content, compact = false }: LatexTextProps) {
                 if (segment.type === "displayFormula") {
                   return (
                     <Text key={`${lineIndex}-${segmentIndex}`} style={styles.displayFormula}>
-                      {` ${segment.value} `}
+                      {` ${latexToReadable(segment.value)} `}
                     </Text>
                   );
                 }
@@ -111,7 +146,7 @@ export function LatexText({ theme, content, compact = false }: LatexTextProps) {
                 if (segment.type === "inlineFormula") {
                   return (
                     <Text key={`${lineIndex}-${segmentIndex}`} style={styles.inlineFormula}>
-                      {segment.value}
+                      {latexToReadable(segment.value)}
                     </Text>
                   );
                 }
