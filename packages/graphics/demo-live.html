@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>VM Graphics Demo</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 24px;
+        font-family: Inter, Arial, sans-serif;
+        background: #f5f7fb;
+        color: #111827;
+      }
+
+      .app {
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        margin: 0 0 18px 0;
+        font-size: 44px;
+        line-height: 1.05;
+      }
+
+      .panel {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        padding: 16px;
+        box-shadow: 0 6px 24px rgba(17, 24, 39, 0.06);
+        margin-bottom: 16px;
+      }
+
+      .controls {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+
+      input {
+        width: 420px;
+        max-width: 100%;
+        padding: 12px 14px;
+        font-size: 18px;
+        border: 1px solid #d1d5db;
+        border-radius: 12px;
+        outline: none;
+      }
+
+      button {
+        padding: 12px 16px;
+        font-size: 16px;
+        border: 0;
+        border-radius: 12px;
+        background: #111827;
+        color: white;
+        cursor: pointer;
+      }
+
+      button.secondary {
+        background: #e5e7eb;
+        color: #111827;
+      }
+
+      .examples {
+        margin-top: 8px;
+        font-size: 14px;
+        color: #4b5563;
+      }
+
+      code {
+        background: #eef2ff;
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 16px;
+        align-items: start;
+      }
+
+      .graph-card, .info-card {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        box-shadow: 0 6px 24px rgba(17, 24, 39, 0.06);
+      }
+
+      .graph-card {
+        padding: 0;
+        overflow: hidden;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        height: 720px;
+        background: white;
+      }
+
+      .info-card {
+        padding: 18px;
+      }
+
+      .info-card h2 {
+        margin: 0 0 14px 0;
+        font-size: 22px;
+      }
+
+      .metric {
+        margin-bottom: 14px;
+      }
+
+      .metric-label {
+        font-size: 13px;
+        color: #6b7280;
+        margin-bottom: 4px;
+      }
+
+      .metric-value {
+        font-size: 15px;
+        color: #111827;
+        line-height: 1.4;
+        word-break: break-word;
+      }
+
+      @media (max-width: 1100px) {
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <h1>VM Graphics Demo</h1>
+
+      <div class="panel">
+        <div class="controls">
+          <label for="expr">f(x) =</label>
+          <input id="expr" value="sin(x)" />
+          <button id="plot">Построить</button>
+          <button id="fit" class="secondary">Auto Fit</button>
+          <button id="reset" class="secondary">Сбросить вид</button>
+        </div>
+
+        <div class="examples">
+          Примеры:
+          <code>sin(x)</code>,
+          <code>x^2</code>,
+          <code>x^2/8 - 3</code>,
+          <code>3/x</code>,
+          <code>abs(x) - 4</code>,
+          <code>cos(x) + x/3</code>
+        </div>
+      </div>
+
+      <div class="workspace">
+        <div class="graph-card">
+          <canvas id="canvas" width="1000" height="720"></canvas>
+        </div>
+
+        <div class="info-card">
+          <h2>Информация</h2>
+
+          <div class="metric">
+            <div class="metric-label">Функция</div>
+            <div class="metric-value" id="infoExpr">sin(x)</div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-label">Диапазон камеры по X</div>
+            <div class="metric-value" id="infoCameraX">—</div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-label">Диапазон камеры по Y</div>
+            <div class="metric-value" id="infoCameraY">—</div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-label">Область значений функции на текущем окне</div>
+            <div class="metric-value" id="infoRange">—</div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-label">Примерные нули</div>
+            <div class="metric-value" id="infoZeros">—</div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-label">Точки разрыва</div>
+            <div class="metric-value" id="infoBreaks">—</div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-label">Найденный минимум на окне</div>
+            <div class="metric-value" id="infoMin">—</div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-label">Найденный максимум на окне</div>
+            <div class="metric-value" id="infoMax">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import {
+        Scene2D,
+        Grid2D,
+        Axis2D,
+        Interaction2D,
+        plotFunctionExpression,
+        compileFunctionExpression
+      } from "./dist/index.js";
+
+      const canvas = document.getElementById("canvas");
+      const exprInput = document.getElementById("expr");
+      const plotButton = document.getElementById("plot");
+      const fitButton = document.getElementById("fit");
+      const resetButton = document.getElementById("reset");
+      const context = canvas.getContext("2d");
+
+      const infoExpr = document.getElementById("infoExpr");
+      const infoCameraX = document.getElementById("infoCameraX");
+      const infoCameraY = document.getElementById("infoCameraY");
+      const infoRange = document.getElementById("infoRange");
+      const infoZeros = document.getElementById("infoZeros");
+      const infoBreaks = document.getElementById("infoBreaks");
+      const infoMin = document.getElementById("infoMin");
+      const infoMax = document.getElementById("infoMax");
+
+      const scene = new Scene2D({
+        background: "#ffffff",
+        camera: { x: 0, y: 0, zoom: 30, minZoom: 0.05, maxZoom: 400 },
+      });
+
+      scene.add(
+        new Grid2D({
+          id: "grid",
+          step: 1,
+          extent: 100,
+          strokeStyle: "#eceff4",
+          lineWidth: 0.8,
+        })
+      );
+
+      scene.add(
+        new Axis2D({
+          id: "axis",
+          extent: 100,
+          strokeStyle: "#111827",
+          lineWidth: 2,
+          tickStep: 1,
+          showLabels: true,
+        })
+      );
+
+      let currentExpression = exprInput.value.trim();
+      let rafId = null;
+
+      function getVisibleBounds() {
+        const topLeft = scene.camera.screenToWorld({ x: 0, y: 0 }, canvas.width, canvas.height);
+        const bottomRight = scene.camera.screenToWorld({ x: canvas.width, y: canvas.height }, canvas.width, canvas.height);
+
+        return {
+          minX: Math.min(topLeft.x, bottomRight.x),
+          maxX: Math.max(topLeft.x, bottomRight.x),
+          minY: Math.min(topLeft.y, bottomRight.y),
+          maxY: Math.max(topLeft.y, bottomRight.y),
+        };
+      }
+
+      function round2(value) {
+        return Number(value.toFixed(2));
+      }
+
+      function uniqueRounded(values, digits = 2) {
+        const out = [];
+        const seen = new Set();
+
+        for (const value of values) {
+          const rounded = Number(value.toFixed(digits));
+          const key = rounded.toFixed(digits);
+          if (!seen.has(key)) {
+            seen.add(key);
+            out.push(rounded);
+          }
+        }
+
+        return out;
+      }
+
+      function percentile(sorted, p) {
+        if (sorted.length === 0) return null;
+        const index = (sorted.length - 1) * p;
+        const lower = Math.floor(index);
+        const upper = Math.ceil(index);
+        if (lower === upper) return sorted[lower];
+        const t = index - lower;
+        return sorted[lower] * (1 - t) + sorted[upper] * t;
+      }
+
+      function sampleFunction(fn, xMin, xMax, samples = 2200) {
+        const step = (xMax - xMin) / samples;
+        const points = [];
+        const breaks = [];
+        let prevX = null;
+        let prevY = null;
+        const zeros = [];
+
+        for (let i = 0; i <= samples; i += 1) {
+          const x = xMin + i * step;
+          const y = fn(x);
+
+          if (!Number.isFinite(y)) {
+            breaks.push(x);
+            prevX = null;
+            prevY = null;
+            continue;
+          }
+
+          points.push({ x, y });
+
+          if (prevY !== null && prevX !== null) {
+            if ((prevY <= 0 && y >= 0) || (prevY >= 0 && y <= 0)) {
+              const denom = Math.abs(prevY) + Math.abs(y);
+              const zeroX = denom === 0
+                ? x
+                : (prevX * Math.abs(y) + x * Math.abs(prevY)) / denom;
+              zeros.push(zeroX);
+            }
+          }
+
+          prevX = x;
+          prevY = y;
+        }
+
+        return {
+          points,
+          zeros: uniqueRounded(zeros),
+          breaks: uniqueRounded(breaks),
+        };
+      }
+
+      function analyzeWindow(fn, xMin, xMax) {
+        const { points, zeros, breaks } = sampleFunction(fn, xMin, xMax, 2200);
+
+        if (points.length === 0) {
+          return {
+            points,
+            zeros,
+            breaks,
+            minY: null,
+            maxY: null,
+            minPoint: null,
+            maxPoint: null,
+          };
+        }
+
+        let minPoint = points[0];
+        let maxPoint = points[0];
+
+        for (const point of points) {
+          if (point.y < minPoint.y) minPoint = point;
+          if (point.y > maxPoint.y) maxPoint = point;
+        }
+
+        return {
+          points,
+          zeros,
+          breaks,
+          minY: minPoint.y,
+          maxY: maxPoint.y,
+          minPoint,
+          maxPoint,
+        };
+      }
+
+      function computeStableAutoFitBounds(fn) {
+        const fitXMin = -10;
+        const fitXMax = 10;
+        const { points } = sampleFunction(fn, fitXMin, fitXMax, 2600);
+
+        if (points.length === 0) {
+          return { minX: -10, maxX: 10, minY: -10, maxY: 10 };
+        }
+
+        const yValues = points.map((p) => p.y).sort((a, b) => a - b);
+        let low = percentile(yValues, 0.05);
+        let high = percentile(yValues, 0.95);
+
+        if (low === null || high === null) {
+          low = -10;
+          high = 10;
+        }
+
+        const trueMin = yValues[0];
+        const trueMax = yValues[yValues.length - 1];
+
+        if (!Number.isFinite(trueMin) || !Number.isFinite(trueMax)) {
+          low = -10;
+          high = 10;
+        }
+
+        if (Math.abs(high - low) < 1e-6) {
+          low -= 1;
+          high += 1;
+        }
+
+        const padY = Math.max((high - low) * 0.2, 1);
+
+        return {
+          minX: fitXMin,
+          maxX: fitXMax,
+          minY: low - padY,
+          maxY: high + padY,
+        };
+      }
+
+      function updateInfo(bounds, analysis) {
+        infoExpr.textContent = currentExpression;
+        infoCameraX.textContent = `[${round2(bounds.minX)}, ${round2(bounds.maxX)}]`;
+        infoCameraY.textContent = `[${round2(bounds.minY)}, ${round2(bounds.maxY)}]`;
+
+        if (analysis.minY === null || analysis.maxY === null) {
+          infoRange.textContent = "Не удалось оценить";
+          infoMin.textContent = "—";
+          infoMax.textContent = "—";
+        } else {
+          infoRange.textContent = `[${analysis.minY.toFixed(3)}, ${analysis.maxY.toFixed(3)}]`;
+          infoMin.textContent = `x ≈ ${analysis.minPoint.x.toFixed(3)}, y ≈ ${analysis.minPoint.y.toFixed(3)}`;
+          infoMax.textContent = `x ≈ ${analysis.maxPoint.x.toFixed(3)}, y ≈ ${analysis.maxPoint.y.toFixed(3)}`;
+        }
+
+        infoZeros.textContent = analysis.zeros.length
+          ? analysis.zeros.slice(0, 8).map((x) => x.toFixed(2)).join(", ")
+          : "Не найдены";
+
+        infoBreaks.textContent = analysis.breaks.length
+          ? analysis.breaks.slice(0, 8).map((x) => x.toFixed(2)).join(", ")
+          : "Не обнаружены";
+      }
+
+      function rebuildGraphForCurrentView() {
+        scene.objects = scene.objects.filter((obj) => obj.id === "grid" || obj.id === "axis");
+
+        const bounds = getVisibleBounds();
+        const fn = compileFunctionExpression(currentExpression);
+
+        scene.add(
+          plotFunctionExpression({
+            id: "user-graph",
+            expression: currentExpression,
+            xMin: bounds.minX,
+            xMax: bounds.maxX,
+            samples: Math.max(1200, Math.floor(canvas.width * 1.5)),
+            strokeStyle: "#2563eb",
+            lineWidth: 2,
+            breakOnDiscontinuity: true,
+            discontinuityThreshold: 8,
+          })
+        );
+
+        const analysis = analyzeWindow(fn, bounds.minX, bounds.maxX);
+        updateInfo(bounds, analysis);
+      }
+
+      function render() {
+        rebuildGraphForCurrentView();
+        scene.render(context);
+      }
+
+      function requestRender() {
+        if (rafId !== null) return;
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          render();
+        });
+      }
+
+      function autoFit() {
+        const fn = compileFunctionExpression(currentExpression);
+        const bounds = computeStableAutoFitBounds(fn);
+        scene.camera.fitToBounds(bounds, canvas.width, canvas.height, 70);
+      }
+
+      plotButton.addEventListener("click", () => {
+        try {
+          currentExpression = exprInput.value.trim();
+          autoFit();
+          render();
+        } catch (error) {
+          alert("Некорректное выражение");
+          console.error(error);
+        }
+      });
+
+      fitButton.addEventListener("click", () => {
+        try {
+          currentExpression = exprInput.value.trim();
+          autoFit();
+          render();
+        } catch (error) {
+          alert("Некорректное выражение");
+          console.error(error);
+        }
+      });
+
+      resetButton.addEventListener("click", () => {
+        scene.camera.x = 0;
+        scene.camera.y = 0;
+        scene.camera.zoom = 30;
+        render();
+      });
+
+      exprInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          plotButton.click();
+        }
+      });
+
+      const interaction = new Interaction2D(canvas, scene, {
+        onChange: () => requestRender(),
+      });
+      interaction.attach();
+
+      autoFit();
+      render();
+    </script>
+  </body>
+</html>
