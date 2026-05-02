@@ -776,6 +776,10 @@ function isDraftLectureV4(lectureId: string): boolean {
   return lectureId.startsWith("draft-lecture-");
 }
 
+function isLocallyAuthoredLecture(lecture: LectureItem): boolean {
+  return isDraftLectureV4(lecture.id) || lecture.tags.includes("teacher");
+}
+
 function readWebDraftStateV4(): WebDraftStateV4 {
   try {
     const storage = (globalThis as {
@@ -844,10 +848,14 @@ function persistDraftsV4(
   lectures: LectureItem[],
   lectureDetailsById: Record<string, LectureDetails>
 ) {
+  const localLectureIds = new Set(
+    lectures.filter(isLocallyAuthoredLecture).map((lecture) => lecture.id)
+  );
+
   writeWebDraftStateV4({
-    lectures: lectures.filter((lecture) => isDraftLectureV4(lecture.id)),
+    lectures: lectures.filter(isLocallyAuthoredLecture),
     lectureDetailsById: Object.fromEntries(
-      Object.entries(lectureDetailsById).filter(([lectureId]) => isDraftLectureV4(lectureId))
+      Object.entries(lectureDetailsById).filter(([lectureId]) => localLectureIds.has(lectureId))
     )
   });
 }
@@ -2162,7 +2170,7 @@ export function AppNavigation() {
 
       return details;
     } catch {
-      return null;
+      return cachedDetails ?? null;
     }
   }
 
@@ -2811,7 +2819,15 @@ export function AppNavigation() {
     setCurrentResult(null);
     setCurrentTeacherSession(null);
     setLastOpenedLectureId(null);
-    setLectureDetailsById((current) => pickDraftLectureDetails(current));
+    setLectureDetailsById((current) => {
+      const localLectureIds = new Set(
+        catalogLecturesRef.current.filter(isLocallyAuthoredLecture).map((lecture) => lecture.id)
+      );
+
+      return Object.fromEntries(
+        Object.entries(current).filter(([lectureId]) => localLectureIds.has(lectureId))
+      );
+    });
     setUser(DEFAULT_USER);
 
     try {
