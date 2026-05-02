@@ -93,9 +93,6 @@ export function TeacherHomeScreen({
   teacherJoinCode,
   lectures,
   lectureDetailsById,
-  activeSession,
-  onLaunchSharedSession,
-  onOpenManageSession,
   onCreateDraftLecture,
   onUpdateDraftLectureMeta,
   onAddDraftQuestion,
@@ -172,24 +169,6 @@ export function TeacherHomeScreen({
     () => lectures.filter((lecture) => lecture.id.startsWith("draft-lecture-")).length,
     [lectures]
   );
-
-  const sharedSessionLecture = useMemo(() => {
-    if (activeSession) {
-      return lectures.find((lecture) => lecture.id === activeSession.lectureId) ?? null;
-    }
-
-    return expandedLecture ?? lectures[0] ?? null;
-  }, [activeSession, expandedLecture, lectures]);
-
-  const sharedSessionLabel = activeSession?.status === "active"
-    ? "Открыть общую сессию"
-    : "Запустить общую сессию";
-
-  const sharedSessionHint = activeSession
-    ? `Сейчас активна лекция «${fixText(activeSession.lectureTitle)}» • код ${fixText(activeSession.sessionCode)}`
-    : sharedSessionLecture
-      ? `Сессия запустится для лекции «${fixText(sharedSessionLecture.title)}».`
-      : "Сначала создай хотя бы одну лекцию, чтобы запустить общую сессию.";
 
   const normalizedTeacherName = fixText(user.fullName || "");
   const teacherDisplayName = normalizedTeacherName.trim().length > 0
@@ -697,8 +676,8 @@ export function TeacherHomeScreen({
         />
         <ActionMiniCard
           theme={theme}
-          title="Сессии"
-          subtitle="Запускай занятие и переключай учебные блоки."
+          title="Публикация"
+          subtitle="Созданные лекции сразу доступны студентам как слайды."
           style={styles.quickActionItem}
         />
         <ActionMiniCard
@@ -722,7 +701,7 @@ export function TeacherHomeScreen({
       <ScreenHeader
         theme={theme}
         title="Кабинет преподавателя"
-        subtitle="Создавай лекции, управляй материалами, проверочными блоками и быстрыми сессиями."
+        subtitle="Создавай лекции, управляй материалами и проверочными блоками без отдельного запуска сессии."
       />
 
       <View style={styles.heroCard}>
@@ -733,7 +712,7 @@ export function TeacherHomeScreen({
           <Text style={styles.heroEyebrow}>Рабочее пространство</Text>
           <Text style={styles.heroTitle}>{teacherDisplayName}</Text>
           <Text style={styles.heroSubtitle}>
-            Всё важное в одном месте: создание лекций, редактор вопросов, запуск тестов и проверка результатов.
+            Всё важное в одном месте: создание лекций, редактор вопросов, публикация материалов и проверка результатов.
           </Text>
 
           <View style={styles.infoRow}>
@@ -744,18 +723,6 @@ export function TeacherHomeScreen({
 
           <View style={styles.heroActionRow}>
             <AppButton
-              label={sharedSessionLabel}
-              onPress={() => {
-                if (sharedSessionLecture) {
-                  onLaunchSharedSession(sharedSessionLecture);
-                }
-              }}
-              theme={theme}
-              fullWidth={false}
-              disabled={!sharedSessionLecture}
-              style={styles.heroPrimaryButton}
-            />
-            <AppButton
               label="Выйти из аккаунта"
               onPress={onLogout}
               theme={theme}
@@ -765,7 +732,11 @@ export function TeacherHomeScreen({
             />
           </View>
 
-          <Text style={styles.heroHelperText}>{sharedSessionHint}</Text>
+          <Text style={styles.heroHelperText}>
+            {lectures.length > 0
+              ? "Студенты видят созданные лекции в каталоге и проходят блоки слайдами."
+              : "Создай первую лекцию, и она появится у студентов в каталоге курса."}
+          </Text>
         </View>
 
         <View style={styles.heroStats}>
@@ -790,7 +761,7 @@ export function TeacherHomeScreen({
       <SectionCard
         theme={theme}
         title="Лекции преподавателя"
-        subtitle="Запуск сессии, редактор и управление вопросами прямо из карточки лекции."
+        subtitle="Редактирование материалов и вопросов. Студентам не нужно ждать запуска сессии."
       >
         {lectures.length === 0 ? (
           <Text style={styles.emptyText}>{fixText("РџРѕРєР° РЅРµС‚ Р»РµРєС†РёР№. РЎРѕР·РґР°Р№ РїРµСЂРІСѓСЋ Р»РµРєС†РёСЋ РІС‹С€Рµ.")}</Text>
@@ -1041,13 +1012,6 @@ export function TeacherHomeScreen({
                 ) : null}
 
                 <View style={styles.actionsRow}>
-                  <AppButton
-                    label="Запустить сессию"
-                    onPress={() => onOpenManageSession(lecture)}
-                    theme={theme}
-                    fullWidth={false}
-                    style={styles.inlineButton}
-                  />
                   <AppButton
                     label={isExpanded ? "Скрыть редактор" : "Открыть редактор"}
                     onPress={() => handleToggleEditor(lecture.id)}
