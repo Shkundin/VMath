@@ -1,4 +1,4 @@
-import type { Expr } from "./ast.js";
+import type { CallExpr, Expr } from "./ast.js";
 
 export type FunctionKind = "constant" | "polynomial" | "reciprocal" | "generic";
 
@@ -166,7 +166,7 @@ function matchAbsoluteShift(expr: Expr): { shiftX: number; shiftY: number } | nu
     return null;
   }
 
-  function parseVertical(node: Expr): { absNode: Expr; shiftY: number } | null {
+  function parseVertical(node: Expr): { absNode: CallExpr; shiftY: number } | null {
     if (node.kind === "call" && node.fn === "abs") {
       return { absNode: node, shiftY: 0 };
     }
