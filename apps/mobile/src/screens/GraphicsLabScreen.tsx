@@ -42,7 +42,15 @@ type MetricState = {
   domain: string;
 };
 
+type CompiledGraph = {
+  expression: string;
+  fn: (x: number) => number;
+  index: number;
+};
+
 const EXAMPLES = ["sin(x)", "x^2", "x^2/8 - 3", "3/x", "abs(x) - 4", "cos(x) + x/3"];
+const GRAPH_COLORS = ["#2563eb", "#dc2626", "#16a34a"];
+const DEFAULT_EXPRESSIONS = ["x^2", "log(x)", "abs(x) - 4"];
 
 function round2(value: number): number {
   return Number(value.toFixed(2));
@@ -118,7 +126,7 @@ function sampleFunction(
 
 function formatPoint(point: { x: number; y: number } | null): string {
   if (!point) return "-";
-  return `x ≈ ${point.x.toFixed(3)}, y ≈ ${point.y.toFixed(3)}`;
+  return `x ~= ${point.x.toFixed(3)}, y ~= ${point.y.toFixed(3)}`;
 }
 
 function buildFallbackHtml(theme: AppTheme): string {
@@ -128,14 +136,15 @@ html,body{margin:0;height:100%;font-family:system-ui;background:${theme.colors.s
 body{display:flex;align-items:center;justify-content:center;padding:24px;text-align:center}
 .box{max-width:520px;border:1px solid ${theme.colors.border};border-radius:8px;padding:18px}
 h1{font-size:22px;margin:0 0 10px}p{font-size:15px;line-height:1.5;color:${theme.colors.textSecondary}}
-</style></head><body><div class="box"><h1>VM Graphics</h1><p>Полная интерактивная студия доступна в web-версии сайта. Нативный экран можно расширить отдельной WebView-сборкой библиотеки.</p></div></body></html>`;
+</style></head><body><div class="box"><h1>VM Graphics</h1><p>Интерактивная графическая студия доступна в web-версии сайта.</p></div></body></html>`;
 }
 
 export function GraphicsLabScreen({ theme }: GraphicsLabScreenProps) {
   const { width } = useWindowDimensions();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [draftExpression, setDraftExpression] = useState("sin(x)");
-  const [expression, setExpression] = useState("sin(x)");
+  const [draftExpressions, setDraftExpressions] = useState(DEFAULT_EXPRESSIONS);
+  const [expressions, setExpressions] = useState(DEFAULT_EXPRESSIONS);
+  const [activeGraphIndex, setActiveGraphIndex] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
   const [error, setError] = useState("");
   const [metrics, setMetrics] = useState<MetricState>({
@@ -195,10 +204,20 @@ export function GraphicsLabScreen({ theme }: GraphicsLabScreenProps) {
       };
     }
 
-    function computeStableAutoFitBounds(fn: (x: number) => number) {
+    function compileGraphs(): CompiledGraph[] {
+      return expressions
+        .map((expression, index) => ({ expression: expression.trim(), index }))
+        .filter((graph) => graph.expression.length > 0)
+        .map((graph) => ({
+          ...graph,
+          fn: compileFunctionExpression(graph.expression)
+        }));
+    }
+
+    function computeStableAutoFitBounds(graphs: CompiledGraph[]) {
       const fitXMin = -10;
       const fitXMax = 10;
-      const { points } = sampleFunction(fn, fitXMin, fitXMax, 2600);
+      const points = graphs.flatMap((graph) => sampleFunction(graph.fn, fitXMin, fitXMax, 2600).points);
 
       if (points.length === 0) {
         return { minX: -10, maxX: 10, minY: -10, maxY: 10 };
@@ -236,13 +255,31 @@ export function GraphicsLabScreen({ theme }: GraphicsLabScreenProps) {
       return { ...sampled, minPoint, maxPoint };
     }
 
-    function updateMetrics(bounds: ReturnType<typeof getVisibleBounds>, fn: (x: number) => number) {
-      const numeric = analyzeWindow(fn, bounds.minX, bounds.maxX);
+    function updateMetrics(
+      bounds: ReturnType<typeof getVisibleBounds>,
+      graph: CompiledGraph | undefined
+    ) {
+      if (!graph) {
+        setMetrics({
+          cameraX: `[${round2(bounds.minX)}, ${round2(bounds.maxX)}]`,
+          cameraY: `[${round2(bounds.minY)}, ${round2(bounds.maxY)}]`,
+          range: "-",
+          zeros: "-",
+          discontinuities: "-",
+          minimum: "-",
+          maximum: "-",
+          mode: "-",
+          domain: "-"
+        });
+        return;
+      }
+
+      const numeric = analyzeWindow(graph.fn, bounds.minX, bounds.maxX);
       let mode = "численный";
       let domain = "по текущему окну";
 
       try {
-        const exact = analyzeExprOnInterval(parseExpression(expression), bounds.minX, bounds.maxX);
+        const exact = analyzeExprOnInterval(parseExpression(graph.expression), bounds.minX, bounds.maxX);
         mode = exact.modeText;
         domain = exact.domainText;
       } catch {}
@@ -256,7 +293,7 @@ export function GraphicsLabScreen({ theme }: GraphicsLabScreenProps) {
             : "не удалось оценить",
         zeros: numeric.zeros.length ? numeric.zeros.slice(0, 8).map((x) => x.toFixed(2)).join(", ") : "не найдены",
         discontinuities: numeric.breaks.length
-          ? numeric.breaks.slice(0, 8).map((x) => `x ≈ ${x.toFixed(2)}`).join(", ")
+          ? numeric.breaks.slice(0, 8).map((x) => `x ~= ${x.toFixed(2)}`).join(", ")
           : "не обнаружены",
         minimum: formatPoint(numeric.minPoint),
         maximum: formatPoint(numeric.maxPoint),
@@ -270,33 +307,35 @@ export function GraphicsLabScreen({ theme }: GraphicsLabScreenProps) {
         syncCanvasSize();
         scene.objects = scene.objects.filter((object) => object.id === "grid" || object.id === "axis");
         const bounds = getVisibleBounds();
-        const fn = compileFunctionExpression(expression);
+        const graphs = compileGraphs();
 
-        scene.add(
-          plotFunctionExpression({
-            id: "user-graph",
-            expression,
-            xMin: bounds.minX,
-            xMax: bounds.maxX,
-            samples: Math.max(1200, Math.floor(canvas.width * 1.5)),
-            strokeStyle: "#2563eb",
-            lineWidth: 2,
-            breakOnDiscontinuity: true,
-            discontinuityThreshold: 8
-          })
-        );
+        graphs.forEach((graph) => {
+          scene.add(
+            plotFunctionExpression({
+              id: `user-graph-${graph.index}`,
+              expression: graph.expression,
+              xMin: bounds.minX,
+              xMax: bounds.maxX,
+              samples: Math.max(1200, Math.floor(canvas.width * 1.5)),
+              strokeStyle: GRAPH_COLORS[graph.index] ?? "#2563eb",
+              lineWidth: 2,
+              breakOnDiscontinuity: true,
+              discontinuityThreshold: 8
+            })
+          );
+        });
 
         scene.render(context);
-        updateMetrics(bounds, fn);
+        updateMetrics(bounds, graphs.find((graph) => graph.index === activeGraphIndex) ?? graphs[0]);
         setError("");
       } catch {
-        setError("Не удалось построить выражение. Проверь синтаксис функции.");
+        setError("Не удалось построить выражение. Проверь синтаксис функций.");
       }
     }
 
     function autoFit() {
-      const fn = compileFunctionExpression(expression);
-      const bounds = computeStableAutoFitBounds(fn);
+      const graphs = compileGraphs();
+      const bounds = computeStableAutoFitBounds(graphs);
       scene.camera.fitToBounds(bounds, canvas.width, canvas.height, 70);
     }
 
@@ -313,16 +352,33 @@ export function GraphicsLabScreen({ theme }: GraphicsLabScreenProps) {
       window.removeEventListener("resize", render);
       interaction.detach();
     };
-  }, [expression, reloadKey]);
+  }, [activeGraphIndex, expressions, reloadKey]);
+
+  function handleExpressionChange(index: number, value: string) {
+    setDraftExpressions((current) => current.map((expression, currentIndex) => (currentIndex === index ? value : expression)));
+  }
 
   function handlePlot() {
-    setExpression(draftExpression.trim() || "sin(x)");
+    const nextExpressions = draftExpressions.map((expression) => expression.trim());
+    const hasExpression = nextExpressions.some(Boolean);
+    setExpressions(hasExpression ? nextExpressions : DEFAULT_EXPRESSIONS);
+    setActiveGraphIndex((current) => {
+      if (!hasExpression) return 0;
+      return nextExpressions[current]?.trim() ? current : Math.max(0, nextExpressions.findIndex(Boolean));
+    });
   }
 
   function handleExample(nextExpression: string) {
-    setDraftExpression(nextExpression);
-    setExpression(nextExpression);
+    const nextExpressions = draftExpressions.map((expression, index) => (index === activeGraphIndex ? nextExpression : expression));
+    setDraftExpressions(nextExpressions);
+    setExpressions(nextExpressions);
   }
+
+  function handleResetView() {
+    setReloadKey((current) => current + 1);
+  }
+
+  const activeExpression = expressions[activeGraphIndex] || expressions.find(Boolean) || "-";
 
   return (
     <Screen theme={theme}>
@@ -333,7 +389,7 @@ export function GraphicsLabScreen({ theme }: GraphicsLabScreenProps) {
         rightSlot={
           <AppButton
             label="Обновить"
-            onPress={() => setReloadKey((current) => current + 1)}
+            onPress={handleResetView}
             theme={theme}
             variant="secondary"
             fullWidth={false}
@@ -345,38 +401,72 @@ export function GraphicsLabScreen({ theme }: GraphicsLabScreenProps) {
       <SectionCard
         theme={theme}
         title="VM Graphics"
-        subtitle="Построение функций, auto-fit, панорамирование, зум и анализ окна работают на библиотеке Нвера."
+        subtitle="Несколько графиков, разные цвета, auto-fit, панорамирование, зум и анализ выбранной функции."
       >
         <View style={styles.toolbar}>
-          <Text style={styles.inputLabel}>f(x) =</Text>
-          <TextInput
-            value={draftExpression}
-            onChangeText={setDraftExpression}
-            onSubmitEditing={handlePlot}
-            placeholder="sin(x)"
-            placeholderTextColor={theme.colors.textSecondary}
-            style={styles.input}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          <AppButton
-            label="Построить"
-            onPress={handlePlot}
-            theme={theme}
-            fullWidth={false}
-            style={styles.toolbarButton}
-          />
-          <AppButton
-            label="Auto Fit"
-            onPress={() => setReloadKey((current) => current + 1)}
-            theme={theme}
-            variant="secondary"
-            fullWidth={false}
-            style={styles.toolbarButton}
-          />
+          <View style={styles.functionRows}>
+            {draftExpressions.map((draftExpression, index) => (
+              <View key={index} style={styles.functionRow}>
+                <Text style={styles.inputLabel}>f{index + 1}(x) =</Text>
+                <TextInput
+                  value={draftExpression}
+                  onChangeText={(value) => handleExpressionChange(index, value)}
+                  onFocus={() => setActiveGraphIndex(index)}
+                  onSubmitEditing={handlePlot}
+                  placeholder={DEFAULT_EXPRESSIONS[index] ?? "sin(x)"}
+                  placeholderTextColor={theme.colors.textSecondary}
+                  style={[styles.input, activeGraphIndex === index && styles.activeInput]}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.toolbarActions}>
+            <AppButton
+              label="Построить"
+              onPress={handlePlot}
+              theme={theme}
+              fullWidth={false}
+              style={styles.toolbarButton}
+            />
+            <AppButton
+              label="Auto Fit"
+              onPress={handleResetView}
+              theme={theme}
+              variant="secondary"
+              fullWidth={false}
+              style={styles.toolbarButton}
+            />
+            <AppButton
+              label="Сбросить вид"
+              onPress={handleResetView}
+              theme={theme}
+              variant="secondary"
+              fullWidth={false}
+              style={styles.toolbarButton}
+            />
+          </View>
+
+          <View style={styles.legendRow}>
+            {expressions.map((expression, index) =>
+              expression.trim() ? (
+                <Pressable
+                  key={index}
+                  onPress={() => setActiveGraphIndex(index)}
+                  style={[styles.legendItem, activeGraphIndex === index && styles.activeLegendItem]}
+                >
+                  <View style={[styles.legendDot, { backgroundColor: GRAPH_COLORS[index] ?? "#2563eb" }]} />
+                  <Text style={styles.legendText}>f{index + 1}</Text>
+                </Pressable>
+              ) : null
+            )}
+          </View>
         </View>
 
         <View style={styles.examplesRow}>
+          <Text style={styles.examplesLabel}>Примеры:</Text>
           {EXAMPLES.map((example) => (
             <Pressable key={example} onPress={() => handleExample(example)} style={styles.exampleChip}>
               <Text style={styles.exampleText}>{example}</Text>
@@ -405,8 +495,23 @@ export function GraphicsLabScreen({ theme }: GraphicsLabScreenProps) {
           </View>
 
           <View style={styles.infoPanel}>
-            <Text style={styles.infoTitle}>Информация</Text>
-            <Metric label="Функция" value={expression} styles={styles} />
+            <Text style={styles.infoTitle}>Свойства функции</Text>
+            <View style={styles.selectorRow}>
+              {expressions.map((expression, index) => (
+                <Pressable
+                  key={index}
+                  onPress={() => setActiveGraphIndex(index)}
+                  style={[styles.selectorButton, activeGraphIndex === index && styles.selectorButtonActive]}
+                  disabled={!expression.trim()}
+                >
+                  <Text style={[styles.selectorText, activeGraphIndex === index && styles.selectorTextActive]}>
+                    f{index + 1}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Metric label="Анализируемая функция" value={activeExpression} styles={styles} />
             <Metric label="Режим анализа" value={metrics.mode} styles={styles} />
             <Metric label="Область определения" value={metrics.domain} styles={styles} />
             <Metric label="Диапазон камеры по X" value={metrics.cameraX} styles={styles} />
@@ -448,19 +553,26 @@ function createStyles(theme: AppTheme, width: number) {
       minWidth: 118
     },
     toolbar: {
-      flexDirection: isCompact ? "column" : "row",
-      alignItems: isCompact ? "stretch" : "center",
       gap: theme.spacing.sm,
       marginBottom: theme.spacing.sm
     },
+    functionRows: {
+      gap: theme.spacing.sm
+    },
+    functionRow: {
+      flexDirection: isCompact ? "column" : "row",
+      alignItems: isCompact ? "stretch" : "center",
+      gap: theme.spacing.sm
+    },
     inputLabel: {
-      color: theme.colors.textSecondary,
+      width: isCompact ? "100%" : 76,
+      color: theme.colors.text,
       fontSize: theme.typography.body,
       fontWeight: "800"
     },
     input: {
       flex: 1,
-      minHeight: 46,
+      minHeight: 44,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: theme.colors.border,
@@ -469,18 +581,63 @@ function createStyles(theme: AppTheme, width: number) {
       paddingHorizontal: theme.spacing.md,
       fontSize: theme.typography.body
     },
+    activeInput: {
+      borderColor: theme.colors.primary
+    },
+    toolbarActions: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: theme.spacing.sm,
+      marginTop: theme.spacing.xs
+    },
     toolbarButton: {
       minWidth: 118,
       alignSelf: isCompact ? "stretch" : "center"
     },
-    examplesRow: {
+    legendRow: {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: theme.spacing.xs,
+      minHeight: 28
+    },
+    legendItem: {
+      minHeight: 28,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: "transparent",
+      paddingHorizontal: 6
+    },
+    activeLegendItem: {
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surfaceMuted
+    },
+    legendDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5
+    },
+    legendText: {
+      color: theme.colors.text,
+      fontSize: theme.typography.caption,
+      fontWeight: "800"
+    },
+    examplesRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      gap: theme.spacing.xs,
       marginBottom: theme.spacing.md
     },
+    examplesLabel: {
+      color: theme.colors.textSecondary,
+      fontSize: theme.typography.caption,
+      fontWeight: "800"
+    },
     exampleChip: {
-      minHeight: 32,
+      minHeight: 30,
       justifyContent: "center",
       borderRadius: 8,
       borderWidth: 1,
@@ -537,6 +694,33 @@ function createStyles(theme: AppTheme, width: number) {
       fontSize: theme.typography.sectionTitle,
       fontWeight: "800",
       marginBottom: theme.spacing.sm
+    },
+    selectorRow: {
+      flexDirection: "row",
+      gap: theme.spacing.xs,
+      marginBottom: theme.spacing.sm
+    },
+    selectorButton: {
+      minWidth: 42,
+      minHeight: 36,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surfaceMuted
+    },
+    selectorButtonActive: {
+      borderColor: theme.colors.primary,
+      backgroundColor: theme.colors.primary
+    },
+    selectorText: {
+      color: theme.colors.text,
+      fontSize: theme.typography.caption,
+      fontWeight: "800"
+    },
+    selectorTextActive: {
+      color: "#ffffff"
     },
     metric: {
       borderTopWidth: 1,
