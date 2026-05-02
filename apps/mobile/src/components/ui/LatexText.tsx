@@ -1,5 +1,7 @@
 import React, { useMemo } from "react";
-import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Platform, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { renderToString } from "katex";
+import { WebView } from "react-native-webview";
 
 import type { AppTheme } from "../../theme";
 import { fixTextSafe as fixText } from "../../utils/fixTextSafe";
@@ -51,38 +53,132 @@ function normalizeLines(content: string): string[] {
 }
 
 function latexToReadable(value: string): string {
-  let next = value.trim();
+  return value
+    .trim()
+    .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, "($1)/($2)")
+    .replace(/\\int_([^\\\s]+)\^([^\\\s]+)\s*/g, "∫[$1,$2] ")
+    .replace(/\\int/g, "∫")
+    .replace(/\\sum_\{?([^{}]+)\}?\^\{?([^{}]+)\}?/g, "Σ[$1..$2]")
+    .replace(/\\sqrt\{([^{}]+)\}/g, "√($1)")
+    .replace(/\\cdot/g, "·")
+    .replace(/\\times/g, "×")
+    .replace(/\\leq?|\\le/g, "≤")
+    .replace(/\\geq?|\\ge/g, "≥")
+    .replace(/\\neq?|\\ne/g, "≠")
+    .replace(/\\infty/g, "∞")
+    .replace(/\\alpha/g, "α")
+    .replace(/\\beta/g, "β")
+    .replace(/\\gamma/g, "γ")
+    .replace(/\\pi/g, "π")
+    .replace(/\\sin/g, "sin")
+    .replace(/\\cos/g, "cos")
+    .replace(/\\tan/g, "tan")
+    .replace(/\\lim/g, "lim")
+    .replace(/\\vec\{([^{}]+)\}/g, "→$1")
+    .replace(/\\left|\\right/g, "")
+    .replace(/\\,/g, " ")
+    .replace(/\^\{([^{}]+)\}/g, "^$1")
+    .replace(/_\{([^{}]+)\}/g, "_$1")
+    .replace(/([_^])([A-Za-z0-9])/g, "$1$2")
+    .replace(/[{}]/g, "")
+    .replace(/\\/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  next = next.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, "($1)/($2)");
-  next = next.replace(/\\int_([^\\\s]+)\^([^\\\s]+)\s*/g, "∫[$1,$2] ");
-  next = next.replace(/\\int/g, "∫");
-  next = next.replace(/\\sum_\{?([^{}]+)\}?\^\{?([^{}]+)\}?/g, "Σ[$1..$2]");
-  next = next.replace(/\\sqrt\{([^{}]+)\}/g, "√($1)");
-  next = next.replace(/\\cdot/g, "·");
-  next = next.replace(/\\times/g, "×");
-  next = next.replace(/\\leq?|\\le/g, "≤");
-  next = next.replace(/\\geq?|\\ge/g, "≥");
-  next = next.replace(/\\neq?|\\ne/g, "≠");
-  next = next.replace(/\\infty/g, "∞");
-  next = next.replace(/\\alpha/g, "α");
-  next = next.replace(/\\beta/g, "β");
-  next = next.replace(/\\gamma/g, "γ");
-  next = next.replace(/\\pi/g, "π");
-  next = next.replace(/\\sin/g, "sin");
-  next = next.replace(/\\cos/g, "cos");
-  next = next.replace(/\\tan/g, "tan");
-  next = next.replace(/\\lim/g, "lim");
-  next = next.replace(/\\vec\{([^{}]+)\}/g, "→$1");
-  next = next.replace(/\\left|\\right/g, "");
-  next = next.replace(/\\,/g, " ");
-  next = next.replace(/\^\{([^{}]+)\}/g, "^$1");
-  next = next.replace(/_\{([^{}]+)\}/g, "_$1");
-  next = next.replace(/([_^])([A-Za-z0-9])/g, "$1$2");
-  next = next.replace(/[{}]/g, "");
-  next = next.replace(/\\/g, "");
-  next = next.replace(/\s+/g, " ").trim();
+function renderLatexToMathMl(value: string, displayMode: boolean): string | null {
+  try {
+    return renderToString(value, {
+      displayMode,
+      output: "mathml",
+      throwOnError: false,
+      strict: false,
+      trust: false
+    });
+  } catch {
+    return null;
+  }
+}
 
-  return next;
+function renderWebFormula(
+  key: string,
+  value: string,
+  displayMode: boolean,
+  style: object
+): React.ReactNode {
+  const html = renderLatexToMathMl(value, displayMode);
+
+  if (!html) {
+    return React.createElement("span", { key, style }, latexToReadable(value));
+  }
+
+  return React.createElement("span", {
+    key,
+    style,
+    dangerouslySetInnerHTML: { __html: html }
+  });
+}
+
+function buildNativeFormulaHtml(value: string, displayMode: boolean): string {
+  const math = renderLatexToMathMl(value, displayMode) ?? latexToReadable(value);
+
+  return `<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      color: #1F2937;
+      font-size: ${displayMode ? 22 : 18}px;
+      line-height: 1.25;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: ${displayMode ? "flex-start" : "center"};
+      min-height: ${displayMode ? 52 : 34}px;
+    }
+    math {
+      math-style: ${displayMode ? "normal" : "compact"};
+      font-size: ${displayMode ? 22 : 18}px;
+    }
+  </style>
+</head>
+<body>${math}</body>
+</html>`;
+}
+
+type NativeFormulaProps = {
+  value: string;
+  displayMode: boolean;
+  width: number;
+  style: object;
+};
+
+function NativeFormula({ value, displayMode, width, style }: NativeFormulaProps) {
+  const readable = latexToReadable(value);
+  const formulaWidth = displayMode
+    ? "100%"
+    : Math.min(Math.max(readable.length * 10 + 28, 76), Math.max(width - 64, 120));
+
+  return (
+    <View style={[style, { width: formulaWidth, height: displayMode ? 58 : 38 }]}>
+      <WebView
+        originWhitelist={["*"]}
+        source={{ html: buildNativeFormulaHtml(value, displayMode) }}
+        scrollEnabled={false}
+        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
+        javaScriptEnabled={false}
+        style={{ backgroundColor: "transparent" }}
+      />
+    </View>
+  );
 }
 
 export function LatexText({ theme, content, compact = false }: LatexTextProps) {
@@ -130,32 +226,81 @@ export function LatexText({ theme, content, compact = false }: LatexTextProps) {
         const textToRender = bulletMatch?.[1] ?? trimmed;
         const segments = splitInlineFormula(textToRender);
 
+        if (Platform.OS !== "web" && segments.some((segment) => segment.type !== "text")) {
+          return (
+            <View key={`line-${lineIndex}`} style={bulletMatch ? styles.bulletRow : styles.lineWrap}>
+              {bulletMatch ? <Text style={styles.bulletDot}>•</Text> : null}
+              <View style={styles.nativeFormulaRow}>
+                {segments.map((segment, segmentIndex) => {
+                  const key = `${lineIndex}-${segmentIndex}`;
+
+                  if (segment.type === "displayFormula") {
+                    return (
+                      <NativeFormula
+                        key={key}
+                        value={segment.value}
+                        displayMode
+                        width={width}
+                        style={styles.nativeDisplayFormula}
+                      />
+                    );
+                  }
+
+                  if (segment.type === "inlineFormula") {
+                    return (
+                      <NativeFormula
+                        key={key}
+                        value={segment.value}
+                        displayMode={false}
+                        width={width}
+                        style={styles.nativeInlineFormula}
+                      />
+                    );
+                  }
+
+                  return (
+                    <Text key={key} style={styles.nativeParagraph}>
+                      {fixText(segment.value)}
+                    </Text>
+                  );
+                })}
+              </View>
+            </View>
+          );
+        }
+
         return (
           <View key={`line-${lineIndex}`} style={bulletMatch ? styles.bulletRow : styles.lineWrap}>
             {bulletMatch ? <Text style={styles.bulletDot}>•</Text> : null}
             <Text style={styles.paragraph}>
               {segments.map((segment, segmentIndex) => {
+                const key = `${lineIndex}-${segmentIndex}`;
+
                 if (segment.type === "displayFormula") {
+                  if (Platform.OS === "web") {
+                    return renderWebFormula(key, segment.value, true, styles.webDisplayFormula);
+                  }
+
                   return (
-                    <Text key={`${lineIndex}-${segmentIndex}`} style={styles.displayFormula}>
+                    <Text key={key} style={styles.displayFormula}>
                       {` ${latexToReadable(segment.value)} `}
                     </Text>
                   );
                 }
 
                 if (segment.type === "inlineFormula") {
+                  if (Platform.OS === "web") {
+                    return renderWebFormula(key, segment.value, false, styles.webInlineFormula);
+                  }
+
                   return (
-                    <Text key={`${lineIndex}-${segmentIndex}`} style={styles.inlineFormula}>
+                    <Text key={key} style={styles.inlineFormula}>
                       {latexToReadable(segment.value)}
                     </Text>
                   );
                 }
 
-                return (
-                  <Text key={`${lineIndex}-${segmentIndex}`}>
-                    {fixText(segment.value)}
-                  </Text>
-                );
+                return <Text key={key}>{fixText(segment.value)}</Text>;
               })}
             </Text>
           </View>
@@ -223,6 +368,57 @@ function createStyles(theme: AppTheme, width: number, compact: boolean) {
       color: theme.colors.primary,
       backgroundColor: theme.colors.primarySoft,
       fontWeight: "800"
-    }
+    },
+    nativeFormulaRow: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      flexWrap: "wrap"
+    },
+    nativeParagraph: {
+      fontFamily: theme.fonts.body,
+      fontSize: compact ? theme.typography.caption : theme.typography.body,
+      lineHeight: compact ? 20 : 24,
+      color: theme.colors.text
+    },
+    nativeInlineFormula: {
+      borderRadius: 4,
+      overflow: "hidden",
+      backgroundColor: theme.colors.primarySoft,
+      marginHorizontal: 2,
+      marginVertical: 2
+    },
+    nativeDisplayFormula: {
+      borderRadius: 4,
+      overflow: "hidden",
+      backgroundColor: theme.colors.primarySoft,
+      marginVertical: theme.spacing.xs
+    },
+    webInlineFormula: {
+      display: "inline-flex",
+      verticalAlign: "middle",
+      alignItems: "center",
+      color: theme.colors.primary,
+      backgroundColor: theme.colors.primarySoft,
+      borderRadius: 4,
+      paddingLeft: 4,
+      paddingRight: 4,
+      marginLeft: 2,
+      marginRight: 2
+    } as unknown as object,
+    webDisplayFormula: {
+      display: "inline-flex",
+      verticalAlign: "middle",
+      alignItems: "center",
+      color: theme.colors.primary,
+      backgroundColor: theme.colors.primarySoft,
+      borderRadius: 4,
+      paddingLeft: 8,
+      paddingRight: 8,
+      paddingTop: 2,
+      paddingBottom: 2,
+      marginLeft: 2,
+      marginRight: 2
+    } as unknown as object
   });
 }

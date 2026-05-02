@@ -1,4 +1,4 @@
-﻿declare module "katex/contrib/auto-render" {
+declare module "katex/contrib/auto-render" {
   type Delimiter = {
     left: string;
     right: string;
@@ -15,4 +15,16 @@
     element: HTMLElement,
     options?: RenderMathInElementOptions
   ): void;
+}
+
+declare module "katex" {
+  type KatexOptions = {
+    displayMode?: boolean;
+    output?: "html" | "mathml" | "htmlAndMathml";
+    throwOnError?: boolean;
+    strict?: boolean | string;
+    trust?: boolean;
+  };
+
+  export function renderToString(latex: string, options?: KatexOptions): string;
 }
