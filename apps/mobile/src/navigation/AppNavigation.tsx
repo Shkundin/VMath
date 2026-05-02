@@ -879,7 +879,7 @@ function mergeDraftLecturesIntoCatalog(
   }
 
   for (const lecture of currentLectures) {
-    if (isDraftLecture(lecture.id) && !deleted.has(lecture.id)) {
+    if (isLocallyAuthoredLecture(lecture) && !deleted.has(lecture.id)) {
       next.set(lecture.id, lecture);
     }
   }
@@ -2154,21 +2154,25 @@ export function AppNavigation() {
 
     try {
       const details = await catalogApi.getLecture(lecture.id);
+      const safeDetails =
+        cachedDetails && cachedDetails.blocks.length > 0 && details.blocks.length === 0
+          ? { ...details, blocks: cachedDetails.blocks }
+          : details;
 
       setLectureDetailsById((current) => ({
         ...current,
-        [lecture.id]: details
+        [lecture.id]: safeDetails
       }));
 
       const mappedLecture = {
-        ...mapLectureDetailsToLectureItem(details, lecture),
+        ...mapLectureDetailsToLectureItem(safeDetails, lecture),
         teacherLogin: lecture.teacherLogin
       };
 
       setCatalogLectures((current) => upsertLecture(current, mappedLecture));
       setSelectedLecture(mappedLecture);
 
-      return details;
+      return safeDetails;
     } catch {
       return cachedDetails ?? null;
     }
@@ -2196,9 +2200,16 @@ export function AppNavigation() {
               created.id,
               buildLecturePublishPayload(latestLecture, latestDetails)
             );
+      const safeSynced =
+        latestDetails.blocks.length > 0 && synced.blocks.length === 0
+          ? { ...synced, blocks: latestDetails.blocks }
+          : synced;
       const publishedLecture = {
-        ...mapLectureDetailsToLectureItem(synced, latestLecture),
+        ...mapLectureDetailsToLectureItem(safeSynced, latestLecture),
         teacherLogin: user.login,
+        blocks: safeSynced.blocks.length > 0
+          ? safeSynced.blocks.map((block, index) => block.title || `Блок ${index + 1}`)
+          : latestLecture.blocks,
         tags: latestLecture.tags.filter((tag) => tag !== "draft")
       };
 
@@ -2209,7 +2220,7 @@ export function AppNavigation() {
       setLectureDetailsById((current) => {
         const next = { ...current };
         delete next[draftLectureId];
-        next[synced.id] = synced;
+        next[safeSynced.id] = safeSynced;
         return next;
       });
       setSelectedLecture((current) =>
@@ -2217,8 +2228,8 @@ export function AppNavigation() {
       );
       setLastOpenedLectureId((current) => {
         if (current === draftLectureId) {
-          void writeLastLectureId(synced.id);
-          return synced.id;
+          void writeLastLectureId(safeSynced.id);
+          return safeSynced.id;
         }
 
         return current;
@@ -2244,15 +2255,19 @@ export function AppNavigation() {
         lecture.id,
         buildLecturePublishPayload(lecture, details)
       );
+      const safeUpdated =
+        details.blocks.length > 0 && updated.blocks.length === 0
+          ? { ...updated, blocks: details.blocks }
+          : updated;
       const nextLecture = {
-        ...mapLectureDetailsToLectureItem(updated, lecture),
+        ...mapLectureDetailsToLectureItem(safeUpdated, lecture),
         teacherLogin: user.login
       };
 
       setCatalogLectures((current) => upsertLecture(current, nextLecture));
       setLectureDetailsById((current) => ({
         ...current,
-        [updated.id]: updated
+        [safeUpdated.id]: safeUpdated
       }));
     } catch {}
   }
