@@ -122,7 +122,7 @@ export function extractPolynomialCoefficients(expr: Expr): number[] | null {
           }
           return null;
 
-        case "^":
+        case "^": {
           if (!left || expr.right.kind !== "number") return null;
           if (!isIntegerLike(expr.right.value)) return null;
           const power = Math.round(expr.right.value);
@@ -135,6 +135,7 @@ export function extractPolynomialCoefficients(expr: Expr): number[] | null {
             result = next;
           }
           return trimCoefficients(result);
+        }
       }
     }
   }

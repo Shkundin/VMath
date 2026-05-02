@@ -66,7 +66,7 @@ function rootsTextFromList(roots: number[]): string {
   return roots.length > 0 ? roots.map(formatNumber).join(", ") : "Не найдены";
 }
 
-function breaksTextFromList(values: number[]): string {
+function _breaksTextFromList(values: number[]): string {
   return values.length > 0 ? values.map((x) => `x = ${formatNumber(x)}`).join(", ") : "Не найдены";
 }
 
@@ -244,7 +244,7 @@ function analyzeReciprocal(): FunctionAnalysisResult {
   });
 }
 
-function findSingleBoundary(expr: Expr, target = 0): number | null {
+function _findSingleBoundary(expr: Expr, target = 0): number | null {
   const fn = (x: number) => evaluateExpr(expr, x) - target;
   const roots = findRootsOnInterval(fn, -100, 100, {
     samples: 5000,

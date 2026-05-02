@@ -13,6 +13,8 @@ export function evaluateExpr(expr: Expr, x: number): number {
       switch (expr.op) {
         case "-":
           return -value;
+        default:
+          throw new Error("Unsupported unary operator");
       }
     }
 
@@ -31,6 +33,8 @@ export function evaluateExpr(expr: Expr, x: number): number {
           return left / right;
         case "^":
           return Math.pow(left, right);
+        default:
+          throw new Error("Unsupported binary operator");
       }
     }
 
@@ -52,6 +56,8 @@ export function evaluateExpr(expr: Expr, x: number): number {
           return Math.log(argument);
         case "exp":
           return Math.exp(argument);
+        default:
+          throw new Error("Unsupported function");
       }
     }
   }
