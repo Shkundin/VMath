@@ -2,9 +2,7 @@
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import { AppButton } from "../components/ui/AppButton";
-import { ErrorState } from "../components/ui/ErrorState";
 import { LatexText } from "../components/ui/LatexText";
-import { OfflineState } from "../components/ui/OfflineState";
 import { Screen } from "../components/ui/Screen";
 import { ScreenHeader } from "../components/ui/ScreenHeader";
 import { SectionCard } from "../components/ui/SectionCard";
@@ -20,9 +18,6 @@ type SessionScreenProps = {
   lecture: LectureItem;
   session: SessionData;
   lectureDetails?: LectureDetails | null;
-  isOffline?: boolean;
-  hasError?: boolean;
-  onRetry?: () => void;
   onBack: () => void;
   onOpenTask: () => void;
 };
@@ -32,9 +27,6 @@ export function SessionScreen({
   lecture,
   session,
   lectureDetails,
-  isOffline = false,
-  hasError = false,
-  onRetry,
   onBack,
   onOpenTask
 }: SessionScreenProps) {
@@ -103,9 +95,6 @@ export function SessionScreen({
           <MiniStatCard theme={theme} value={String(session.questions.length)} label="Вопросов" />
         </View>
       </View>
-
-      {isOffline ? <OfflineState theme={theme} onRetry={onRetry} /> : null}
-      {hasError ? <ErrorState theme={theme} onRetry={onRetry} /> : null}
 
       <SectionCard
         theme={theme}
