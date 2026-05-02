@@ -1,8 +1,8 @@
-import type { Expr } from "./ast.js";
-import { derivativeOf } from "./differentiate.js";
-import { evaluateExpr } from "./evaluate.js";
-import { findRootsOnInterval } from "./roots.js";
-import { classifyExpr, type ClassifiedFunction, extractPolynomialCoefficients } from "./classify.js";
+import type { Expr } from "./ast";
+import { derivativeOf } from "./differentiate";
+import { evaluateExpr } from "./evaluate";
+import { findRootsOnInterval } from "./roots";
+import { classifyExpr, type ClassifiedFunction, extractPolynomialCoefficients } from "./classify";
 
 const EPS = 1e-8;
 

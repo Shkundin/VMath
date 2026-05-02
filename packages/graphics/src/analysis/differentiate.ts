@@ -1,6 +1,6 @@
-import type { Expr } from "./ast.js";
-import { binaryExpr, callExpr, numberLiteral, unaryExpr, variableExpr } from "./ast.js";
-import { simplifyExpr } from "./simplify.js";
+import type { Expr } from "./ast";
+import { binaryExpr, callExpr, numberLiteral, unaryExpr, variableExpr } from "./ast";
+import { simplifyExpr } from "./simplify";
 
 function add(a: Expr, b: Expr): Expr {
   return simplifyExpr(binaryExpr("+", a, b));

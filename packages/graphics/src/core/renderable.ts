@@ -1,5 +1,5 @@
-import type { Camera2D } from "./camera2d.js";
-import type { SceneObjectJSON } from "../serialize/schema.js";
+import type { Camera2D } from "./camera2d";
+import type { SceneObjectJSON } from "../serialize/schema";
 
 export interface Renderable {
   id: string;

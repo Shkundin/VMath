@@ -1,11 +1,11 @@
-import { Scene2D } from "../core/scene2d.js";
-import { Interaction2D } from "../interaction/interaction2d.js";
+import { Scene2D } from "../core/scene2d";
+import { Interaction2D } from "../interaction/interaction2d";
 import {
   Axis2D,
   Grid2D,
   Label2D,
   plotFunctionExpression,
-} from "../renderer2d/primitives.js";
+} from "../renderer2d/primitives";
 
 export interface Demo2DController {
   scene: Scene2D;

@@ -1,4 +1,4 @@
-import type { CallExpr, Expr } from "./ast.js";
+import type { CallExpr, Expr } from "./ast";
 
 export type FunctionKind = "constant" | "polynomial" | "reciprocal" | "generic";
 
