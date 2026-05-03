@@ -80,6 +80,9 @@ export function differentiateExpr(expr: Expr): Expr {
               )
             )
           );
+
+        default:
+          throw new Error("Unsupported binary operator");
       }
     }
 
@@ -120,6 +123,9 @@ export function differentiateExpr(expr: Expr): Expr {
 
         case "exp":
           return simplifyExpr(mul(callExpr("exp", u), du));
+
+        default:
+          throw new Error("Unsupported function");
       }
     }
   }
