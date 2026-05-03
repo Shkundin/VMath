@@ -289,7 +289,6 @@ export function GraphicsLabScreen({ theme }: GraphicsLabScreenProps) {
       <ScreenHeader
         theme={theme}
         title="Графическая студия"
-        subtitle="Интерактивная студия VM Graphics из ветки nver/graphics-init"
         rightSlot={
           <AppButton
             label="Обновить"
