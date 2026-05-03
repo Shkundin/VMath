@@ -2,7 +2,7 @@ import type { Expr, FunctionName } from "./ast";
 import { binaryExpr, callExpr, numberLiteral, unaryExpr, variableExpr } from "./ast";
 import { tokenize, type Token } from "./tokenize";
 
-const SUPPORTED_FUNCTIONS: Set<string> = new Set([
+const SUPPORTED_UNARY_FUNCTIONS: Set<string> = new Set([
   "sin",
   "cos",
   "tan",
@@ -10,6 +10,8 @@ const SUPPORTED_FUNCTIONS: Set<string> = new Set([
   "sqrt",
   "log",
   "exp",
+  "ln",
+  "log10",
 ]);
 
 class Parser {
@@ -117,11 +119,11 @@ class Parser {
         return numberLiteral(Math.E);
       }
 
-      if (SUPPORTED_FUNCTIONS.has(token.value)) {
+      if (SUPPORTED_UNARY_FUNCTIONS.has(token.value)) {
         this.expect("lparen");
-        const argument = this.parseExpression();
+        const args = this.parseCallArguments();
         this.expect("rparen");
-        return callExpr(token.value as FunctionName, argument);
+        return this.buildFunctionCall(token.value, args);
       }
 
       throw new Error(`Неизвестный идентификатор: ${token.value}`);
@@ -135,6 +137,65 @@ class Parser {
     }
 
     throw new Error("Ожидалось число, x, функция или скобка");
+  }
+
+  private parseCallArguments(): Expr[] {
+    const args: Expr[] = [];
+
+    if (this.peek()?.type === "rparen") {
+      return args;
+    }
+
+    args.push(this.parseExpression());
+
+    while (this.peek()?.type === "comma") {
+      this.advance();
+      args.push(this.parseExpression());
+    }
+
+    return args;
+  }
+
+  private buildFunctionCall(name: string, args: Expr[]): Expr {
+    if (name === "ln") {
+      if (args.length !== 1) {
+        throw new Error("ln(...) принимает ровно один аргумент");
+      }
+      return callExpr("log", args[0]);
+    }
+
+    if (name === "log10") {
+      if (args.length !== 1) {
+        throw new Error("log10(...) принимает ровно один аргумент");
+      }
+      return binaryExpr(
+        "/",
+        callExpr("log", args[0]),
+        callExpr("log", numberLiteral(10))
+      );
+    }
+
+    if (name === "log") {
+      if (args.length === 1) {
+        return callExpr("log", args[0]);
+      }
+
+      if (args.length === 2) {
+        return binaryExpr(
+          "/",
+          callExpr("log", args[0]),
+          callExpr("log", args[1])
+        );
+      }
+
+      throw new Error("log(...) принимает один или два аргумента");
+    }
+
+    if (args.length !== 1) {
+      throw new Error(`${name}(...) принимает ровно один аргумент`);
+    }
+
+    return callExpr(name as FunctionName, args[0]);
   }
 
   private expect(type: Token["type"]): Token {

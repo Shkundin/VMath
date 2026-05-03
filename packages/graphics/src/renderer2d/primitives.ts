@@ -1,4 +1,6 @@
 import type { Renderable } from "../core/renderable";
+import { parseExpression } from "../analysis/parse";
+import { compileExpr } from "../analysis/evaluate";
 import type { Camera2D } from "../core/camera2d";
 import type {
   Axis2DJSON,
@@ -97,6 +99,25 @@ function getVisibleWorldBounds(camera: Camera2D, width: number, height: number) 
 
 function snapStart(value: number, step: number): number {
   return Math.floor(value / step) * step;
+}
+
+function chooseNiceStep(target: number): number {
+  const safe = Math.max(target, 1e-9);
+  const power = Math.pow(10, Math.floor(Math.log10(safe)));
+  const normalized = safe / power;
+
+  if (normalized <= 1) return 1 * power;
+  if (normalized <= 2) return 2 * power;
+  if (normalized <= 5) return 5 * power;
+  return 10 * power;
+}
+
+function formatTickValue(value: number): string {
+  const abs = Math.abs(value);
+  if (abs < 1e-9) return "0";
+  if (abs >= 1000 || abs < 0.01) return value.toExponential(1);
+  if (Math.abs(value - Math.round(value)) < 1e-9) return String(Math.round(value));
+  return value.toFixed(2).replace(/\.?0+$/, "");
 }
 
 abstract class BasePrimitive implements Renderable {
@@ -253,7 +274,7 @@ export class Grid2D extends BasePrimitive {
     super("grid2d", options);
     this.step = options.step ?? 1;
     this.extent = options.extent ?? 20;
-    this.strokeStyle = options.strokeStyle ?? "#e8eaee";
+    this.strokeStyle = options.strokeStyle ?? "#eceff4";
     this.lineWidth = options.lineWidth ?? 0.8;
   }
 
@@ -264,16 +285,23 @@ export class Grid2D extends BasePrimitive {
     const height = context.canvas.height;
     const bounds = getVisibleWorldBounds(camera, width, height);
 
-    const startX = snapStart(bounds.minX, this.step);
-    const endX = bounds.maxX;
-    const startY = snapStart(bounds.minY, this.step);
-    const endY = bounds.maxY;
+    const pixelsPerWorld = camera.zoom;
+    const minorStep = chooseNiceStep(32 / pixelsPerWorld);
+    const majorStep = minorStep * 5;
+
+    const startMinorX = snapStart(bounds.minX, minorStep);
+    const startMinorY = snapStart(bounds.minY, minorStep);
+    const startMajorX = snapStart(bounds.minX, majorStep);
+    const startMajorY = snapStart(bounds.minY, majorStep);
 
     context.save();
-    context.strokeStyle = this.strokeStyle;
-    context.lineWidth = this.lineWidth;
 
-    for (let x = startX; x <= endX; x += this.step) {
+    context.strokeStyle = "#eef2f7";
+    context.lineWidth = 1;
+
+    for (let x = startMinorX; x <= bounds.maxX; x += minorStep) {
+      const isMajor = Math.abs((x / majorStep) - Math.round(x / majorStep)) < 1e-8;
+      if (isMajor) continue;
       const a = camera.worldToScreen({ x, y: bounds.minY }, width, height);
       const b = camera.worldToScreen({ x, y: bounds.maxY }, width, height);
       context.beginPath();
@@ -282,7 +310,30 @@ export class Grid2D extends BasePrimitive {
       context.stroke();
     }
 
-    for (let y = startY; y <= endY; y += this.step) {
+    for (let y = startMinorY; y <= bounds.maxY; y += minorStep) {
+      const isMajor = Math.abs((y / majorStep) - Math.round(y / majorStep)) < 1e-8;
+      if (isMajor) continue;
+      const a = camera.worldToScreen({ x: bounds.minX, y }, width, height);
+      const b = camera.worldToScreen({ x: bounds.maxX, y }, width, height);
+      context.beginPath();
+      context.moveTo(a.x, a.y);
+      context.lineTo(b.x, b.y);
+      context.stroke();
+    }
+
+    context.strokeStyle = "#d9e0ea";
+    context.lineWidth = 1.2;
+
+    for (let x = startMajorX; x <= bounds.maxX; x += majorStep) {
+      const a = camera.worldToScreen({ x, y: bounds.minY }, width, height);
+      const b = camera.worldToScreen({ x, y: bounds.maxY }, width, height);
+      context.beginPath();
+      context.moveTo(a.x, a.y);
+      context.lineTo(b.x, b.y);
+      context.stroke();
+    }
+
+    for (let y = startMajorY; y <= bounds.maxY; y += majorStep) {
       const a = camera.worldToScreen({ x: bounds.minX, y }, width, height);
       const b = camera.worldToScreen({ x: bounds.maxX, y }, width, height);
       context.beginPath();
@@ -331,7 +382,13 @@ export class Axis2D extends BasePrimitive {
     const width = context.canvas.width;
     const height = context.canvas.height;
     const bounds = getVisibleWorldBounds(camera, width, height);
-    const majorEvery = 5;
+
+    const pixelsPerWorld = camera.zoom;
+    const minorStep = chooseNiceStep(32 / pixelsPerWorld);
+    const majorStep = minorStep * 5;
+
+    const xAxisVisible = bounds.minY <= 0 && bounds.maxY >= 0;
+    const yAxisVisible = bounds.minX <= 0 && bounds.maxX >= 0;
 
     const xAxisA = camera.worldToScreen({ x: bounds.minX, y: 0 }, width, height);
     const xAxisB = camera.worldToScreen({ x: bounds.maxX, y: 0 }, width, height);
@@ -344,55 +401,79 @@ export class Axis2D extends BasePrimitive {
     context.lineWidth = 2;
     context.font = this.labelFont;
 
-    if (bounds.minY <= 0 && bounds.maxY >= 0) {
+    if (xAxisVisible) {
       context.beginPath();
       context.moveTo(xAxisA.x, xAxisA.y);
       context.lineTo(xAxisB.x, xAxisB.y);
       context.stroke();
     }
 
-    if (bounds.minX <= 0 && bounds.maxX >= 0) {
+    if (yAxisVisible) {
       context.beginPath();
       context.moveTo(yAxisA.x, yAxisA.y);
       context.lineTo(yAxisB.x, yAxisB.y);
       context.stroke();
     }
 
-    const startX = snapStart(bounds.minX, this.tickStep);
-    for (let x = startX; x <= bounds.maxX; x += this.tickStep) {
-      if (Math.abs(x) < 1e-9 || !(bounds.minY <= 0 && bounds.maxY >= 0)) continue;
-      const p = camera.worldToScreen({ x, y: 0 }, width, height);
-      const roundedX = Math.round(x);
-      const isMajor = roundedX % majorEvery === 0;
-      const size = isMajor ? 7 : 4;
+    if (xAxisVisible) {
+      const startMinorX = snapStart(bounds.minX, minorStep);
+      const startMajorX = snapStart(bounds.minX, majorStep);
 
-      context.beginPath();
-      context.lineWidth = isMajor ? 1.5 : 1;
-      context.moveTo(p.x, p.y - size);
-      context.lineTo(p.x, p.y + size);
-      context.stroke();
+      for (let x = startMinorX; x <= bounds.maxX; x += minorStep) {
+        if (Math.abs(x) < 1e-9) continue;
+        const isMajor = Math.abs((x / majorStep) - Math.round(x / majorStep)) < 1e-8;
+        if (isMajor) continue;
+        const p = camera.worldToScreen({ x, y: 0 }, width, height);
+        context.beginPath();
+        context.lineWidth = 1;
+        context.moveTo(p.x, p.y - 3);
+        context.lineTo(p.x, p.y + 3);
+        context.stroke();
+      }
 
-      if (this.showLabels && isMajor) {
-        context.fillText(String(roundedX), p.x - 7, p.y + 18);
+      for (let x = startMajorX; x <= bounds.maxX; x += majorStep) {
+        if (Math.abs(x) < 1e-9) continue;
+        const p = camera.worldToScreen({ x, y: 0 }, width, height);
+        context.beginPath();
+        context.lineWidth = 1.5;
+        context.moveTo(p.x, p.y - 6);
+        context.lineTo(p.x, p.y + 6);
+        context.stroke();
+
+        if (this.showLabels) {
+          context.fillText(formatTickValue(x), p.x - 10, p.y + 18);
+        }
       }
     }
 
-    const startY = snapStart(bounds.minY, this.tickStep);
-    for (let y = startY; y <= bounds.maxY; y += this.tickStep) {
-      if (Math.abs(y) < 1e-9 || !(bounds.minX <= 0 && bounds.maxX >= 0)) continue;
-      const p = camera.worldToScreen({ x: 0, y }, width, height);
-      const roundedY = Math.round(y);
-      const isMajor = roundedY % majorEvery === 0;
-      const size = isMajor ? 7 : 4;
+    if (yAxisVisible) {
+      const startMinorY = snapStart(bounds.minY, minorStep);
+      const startMajorY = snapStart(bounds.minY, majorStep);
 
-      context.beginPath();
-      context.lineWidth = isMajor ? 1.5 : 1;
-      context.moveTo(p.x - size, p.y);
-      context.lineTo(p.x + size, p.y);
-      context.stroke();
+      for (let y = startMinorY; y <= bounds.maxY; y += minorStep) {
+        if (Math.abs(y) < 1e-9) continue;
+        const isMajor = Math.abs((y / majorStep) - Math.round(y / majorStep)) < 1e-8;
+        if (isMajor) continue;
+        const p = camera.worldToScreen({ x: 0, y }, width, height);
+        context.beginPath();
+        context.lineWidth = 1;
+        context.moveTo(p.x - 3, p.y);
+        context.lineTo(p.x + 3, p.y);
+        context.stroke();
+      }
 
-      if (this.showLabels && isMajor) {
-        context.fillText(String(roundedY), p.x + 10, p.y + 4);
+      for (let y = startMajorY; y <= bounds.maxY; y += majorStep) {
+        if (Math.abs(y) < 1e-9) continue;
+        const p = camera.worldToScreen({ x: 0, y }, width, height);
+        context.beginPath();
+        context.lineWidth = 1.5;
+        context.moveTo(p.x - 6, p.y);
+        context.lineTo(p.x + 6, p.y);
+        context.stroke();
+
+        if (this.showLabels) {
+          context.fillText(formatTickValue(y), p.x + 10, p.y + 4);
+        }
       }
     }
 
@@ -649,19 +730,7 @@ export function plotFunction(options: FunctionGraph2DOptions): FunctionGraph2D {
 }
 
 export function compileFunctionExpression(expression: string): (x: number) => number {
-  const normalized = expression
-    .replace(/\^/g, "**")
-    .replace(/\babs\(/g, "Math.abs(")
-    .replace(/\bsin\(/g, "Math.sin(")
-    .replace(/\bcos\(/g, "Math.cos(")
-    .replace(/\btan\(/g, "Math.tan(")
-    .replace(/\bsqrt\(/g, "Math.sqrt(")
-    .replace(/\blog\(/g, "Math.log(")
-    .replace(/\bexp\(/g, "Math.exp(")
-    .replace(/\bPI\b/g, "Math.PI")
-    .replace(/\bE\b/g, "Math.E");
-
-  return new Function("x", `return ${normalized};`) as (x: number) => number;
+  return compileExpr(parseExpression(expression));
 }
 
 export function plotFunctionExpression(options: FunctionExpressionOptions): FunctionGraph2D {

@@ -1,3 +1,4 @@
+export * from "./classify";
 export * from "./ast";
 export * from "./tokenize";
 export * from "./parse";

@@ -33,21 +33,37 @@
       }
 
       .controls {
-        display: flex;
-        gap: 12px;
+        display: grid;
+        grid-template-columns: auto minmax(260px, 1fr);
+        gap: 10px 12px;
         align-items: center;
-        flex-wrap: wrap;
-        margin-bottom: 12px;
+        margin-bottom: 14px;
+      }
+
+      .controls label {
+        font-weight: 600;
       }
 
       input {
-        width: 420px;
+        width: 100%;
         max-width: 100%;
         padding: 12px 14px;
         font-size: 18px;
         border: 1px solid #d1d5db;
         border-radius: 12px;
         outline: none;
+        box-sizing: border-box;
+      }
+
+      input:focus {
+        border-color: #2563eb;
+      }
+
+      .actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
       }
 
       button {
@@ -65,8 +81,30 @@
         color: #111827;
       }
 
+      .legend {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 6px;
+        font-size: 14px;
+        color: #4b5563;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .legend-swatch {
+        width: 12px;
+        height: 12px;
+        border-radius: 999px;
+        display: inline-block;
+      }
+
       .examples {
-        margin-top: 8px;
+        margin-top: 10px;
         font-size: 14px;
         color: #4b5563;
       }
@@ -79,7 +117,7 @@
 
       .workspace {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 320px;
+        grid-template-columns: minmax(0, 1fr) 360px;
         gap: 16px;
         align-items: start;
       }
@@ -92,7 +130,6 @@
       }
 
       .graph-card {
-        padding: 0;
         overflow: hidden;
       }
 
@@ -112,6 +149,34 @@
         font-size: 22px;
       }
 
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+      }
+
+      .tab-btn {
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 1px solid #d1d5db;
+        background: #f8fafc;
+        color: #111827;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .tab-btn.active {
+        background: #111827;
+        color: #ffffff;
+        border-color: #111827;
+      }
+
+      .tab-btn.empty {
+        opacity: 0.6;
+      }
+
       .metric {
         margin-bottom: 14px;
       }
@@ -125,7 +190,7 @@
       .metric-value {
         font-size: 15px;
         color: #111827;
-        line-height: 1.4;
+        line-height: 1.45;
         word-break: break-word;
       }
 
@@ -142,11 +207,35 @@
 
       <div class="panel">
         <div class="controls">
-          <label for="expr">f(x) =</label>
-          <input id="expr" value="sin(x)" />
+          <label for="expr1">f1(x) =</label>
+          <input id="expr1" value="x^2" />
+
+          <label for="expr2">f2(x) =</label>
+          <input id="expr2" value="sin(x)" />
+
+          <label for="expr3">f3(x) =</label>
+          <input id="expr3" value="abs(x) - 4" />
+        </div>
+
+        <div class="actions">
           <button id="plot">Построить</button>
           <button id="fit" class="secondary">Auto Fit</button>
           <button id="reset" class="secondary">Сбросить вид</button>
+        </div>
+
+        <div class="legend">
+          <div class="legend-item">
+            <span class="legend-swatch" style="background:#2563eb;"></span>
+            <span>f1</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch" style="background:#dc2626;"></span>
+            <span>f2</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch" style="background:#16a34a;"></span>
+            <span>f3</span>
+          </div>
         </div>
 
         <div class="examples">
@@ -166,30 +255,36 @@
         </div>
 
         <div class="info-card">
-          <h2>Информация</h2>
+          <h2>Свойства функции</h2>
 
-          <div class="metric">
-            <div class="metric-label">Функция</div>
-            <div class="metric-value" id="infoExpr">sin(x)</div>
+          <div class="tabs">
+            <button class="tab-btn active" data-tab="0" id="tab0">f1</button>
+            <button class="tab-btn" data-tab="1" id="tab1">f2</button>
+            <button class="tab-btn" data-tab="2" id="tab2">f3</button>
           </div>
 
           <div class="metric">
-            <div class="metric-label">Диапазон камеры по X</div>
-            <div class="metric-value" id="infoCameraX">—</div>
+            <div class="metric-label">Анализируемая функция</div>
+            <div class="metric-value" id="infoExpr">x^2</div>
           </div>
 
           <div class="metric">
-            <div class="metric-label">Диапазон камеры по Y</div>
-            <div class="metric-value" id="infoCameraY">—</div>
+            <div class="metric-label">Режим анализа</div>
+            <div class="metric-value" id="infoMode">—</div>
           </div>
 
           <div class="metric">
-            <div class="metric-label">Область значений функции на текущем окне</div>
+            <div class="metric-label">Область определения</div>
+            <div class="metric-value" id="infoDomain">—</div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-label">Область значений</div>
             <div class="metric-value" id="infoRange">—</div>
           </div>
 
           <div class="metric">
-            <div class="metric-label">Примерные нули</div>
+            <div class="metric-label">Нули функции</div>
             <div class="metric-value" id="infoZeros">—</div>
           </div>
 
@@ -199,13 +294,8 @@
           </div>
 
           <div class="metric">
-            <div class="metric-label">Найденный минимум на окне</div>
-            <div class="metric-value" id="infoMin">—</div>
-          </div>
-
-          <div class="metric">
-            <div class="metric-label">Найденный максимум на окне</div>
-            <div class="metric-value" id="infoMax">—</div>
+            <div class="metric-label">Критические точки</div>
+            <div class="metric-value" id="infoCritical">—</div>
           </div>
         </div>
       </div>
@@ -218,24 +308,39 @@
         Axis2D,
         Interaction2D,
         plotFunctionExpression,
-        compileFunctionExpression
+        parseExpression,
+        analyzeExprOnInterval
       } from "./dist/index.js";
 
       const canvas = document.getElementById("canvas");
-      const exprInput = document.getElementById("expr");
+      const context = canvas.getContext("2d");
+
+      const exprInputs = [
+        document.getElementById("expr1"),
+        document.getElementById("expr2"),
+        document.getElementById("expr3"),
+      ];
+
       const plotButton = document.getElementById("plot");
       const fitButton = document.getElementById("fit");
       const resetButton = document.getElementById("reset");
-      const context = canvas.getContext("2d");
+
+      const tabButtons = [
+        document.getElementById("tab0"),
+        document.getElementById("tab1"),
+        document.getElementById("tab2"),
+      ];
 
       const infoExpr = document.getElementById("infoExpr");
-      const infoCameraX = document.getElementById("infoCameraX");
-      const infoCameraY = document.getElementById("infoCameraY");
+      const infoMode = document.getElementById("infoMode");
+      const infoDomain = document.getElementById("infoDomain");
       const infoRange = document.getElementById("infoRange");
       const infoZeros = document.getElementById("infoZeros");
       const infoBreaks = document.getElementById("infoBreaks");
-      const infoMin = document.getElementById("infoMin");
-      const infoMax = document.getElementById("infoMax");
+      const infoCritical = document.getElementById("infoCritical");
+
+      const GRAPH_COLORS = ["#2563eb", "#dc2626", "#16a34a"];
+      const GRAPH_IDS = ["graph-1", "graph-2", "graph-3"];
 
       const scene = new Scene2D({
         background: "#ffffff",
@@ -263,7 +368,8 @@
         })
       );
 
-      let currentExpression = exprInput.value.trim();
+      let expressions = exprInputs.map((input) => input.value.trim());
+      let activeTabIndex = 0;
       let rafId = null;
 
       function getVisibleBounds() {
@@ -278,203 +384,132 @@
         };
       }
 
-      function round2(value) {
-        return Number(value.toFixed(2));
+      function getActiveExpressions() {
+        return expressions
+          .map((expression, index) => ({ expression: expression.trim(), index }))
+          .filter((item) => item.expression.length > 0);
       }
 
-      function uniqueRounded(values, digits = 2) {
-        const out = [];
-        const seen = new Set();
-
-        for (const value of values) {
-          const rounded = Number(value.toFixed(digits));
-          const key = rounded.toFixed(digits);
-          if (!seen.has(key)) {
-            seen.add(key);
-            out.push(rounded);
-          }
-        }
-
-        return out;
+      function formatFallbackList(values, limit = 8, emptyText = "Не найдены") {
+        if (!values || values.length === 0) return emptyText;
+        return values.slice(0, limit).map((value) => Number(value).toFixed(4)).join(", ");
       }
 
-      function percentile(sorted, p) {
-        if (sorted.length === 0) return null;
-        const index = (sorted.length - 1) * p;
-        const lower = Math.floor(index);
-        const upper = Math.ceil(index);
-        if (lower === upper) return sorted[lower];
-        const t = index - lower;
-        return sorted[lower] * (1 - t) + sorted[upper] * t;
+      function refreshTabs() {
+        tabButtons.forEach((button, index) => {
+          button.classList.toggle("active", index === activeTabIndex);
+          button.classList.toggle("empty", expressions[index].trim().length === 0);
+        });
       }
 
-      function sampleFunction(fn, xMin, xMax, samples = 2200) {
-        const step = (xMax - xMin) / samples;
-        const points = [];
-        const breaks = [];
-        let prevX = null;
-        let prevY = null;
-        const zeros = [];
+      function computeMultiAutoFitBounds() {
+        const active = getActiveExpressions();
 
-        for (let i = 0; i <= samples; i += 1) {
-          const x = xMin + i * step;
-          const y = fn(x);
-
-          if (!Number.isFinite(y)) {
-            breaks.push(x);
-            prevX = null;
-            prevY = null;
-            continue;
-          }
-
-          points.push({ x, y });
-
-          if (prevY !== null && prevX !== null) {
-            if ((prevY <= 0 && y >= 0) || (prevY >= 0 && y <= 0)) {
-              const denom = Math.abs(prevY) + Math.abs(y);
-              const zeroX = denom === 0
-                ? x
-                : (prevX * Math.abs(y) + x * Math.abs(prevY)) / denom;
-              zeros.push(zeroX);
-            }
-          }
-
-          prevX = x;
-          prevY = y;
-        }
-
-        return {
-          points,
-          zeros: uniqueRounded(zeros),
-          breaks: uniqueRounded(breaks),
-        };
-      }
-
-      function analyzeWindow(fn, xMin, xMax) {
-        const { points, zeros, breaks } = sampleFunction(fn, xMin, xMax, 2200);
-
-        if (points.length === 0) {
+        if (active.length === 0) {
           return {
-            points,
-            zeros,
-            breaks,
-            minY: null,
-            maxY: null,
-            minPoint: null,
-            maxPoint: null,
+            minX: -10,
+            maxX: 10,
+            minY: -10,
+            maxY: 10,
           };
         }
 
-        let minPoint = points[0];
-        let maxPoint = points[0];
+        let minY = Infinity;
+        let maxY = -Infinity;
 
-        for (const point of points) {
-          if (point.y < minPoint.y) minPoint = point;
-          if (point.y > maxPoint.y) maxPoint = point;
+        for (const item of active) {
+          const expr = parseExpression(item.expression);
+          const analysis = analyzeExprOnInterval(expr, -10, 10);
+
+          if (analysis.range) {
+            minY = Math.min(minY, analysis.range.minY);
+            maxY = Math.max(maxY, analysis.range.maxY);
+          }
         }
 
+        if (!Number.isFinite(minY) || !Number.isFinite(maxY)) {
+          minY = -10;
+          maxY = 10;
+        }
+
+        if (Math.abs(maxY - minY) < 1e-9) {
+          minY -= 1;
+          maxY += 1;
+        }
+
+        const padY = Math.max((maxY - minY) * 0.2, 1);
+
         return {
-          points,
-          zeros,
-          breaks,
-          minY: minPoint.y,
-          maxY: maxPoint.y,
-          minPoint,
-          maxPoint,
+          minX: -10,
+          maxX: 10,
+          minY: minY - padY,
+          maxY: maxY + padY,
         };
       }
 
-      function computeStableAutoFitBounds(fn) {
-        const fitXMin = -10;
-        const fitXMax = 10;
-        const { points } = sampleFunction(fn, fitXMin, fitXMax, 2600);
+      function updateInfo(bounds) {
+        const expression = expressions[activeTabIndex]?.trim() ?? "";
 
-        if (points.length === 0) {
-          return { minX: -10, maxX: 10, minY: -10, maxY: 10 };
+        if (!expression) {
+          infoExpr.textContent = `f${activeTabIndex + 1}: нет функции`;
+          infoMode.textContent = "—";
+          infoDomain.textContent = "—";
+          infoRange.textContent = "—";
+          infoZeros.textContent = "—";
+          infoBreaks.textContent = "—";
+          infoCritical.textContent = "—";
+          return;
         }
 
-        const yValues = points.map((p) => p.y).sort((a, b) => a - b);
-        let low = percentile(yValues, 0.05);
-        let high = percentile(yValues, 0.95);
+        infoExpr.textContent = expression;
 
-        if (low === null || high === null) {
-          low = -10;
-          high = 10;
+        try {
+          const expr = parseExpression(expression);
+          const analysis = analyzeExprOnInterval(expr, bounds.minX, bounds.maxX);
+
+          infoMode.textContent = analysis.modeText ?? "Неизвестно";
+          infoDomain.textContent = analysis.domainText ?? "Не удалось определить";
+          infoRange.textContent = analysis.rangeText ?? "Не удалось определить";
+          infoZeros.textContent = analysis.zerosText ?? formatFallbackList(analysis.zeros);
+          infoBreaks.textContent = analysis.discontinuitiesText ?? formatFallbackList(analysis.discontinuities, 8, "Не найдены");
+          infoCritical.textContent = analysis.criticalText ?? "Не найдены";
+        } catch (error) {
+          infoMode.textContent = "Ошибка анализа";
+          infoDomain.textContent = "Ошибка анализа";
+          infoRange.textContent = "Ошибка анализа";
+          infoZeros.textContent = "Ошибка анализа";
+          infoBreaks.textContent = "Ошибка анализа";
+          infoCritical.textContent = "Ошибка анализа";
         }
-
-        const trueMin = yValues[0];
-        const trueMax = yValues[yValues.length - 1];
-
-        if (!Number.isFinite(trueMin) || !Number.isFinite(trueMax)) {
-          low = -10;
-          high = 10;
-        }
-
-        if (Math.abs(high - low) < 1e-6) {
-          low -= 1;
-          high += 1;
-        }
-
-        const padY = Math.max((high - low) * 0.2, 1);
-
-        return {
-          minX: fitXMin,
-          maxX: fitXMax,
-          minY: low - padY,
-          maxY: high + padY,
-        };
       }
 
-      function updateInfo(bounds, analysis) {
-        infoExpr.textContent = currentExpression;
-        infoCameraX.textContent = `[${round2(bounds.minX)}, ${round2(bounds.maxX)}]`;
-        infoCameraY.textContent = `[${round2(bounds.minY)}, ${round2(bounds.maxY)}]`;
-
-        if (analysis.minY === null || analysis.maxY === null) {
-          infoRange.textContent = "Не удалось оценить";
-          infoMin.textContent = "—";
-          infoMax.textContent = "—";
-        } else {
-          infoRange.textContent = `[${analysis.minY.toFixed(3)}, ${analysis.maxY.toFixed(3)}]`;
-          infoMin.textContent = `x ≈ ${analysis.minPoint.x.toFixed(3)}, y ≈ ${analysis.minPoint.y.toFixed(3)}`;
-          infoMax.textContent = `x ≈ ${analysis.maxPoint.x.toFixed(3)}, y ≈ ${analysis.maxPoint.y.toFixed(3)}`;
-        }
-
-        infoZeros.textContent = analysis.zeros.length
-          ? analysis.zeros.slice(0, 8).map((x) => x.toFixed(2)).join(", ")
-          : "Не найдены";
-
-        infoBreaks.textContent = analysis.breaks.length
-          ? analysis.breaks.slice(0, 8).map((x) => x.toFixed(2)).join(", ")
-          : "Не обнаружены";
-      }
-
-      function rebuildGraphForCurrentView() {
+      function rebuildGraphsForCurrentView() {
         scene.objects = scene.objects.filter((obj) => obj.id === "grid" || obj.id === "axis");
 
         const bounds = getVisibleBounds();
-        const fn = compileFunctionExpression(currentExpression);
+        const active = getActiveExpressions();
 
-        scene.add(
-          plotFunctionExpression({
-            id: "user-graph",
-            expression: currentExpression,
-            xMin: bounds.minX,
-            xMax: bounds.maxX,
-            samples: Math.max(1200, Math.floor(canvas.width * 1.5)),
-            strokeStyle: "#2563eb",
-            lineWidth: 2,
-            breakOnDiscontinuity: true,
-            discontinuityThreshold: 8,
-          })
-        );
+        for (const item of active) {
+          scene.add(
+            plotFunctionExpression({
+              id: GRAPH_IDS[item.index],
+              expression: item.expression,
+              xMin: bounds.minX,
+              xMax: bounds.maxX,
+              samples: Math.max(1200, Math.floor(canvas.width * 1.5)),
+              strokeStyle: GRAPH_COLORS[item.index],
+              lineWidth: 2,
+              breakOnDiscontinuity: true,
+              discontinuityThreshold: 8,
+            })
+          );
+        }
 
-        const analysis = analyzeWindow(fn, bounds.minX, bounds.maxX);
-        updateInfo(bounds, analysis);
+        updateInfo(bounds);
       }
 
       function render() {
-        rebuildGraphForCurrentView();
+        rebuildGraphsForCurrentView();
         scene.render(context);
       }
 
@@ -486,33 +521,29 @@
         });
       }
 
+      function syncExpressionsFromInputs() {
+        expressions = exprInputs.map((input) => input.value.trim());
+        refreshTabs();
+      }
+
       function autoFit() {
-        const fn = compileFunctionExpression(currentExpression);
-        const bounds = computeStableAutoFitBounds(fn);
+        const bounds = computeMultiAutoFitBounds();
         scene.camera.fitToBounds(bounds, canvas.width, canvas.height, 70);
       }
 
-      plotButton.addEventListener("click", () => {
+      function plotAll() {
         try {
-          currentExpression = exprInput.value.trim();
+          syncExpressionsFromInputs();
           autoFit();
           render();
         } catch (error) {
           alert("Некорректное выражение");
           console.error(error);
         }
-      });
+      }
 
-      fitButton.addEventListener("click", () => {
-        try {
-          currentExpression = exprInput.value.trim();
-          autoFit();
-          render();
-        } catch (error) {
-          alert("Некорректное выражение");
-          console.error(error);
-        }
-      });
+      plotButton.addEventListener("click", plotAll);
+      fitButton.addEventListener("click", plotAll);
 
       resetButton.addEventListener("click", () => {
         scene.camera.x = 0;
@@ -521,10 +552,20 @@
         render();
       });
 
-      exprInput.addEventListener("keydown", (event) => {
-        if (event.key === "Enter") {
-          plotButton.click();
-        }
+      exprInputs.forEach((input) => {
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            plotAll();
+          }
+        });
+      });
+
+      tabButtons.forEach((button, index) => {
+        button.addEventListener("click", () => {
+          activeTabIndex = index;
+          refreshTabs();
+          render();
+        });
       });
 
       const interaction = new Interaction2D(canvas, scene, {
@@ -532,6 +573,8 @@
       });
       interaction.attach();
 
+      syncExpressionsFromInputs();
+      refreshTabs();
       autoFit();
       render();
     </script>
