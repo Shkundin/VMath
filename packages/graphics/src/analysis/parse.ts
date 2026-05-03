@@ -1,6 +1,6 @@
-import type { Expr, FunctionName } from "./ast";
-import { binaryExpr, callExpr, numberLiteral, unaryExpr, variableExpr } from "./ast";
-import { tokenize, type Token } from "./tokenize";
+import type { Expr, FunctionName } from "./ast.js";
+import { binaryExpr, callExpr, numberLiteral, unaryExpr, variableExpr } from "./ast.js";
+import { tokenize, type Token } from "./tokenize.js";
 
 const SUPPORTED_FUNCTIONS: Set<string> = new Set([
   "sin",

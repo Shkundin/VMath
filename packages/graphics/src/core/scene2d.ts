@@ -1,6 +1,6 @@
-import { Camera2D, type Camera2DOptions } from "./camera2d";
-import type { Renderable } from "./renderable";
-import type { Scene2DJSON } from "../serialize/schema";
+import { Camera2D, type Camera2DOptions } from "./camera2d.js";
+import type { Renderable } from "./renderable.js";
+import type { Scene2DJSON } from "../serialize/schema.js";
 
 export interface Scene2DOptions {
   camera?: Camera2D | Camera2DOptions;

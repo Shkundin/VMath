@@ -1,4 +1,4 @@
-import type { Scene2D } from "../core/scene2d";
+import type { Scene2D } from "../core/scene2d.js";
 
 export interface Interaction2DOptions {
   onChange?: () => void;

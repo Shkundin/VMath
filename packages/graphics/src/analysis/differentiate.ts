@@ -1,6 +1,6 @@
-import type { Expr } from "./ast";
-import { binaryExpr, callExpr, numberLiteral, unaryExpr, variableExpr } from "./ast";
-import { simplifyExpr } from "./simplify";
+import type { Expr } from "./ast.js";
+import { binaryExpr, callExpr, numberLiteral, unaryExpr, variableExpr } from "./ast.js";
+import { simplifyExpr } from "./simplify.js";
 
 function add(a: Expr, b: Expr): Expr {
   return simplifyExpr(binaryExpr("+", a, b));
@@ -80,8 +80,6 @@ export function differentiateExpr(expr: Expr): Expr {
               )
             )
           );
-        default:
-          throw new Error("Unsupported binary operator");
       }
     }
 
@@ -122,8 +120,6 @@ export function differentiateExpr(expr: Expr): Expr {
 
         case "exp":
           return simplifyExpr(mul(callExpr("exp", u), du));
-        default:
-          throw new Error("Unsupported function");
       }
     }
   }

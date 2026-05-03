@@ -1,5 +1,5 @@
-import type { Expr } from "./ast";
-import { binaryExpr, numberLiteral, unaryExpr, callExpr } from "./ast";
+import type { Expr } from "./ast.js";
+import { binaryExpr, numberLiteral, unaryExpr, callExpr } from "./ast.js";
 
 function isNumber(expr: Expr, value?: number): expr is Extract<Expr, { kind: "number" }> {
   return expr.kind === "number" && (value === undefined || expr.value === value);

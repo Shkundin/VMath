@@ -1,8 +1,8 @@
-import type { Expr } from "./ast";
-import { derivativeOf } from "./differentiate";
-import { evaluateExpr } from "./evaluate";
-import { findRootsOnInterval } from "./roots";
-import { classifyExpr, type ClassifiedFunction, extractPolynomialCoefficients } from "./classify";
+import type { Expr } from "./ast.js";
+import { derivativeOf } from "./differentiate.js";
+import { evaluateExpr } from "./evaluate.js";
+import { findRootsOnInterval } from "./roots.js";
+import { classifyExpr, type ClassifiedFunction, extractPolynomialCoefficients } from "./classify.js";
 
 const EPS = 1e-8;
 
@@ -66,7 +66,7 @@ function rootsTextFromList(roots: number[]): string {
   return roots.length > 0 ? roots.map(formatNumber).join(", ") : "Не найдены";
 }
 
-function _breaksTextFromList(values: number[]): string {
+function breaksTextFromList(values: number[]): string {
   return values.length > 0 ? values.map((x) => `x = ${formatNumber(x)}`).join(", ") : "Не найдены";
 }
 
@@ -244,7 +244,7 @@ function analyzeReciprocal(): FunctionAnalysisResult {
   });
 }
 
-function _findSingleBoundary(expr: Expr, target = 0): number | null {
+function findSingleBoundary(expr: Expr, target = 0): number | null {
   const fn = (x: number) => evaluateExpr(expr, x) - target;
   const roots = findRootsOnInterval(fn, -100, 100, {
     samples: 5000,

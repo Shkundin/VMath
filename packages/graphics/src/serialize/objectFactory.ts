@@ -1,4 +1,4 @@
-import { Scene2D } from "../core/scene2d";
+import { Scene2D } from "../core/scene2d.js";
 import {
   Axis2D,
   Circle2D,
@@ -8,8 +8,8 @@ import {
   Point2D,
   Polyline2D,
   Rectangle2D,
-} from "../renderer2d/primitives";
-import type { Scene2DJSON, SceneObjectJSON } from "./schema";
+} from "../renderer2d/primitives.js";
+import type { Scene2DJSON, SceneObjectJSON } from "./schema.js";
 
 export function createObjectFromJSON(data: SceneObjectJSON) {
   switch (data.type) {
