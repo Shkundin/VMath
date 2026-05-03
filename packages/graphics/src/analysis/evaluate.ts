@@ -1,4 +1,4 @@
-import type { Expr } from "./ast.js";
+import type { Expr } from "./ast";
 
 export function evaluateExpr(expr: Expr, x: number): number {
   switch (expr.kind) {

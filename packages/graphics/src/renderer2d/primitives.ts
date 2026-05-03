@@ -1,5 +1,5 @@
-import type { Renderable } from "../core/renderable.js";
-import type { Camera2D } from "../core/camera2d.js";
+import type { Renderable } from "../core/renderable";
+import type { Camera2D } from "../core/camera2d";
 import type {
   Axis2DJSON,
   Circle2DJSON,
@@ -10,7 +10,7 @@ import type {
   Polyline2DJSON,
   Rectangle2DJSON,
   SceneObjectJSON,
-} from "../serialize/schema.js";
+} from "../serialize/schema";
 
 export interface BasePrimitiveOptions {
   id: string;
