@@ -15,7 +15,6 @@ import {
   Interaction2D,
   Scene2D,
   analyzeExprOnInterval,
-  compileFunctionExpression,
   parseExpression,
   plotFunctionExpression
 } from "@vm/graphics";
@@ -31,103 +30,23 @@ type GraphicsLabScreenProps = {
 };
 
 type MetricState = {
-  cameraX: string;
-  cameraY: string;
+  analyzedFunction: string;
   range: string;
   zeros: string;
   discontinuities: string;
-  minimum: string;
-  maximum: string;
+  critical: string;
   mode: string;
   domain: string;
 };
 
 type CompiledGraph = {
   expression: string;
-  fn: (x: number) => number;
   index: number;
 };
 
 const EXAMPLES = ["sin(x)", "x^2", "x^2/8 - 3", "3/x", "abs(x) - 4", "cos(x) + x/3"];
 const GRAPH_COLORS = ["#2563eb", "#dc2626", "#16a34a"];
 const DEFAULT_EXPRESSIONS = ["x^2", "log(x)", "abs(x) - 4"];
-
-function round2(value: number): number {
-  return Number(value.toFixed(2));
-}
-
-function uniqueRounded(values: number[], digits = 2): number[] {
-  const out: number[] = [];
-  const seen = new Set<string>();
-
-  for (const value of values) {
-    const rounded = Number(value.toFixed(digits));
-    const key = rounded.toFixed(digits);
-    if (!seen.has(key)) {
-      seen.add(key);
-      out.push(rounded);
-    }
-  }
-
-  return out;
-}
-
-function percentile(sorted: number[], p: number): number | null {
-  if (sorted.length === 0) return null;
-  const index = (sorted.length - 1) * p;
-  const lower = Math.floor(index);
-  const upper = Math.ceil(index);
-  if (lower === upper) return sorted[lower];
-  const t = index - lower;
-  return sorted[lower] * (1 - t) + sorted[upper] * t;
-}
-
-function sampleFunction(
-  fn: (x: number) => number,
-  xMin: number,
-  xMax: number,
-  samples = 2200
-) {
-  const step = (xMax - xMin) / samples;
-  const points: Array<{ x: number; y: number }> = [];
-  const breaks: number[] = [];
-  const zeros: number[] = [];
-  let prevX: number | null = null;
-  let prevY: number | null = null;
-
-  for (let i = 0; i <= samples; i += 1) {
-    const x = xMin + i * step;
-    const y = fn(x);
-
-    if (!Number.isFinite(y)) {
-      breaks.push(x);
-      prevX = null;
-      prevY = null;
-      continue;
-    }
-
-    points.push({ x, y });
-
-    if (prevY !== null && prevX !== null && ((prevY <= 0 && y >= 0) || (prevY >= 0 && y <= 0))) {
-      const denom = Math.abs(prevY) + Math.abs(y);
-      zeros.push(denom === 0 ? x : (prevX * Math.abs(y) + x * Math.abs(prevY)) / denom);
-    }
-
-    prevX = x;
-    prevY = y;
-  }
-
-  return {
-    points,
-    zeros: uniqueRounded(zeros),
-    breaks: uniqueRounded(breaks)
-  };
-}
-
-function formatPoint(point: { x: number; y: number } | null): string {
-  if (!point) return "-";
-  return `x ~= ${point.x.toFixed(3)}, y ~= ${point.y.toFixed(3)}`;
-}
 
 function buildFallbackHtml(theme: AppTheme): string {
   return `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -148,13 +67,11 @@ export function GraphicsLabScreen({ theme }: GraphicsLabScreenProps) {
   const [reloadKey, setReloadKey] = useState(0);
   const [error, setError] = useState("");
   const [metrics, setMetrics] = useState<MetricState>({
-    cameraX: "-",
-    cameraY: "-",
+    analyzedFunction: "-",
     range: "-",
     zeros: "-",
     discontinuities: "-",
-    minimum: "-",
-    maximum: "-",
+    critical: "-",
     mode: "-",
     domain: "-"
   });
@@ -207,52 +124,45 @@ export function GraphicsLabScreen({ theme }: GraphicsLabScreenProps) {
     function compileGraphs(): CompiledGraph[] {
       return expressions
         .map((expression, index) => ({ expression: expression.trim(), index }))
-        .filter((graph) => graph.expression.length > 0)
-        .map((graph) => ({
-          ...graph,
-          fn: compileFunctionExpression(graph.expression)
-        }));
+        .filter((graph) => graph.expression.length > 0);
     }
 
     function computeStableAutoFitBounds(graphs: CompiledGraph[]) {
-      const fitXMin = -10;
-      const fitXMax = 10;
-      const points = graphs.flatMap((graph) => sampleFunction(graph.fn, fitXMin, fitXMax, 2600).points);
-
-      if (points.length === 0) {
+      if (graphs.length === 0) {
         return { minX: -10, maxX: 10, minY: -10, maxY: 10 };
       }
 
-      const yValues = points.map((point) => point.y).sort((a, b) => a - b);
-      let low = percentile(yValues, 0.05);
-      let high = percentile(yValues, 0.95);
+      let minY = Infinity;
+      let maxY = -Infinity;
 
-      if (low === null || high === null || Math.abs(high - low) < 1e-6) {
-        low = -10;
-        high = 10;
+      for (const graph of graphs) {
+        const expr = parseExpression(graph.expression);
+        const analysis = analyzeExprOnInterval(expr, -10, 10);
+
+        if (analysis.range) {
+          minY = Math.min(minY, analysis.range.minY);
+          maxY = Math.max(maxY, analysis.range.maxY);
+        }
       }
 
-      const padY = Math.max((high - low) * 0.2, 1);
+      if (!Number.isFinite(minY) || !Number.isFinite(maxY)) {
+        minY = -10;
+        maxY = 10;
+      }
+
+      if (Math.abs(maxY - minY) < 1e-9) {
+        minY -= 1;
+        maxY += 1;
+      }
+
+      const padY = Math.max((maxY - minY) * 0.2, 1);
 
       return {
-        minX: fitXMin,
-        maxX: fitXMax,
-        minY: low - padY,
-        maxY: high + padY
+        minX: -10,
+        maxX: 10,
+        minY: minY - padY,
+        maxY: maxY + padY
       };
-    }
-
-    function analyzeWindow(fn: (x: number) => number, xMin: number, xMax: number) {
-      const sampled = sampleFunction(fn, xMin, xMax, 2200);
-      let minPoint = sampled.points[0] ?? null;
-      let maxPoint = sampled.points[0] ?? null;
-
-      for (const point of sampled.points) {
-        if (minPoint && point.y < minPoint.y) minPoint = point;
-        if (maxPoint && point.y > maxPoint.y) maxPoint = point;
-      }
-
-      return { ...sampled, minPoint, maxPoint };
     }
 
     function updateMetrics(
@@ -261,45 +171,39 @@ export function GraphicsLabScreen({ theme }: GraphicsLabScreenProps) {
     ) {
       if (!graph) {
         setMetrics({
-          cameraX: `[${round2(bounds.minX)}, ${round2(bounds.maxX)}]`,
-          cameraY: `[${round2(bounds.minY)}, ${round2(bounds.maxY)}]`,
+          analyzedFunction: "-",
           range: "-",
           zeros: "-",
           discontinuities: "-",
-          minimum: "-",
-          maximum: "-",
+          critical: "-",
           mode: "-",
           domain: "-"
         });
         return;
       }
 
-      const numeric = analyzeWindow(graph.fn, bounds.minX, bounds.maxX);
-      let mode = "численный";
-      let domain = "по текущему окну";
-
       try {
-        const exact = analyzeExprOnInterval(parseExpression(graph.expression), bounds.minX, bounds.maxX);
-        mode = exact.modeText;
-        domain = exact.domainText;
-      } catch {}
-
-      setMetrics({
-        cameraX: `[${round2(bounds.minX)}, ${round2(bounds.maxX)}]`,
-        cameraY: `[${round2(bounds.minY)}, ${round2(bounds.maxY)}]`,
-        range:
-          numeric.minPoint && numeric.maxPoint
-            ? `[${numeric.minPoint.y.toFixed(3)}, ${numeric.maxPoint.y.toFixed(3)}]`
-            : "не удалось оценить",
-        zeros: numeric.zeros.length ? numeric.zeros.slice(0, 8).map((x) => x.toFixed(2)).join(", ") : "не найдены",
-        discontinuities: numeric.breaks.length
-          ? numeric.breaks.slice(0, 8).map((x) => `x ~= ${x.toFixed(2)}`).join(", ")
-          : "не обнаружены",
-        minimum: formatPoint(numeric.minPoint),
-        maximum: formatPoint(numeric.maxPoint),
-        mode,
-        domain
-      });
+        const analysis = analyzeExprOnInterval(parseExpression(graph.expression), bounds.minX, bounds.maxX);
+        setMetrics({
+          analyzedFunction: graph.expression,
+          mode: analysis.modeText,
+          domain: analysis.domainText,
+          range: analysis.rangeText,
+          zeros: analysis.zerosText,
+          discontinuities: analysis.discontinuitiesText,
+          critical: analysis.criticalText
+        });
+      } catch {
+        setMetrics({
+          analyzedFunction: graph.expression,
+          mode: "Ошибка анализа",
+          domain: "Ошибка анализа",
+          range: "Ошибка анализа",
+          zeros: "Ошибка анализа",
+          discontinuities: "Ошибка анализа",
+          critical: "Ошибка анализа"
+        });
+      }
     }
 
     function render() {
@@ -511,16 +415,13 @@ export function GraphicsLabScreen({ theme }: GraphicsLabScreenProps) {
               ))}
             </View>
 
-            <Metric label="Анализируемая функция" value={activeExpression} styles={styles} />
+            <Metric label="Анализируемая функция" value={metrics.analyzedFunction || activeExpression} styles={styles} />
             <Metric label="Режим анализа" value={metrics.mode} styles={styles} />
             <Metric label="Область определения" value={metrics.domain} styles={styles} />
-            <Metric label="Диапазон камеры по X" value={metrics.cameraX} styles={styles} />
-            <Metric label="Диапазон камеры по Y" value={metrics.cameraY} styles={styles} />
-            <Metric label="Значения на окне" value={metrics.range} styles={styles} />
-            <Metric label="Примерные нули" value={metrics.zeros} styles={styles} />
+            <Metric label="Область значений" value={metrics.range} styles={styles} />
+            <Metric label="Нули функции" value={metrics.zeros} styles={styles} />
             <Metric label="Точки разрыва" value={metrics.discontinuities} styles={styles} />
-            <Metric label="Минимум на окне" value={metrics.minimum} styles={styles} />
-            <Metric label="Максимум на окне" value={metrics.maximum} styles={styles} />
+            <Metric label="Критические точки" value={metrics.critical} styles={styles} />
           </View>
         </View>
       </SectionCard>
