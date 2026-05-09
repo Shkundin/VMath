@@ -235,17 +235,19 @@ export function GradesScreen({
       title={isTeacher ? "Тесты с лекций" : "Мои тесты с лекций"}
       subtitle="Баллы за практические блоки, которые студент проходит прямо внутри лекции."
     >
-      <View style={styles.sectionActions}>
-        <AppButton
-          label="Очистить итоги"
-          onPress={handleClearLectureTestResults}
-          theme={theme}
-          variant="secondary"
-          fullWidth={isPhone}
-          disabled={!canClearLectureTestResults}
-          style={styles.inlineButton}
-        />
-      </View>
+      {isTeacher ? (
+        <View style={styles.sectionActions}>
+          <AppButton
+            label="Очистить итоги"
+            onPress={handleClearLectureTestResults}
+            theme={theme}
+            variant="secondary"
+            fullWidth={isPhone}
+            disabled={!canClearLectureTestResults}
+            style={styles.inlineButton}
+          />
+        </View>
+      ) : null}
 
       {lectureTestResults.length === 0 ? (
         <Text style={styles.emptyText}>Пока нет результатов практики из лекций.</Text>
@@ -668,18 +670,6 @@ export function GradesScreen({
             title="Мои оценки"
             subtitle="Итоги по всем домашним заданиям."
           >
-            <View style={styles.sectionActions}>
-              <AppButton
-                label="Очистить итоги"
-                onPress={onClearHomeworkResults}
-                theme={theme}
-                variant="secondary"
-                fullWidth={isPhone}
-                disabled={!canClearHomeworkResults}
-                style={styles.inlineButton}
-              />
-            </View>
-
             {studentRows.length === 0 ? (
               <Text style={styles.emptyText}>Пока нет данных по домашним заданиям.</Text>
             ) : (
@@ -742,18 +732,6 @@ export function GradesScreen({
             title="Мои тесты"
             subtitle="Результаты тестирования по выбранному преподавателю."
           >
-            <View style={styles.sectionActions}>
-              <AppButton
-                label="Очистить итоги"
-                onPress={handleClearTestingResults}
-                theme={theme}
-                variant="secondary"
-                fullWidth={isPhone}
-                disabled={!canClearTestingResults}
-                style={styles.inlineButton}
-              />
-            </View>
-
             {testingSubmissions.length === 0 ? (
               <Text style={styles.emptyText}>Пока нет результатов по тестированию.</Text>
             ) : (
