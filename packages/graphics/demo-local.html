@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>VM Graphics Demo</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 24px;
+        font-family: Inter, Arial, sans-serif;
+        background: #f5f7fb;
+        color: #111827;
+      }
+      .app {
+        max-width: 1280px;
+        margin: 0 auto;
+      }
+      h1 {
+        margin: 0 0 12px 0;
+        font-size: 48px;
+        line-height: 1.05;
+      }
+      .panel {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        padding: 16px;
+        box-shadow: 0 6px 24px rgba(17, 24, 39, 0.06);
+      }
+      .controls {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+      input {
+        width: 420px;
+        max-width: 100%;
+        padding: 12px 14px;
+        font-size: 18px;
+        border: 1px solid #d1d5db;
+        border-radius: 12px;
+        outline: none;
+      }
+      button {
+        padding: 12px 16px;
+        font-size: 16px;
+        border: 0;
+        border-radius: 12px;
+        background: #111827;
+        color: white;
+        cursor: pointer;
+      }
+      button.secondary {
+        background: #e5e7eb;
+        color: #111827;
+      }
+      .info {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        font-size: 14px;
+        color: #374151;
+        margin-bottom: 14px;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        max-width: 1200px;
+        height: 720px;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+      }
+      .examples {
+        margin-top: 8px;
+        font-size: 14px;
+        color: #4b5563;
+      }
+      code {
+        background: #eef2ff;
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <h1>VM Graphics Demo</h1>
+
+      <div class="panel">
+        <div class="controls">
+          <label for="expr">f(x) =</label>
+          <input id="expr" value="sin(x)" />
+          <button id="plot">Построить</button>
+          <button id="fit" class="secondary">Auto Fit</button>
+          <button id="reset" class="secondary">Сбросить вид</button>
+        </div>
+
+        <div class="info">
+          <div><strong>Текущая функция:</strong> <span id="currentExpr">sin(x)</span></div>
+          <div><strong>Видимый X-диапазон:</strong> <span id="xRange">—</span></div>
+          <div><strong>Видимый Y-диапазон:</strong> <span id="yRange">—</span></div>
+        </div>
+
+        <div class="examples">
+          Примеры:
+          <code>sin(x)</code>,
+          <code>x^2</code>,
+          <code>x^2/8 - 3</code>,
+          <code>3/x</code>,
+          <code>abs(x) - 4</code>,
+          <code>cos(x) + x/3</code>
+        </div>
+      </div>
+
+      <div style="height: 16px;"></div>
+
+      <canvas id="canvas" width="1200" height="720"></canvas>
+    </div>
+
+    <script type="module">
+      import {
+        Scene2D,
+        Grid2D,
+        Axis2D,
+        Interaction2D,
+        plotFunctionExpression,
+        compileFunctionExpression
+      } from "./dist/index.js";
+
+      const canvas = document.getElementById("canvas");
+      const exprInput = document.getElementById("expr");
+      const plotButton = document.getElementById("plot");
+      const fitButton = document.getElementById("fit");
+      const resetButton = document.getElementById("reset");
+      const currentExprEl = document.getElementById("currentExpr");
+      const xRangeEl = document.getElementById("xRange");
+      const yRangeEl = document.getElementById("yRange");
+      const context = canvas.getContext("2d");
+
+      const scene = new Scene2D({
+        background: "#ffffff",
+        camera: { x: 0, y: 0, zoom: 30, minZoom: 10, maxZoom: 400 },
+      });
+
+      scene.add(
+        new Grid2D({
+          id: "grid",
+          step: 1,
+          extent: 100,
+          strokeStyle: "#eceff4",
+          lineWidth: 0.8,
+        })
+      );
+
+      scene.add(
+        new Axis2D({
+          id: "axis",
+          extent: 100,
+          strokeStyle: "#111827",
+          lineWidth: 2,
+          tickStep: 1,
+          showLabels: true,
+        })
+      );
+
+      let currentExpression = exprInput.value.trim();
+
+      function getVisibleBounds() {
+        const topLeft = scene.camera.screenToWorld({ x: 0, y: 0 }, canvas.width, canvas.height);
+        const bottomRight = scene.camera.screenToWorld({ x: canvas.width, y: canvas.height }, canvas.width, canvas.height);
+
+        return {
+          minX: Math.min(topLeft.x, bottomRight.x),
+          maxX: Math.max(topLeft.x, bottomRight.x),
+          minY: Math.min(topLeft.y, bottomRight.y),
+          maxY: Math.max(topLeft.y, bottomRight.y),
+        };
+      }
+
+      function estimateYBounds(fn, xMin, xMax, samples = 1600) {
+        let minY = Infinity;
+        let maxY = -Infinity;
+        const step = (xMax - xMin) / samples;
+
+        for (let i = 0; i <= samples; i += 1) {
+          const x = xMin + i * step;
+          const y = fn(x);
+          if (Number.isFinite(y)) {
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+
+        if (!Number.isFinite(minY) || !Number.isFinite(maxY)) {
+          return { minY: -10, maxY: 10 };
+        }
+
+        if (Math.abs(maxY - minY) < 1e-6) {
+          return { minY: minY - 1, maxY: maxY + 1 };
+        }
+
+        const pad = (maxY - minY) * 0.15;
+        return { minY: minY - pad, maxY: maxY + pad };
+      }
+
+      function updateInfo(bounds) {
+        currentExprEl.textContent = currentExpression;
+        xRangeEl.textContent = `[${bounds.minX.toFixed(2)}, ${bounds.maxX.toFixed(2)}]`;
+        yRangeEl.textContent = `[${bounds.minY.toFixed(2)}, ${bounds.maxY.toFixed(2)}]`;
+      }
+
+      function rebuildGraphForCurrentView() {
+        scene.objects = scene.objects.filter((obj) => obj.id === "grid" || obj.id === "axis");
+
+        const bounds = getVisibleBounds();
+
+        scene.add(
+          plotFunctionExpression({
+            id: "user-graph",
+            expression: currentExpression,
+            xMin: bounds.minX,
+            xMax: bounds.maxX,
+            samples: Math.max(1200, Math.floor(canvas.width * 1.5)),
+            strokeStyle: "#2563eb",
+            lineWidth: 2,
+            breakOnDiscontinuity: true,
+            discontinuityThreshold: 8,
+          })
+        );
+
+        updateInfo(bounds);
+      }
+
+      function render() {
+        rebuildGraphForCurrentView();
+        scene.render(context);
+      }
+
+      function autoFit() {
+        const fn = compileFunctionExpression(currentExpression);
+        const xMin = -30;
+        const xMax = 30;
+        const yBounds = estimateYBounds(fn, xMin, xMax, 1600);
+
+        scene.camera.fitToBounds(
+          {
+            minX: xMin,
+            maxX: xMax,
+            minY: yBounds.minY,
+            maxY: yBounds.maxY,
+          },
+          canvas.width,
+          canvas.height,
+          70
+        );
+      }
+
+      plotButton.addEventListener("click", () => {
+        try {
+          currentExpression = exprInput.value.trim();
+          autoFit();
+        } catch (error) {
+          alert("Некорректное выражение");
+          console.error(error);
+        }
+      });
+
+      fitButton.addEventListener("click", () => {
+        try {
+          currentExpression = exprInput.value.trim();
+          autoFit();
+        } catch (error) {
+          alert("Некорректное выражение");
+          console.error(error);
+        }
+      });
+
+      resetButton.addEventListener("click", () => {
+        scene.camera.x = 0;
+        scene.camera.y = 0;
+        scene.camera.zoom = 30;
+      });
+
+      exprInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          plotButton.click();
+        }
+      });
+
+      const interaction = new Interaction2D(canvas, scene, { onChange: () => {} });
+      interaction.attach();
+
+      function loop() {
+        render();
+        requestAnimationFrame(loop);
+      }
+
+      autoFit();
+      loop();
+    </script>
+  </body>
+</html>

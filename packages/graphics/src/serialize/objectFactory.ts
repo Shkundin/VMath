@@ -1,51 +1,54 @@
+import { Scene2D } from "../core/scene2d";
 import {
-  AxisGrid,
-  FunctionPlot,
-  Polyline,
-  type Drawable2D
+  Axis2D,
+  Circle2D,
+  Grid2D,
+  Label2D,
+  Line2D,
+  Point2D,
+  Polyline2D,
+  Rectangle2D,
 } from "../renderer2d/primitives";
+import type { Scene2DJSON, SceneObjectJSON } from "./schema";
 
-export function objectFactory(obj: unknown): Drawable2D {
-  if (!obj || typeof obj !== "object") {
-    throw new Error("objectFactory: invalid object");
-  }
-
-  const shape = obj as {
-    type?: string;
-    id?: string;
-    step?: number;
-    majorEvery?: number;
-    points?: { x: number; y: number }[];
-    xMin?: number;
-    xMax?: number;
-  };
-
-  switch (shape.type) {
-    case "AxisGrid":
-      return new AxisGrid(shape.step ?? 1, shape.majorEvery ?? 5);
-
-    case "Polyline":
-      return new Polyline(
-        String(shape.id ?? "poly"),
-        Array.isArray(shape.points) ? shape.points : []
-      );
-
-    case "FunctionPlot": {
-      const id = String(shape.id ?? "fn");
-      const xMin = Number(shape.xMin ?? -5);
-      const xMax = Number(shape.xMax ?? 5);
-
-      const presets: Record<string, (x: number) => number> = {
-        sin: (x) => Math.sin(x),
-        cos: (x) => Math.cos(x),
-        parabola: (x) => x * x
-      };
-
-      const fn = presets[id] ?? ((x) => Math.sin(x));
-      return new FunctionPlot(id, fn, xMin, xMax);
+export function createObjectFromJSON(data: SceneObjectJSON) {
+  switch (data.type) {
+    case "point2d":
+      return new Point2D(data);
+    case "line2d":
+      return new Line2D(data);
+    case "polyline2d":
+      return new Polyline2D(data);
+    case "grid2d":
+      return new Grid2D(data);
+    case "axis2d":
+      return new Axis2D(data);
+    case "circle2d":
+      return new Circle2D(data);
+    case "rectangle2d":
+      return new Rectangle2D(data);
+    case "label2d":
+      return new Label2D(data);
+    default: {
+      const unsupported: never = data;
+      throw new Error(`Unsupported object type: ${(unsupported as { type?: string }).type ?? "unknown"}`);
     }
-
-    default:
-      throw new Error(`objectFactory: unknown type ${String(shape.type)}`);
   }
+}
+
+export function createSceneFromJSON(data: Scene2DJSON): Scene2D {
+  const scene = new Scene2D({
+    background: data.background,
+    camera: data.camera,
+  });
+
+  for (const object of data.objects) {
+    scene.add(createObjectFromJSON(object));
+  }
+
+  return scene;
+}
+
+export function serializeScene(scene: Scene2D): Scene2DJSON {
+  return scene.toJSON();
 }

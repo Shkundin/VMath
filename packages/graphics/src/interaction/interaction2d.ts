@@ -1,60 +1,75 @@
-﻿import { Scene2D } from "../core/scene2d";
+import type { Scene2D } from "../core/scene2d";
+
+export interface Interaction2DOptions {
+  onChange?: () => void;
+}
 
 export class Interaction2D {
-  private dragging = false;
+  private canvas: HTMLCanvasElement;
+  private scene: Scene2D;
+  private onChange?: () => void;
+  private isDragging = false;
   private lastX = 0;
   private lastY = 0;
 
-  constructor(
-    private readonly canvas: HTMLCanvasElement,
-    private readonly scene: Scene2D,
-    private readonly requestRedraw: () => void
-  ) {
-    canvas.addEventListener("pointerdown", (event) => {
-      this.dragging = true;
-      this.lastX = event.clientX;
-      this.lastY = event.clientY;
-      canvas.setPointerCapture(event.pointerId);
-    });
-
-    canvas.addEventListener("pointerup", (event) => {
-      this.dragging = false;
-      try {
-        canvas.releasePointerCapture(event.pointerId);
-      } catch {
-        return;
-      }
-    });
-
-    canvas.addEventListener("pointermove", (event) => {
-      if (!this.dragging) {
-        return;
-      }
-
-      const dx = event.clientX - this.lastX;
-      const dy = event.clientY - this.lastY;
-      this.lastX = event.clientX;
-      this.lastY = event.clientY;
-
-      this.scene.camera.pan(dx, dy);
-      this.requestRedraw();
-    });
-
-    canvas.addEventListener(
-      "wheel",
-      (event) => {
-        event.preventDefault();
-
-        const factor = event.deltaY > 0 ? 0.92 : 1.08;
-        const rect = canvas.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-
-        this.scene.camera.zoom(factor, { x, y });
-        this.requestRedraw();
-      },
-      { passive: false }
-    );
+  constructor(canvas: HTMLCanvasElement, scene: Scene2D, options: Interaction2DOptions = {}) {
+    this.canvas = canvas;
+    this.scene = scene;
+    this.onChange = options.onChange;
   }
-}
 
+  attach(): void {
+    this.canvas.addEventListener("pointerdown", this.handlePointerDown);
+    window.addEventListener("pointermove", this.handlePointerMove);
+    window.addEventListener("pointerup", this.handlePointerUp);
+    this.canvas.addEventListener("wheel", this.handleWheel, { passive: false });
+  }
+
+  detach(): void {
+    this.canvas.removeEventListener("pointerdown", this.handlePointerDown);
+    window.removeEventListener("pointermove", this.handlePointerMove);
+    window.removeEventListener("pointerup", this.handlePointerUp);
+    this.canvas.removeEventListener("wheel", this.handleWheel);
+  }
+
+  private notify(): void {
+    this.onChange?.();
+  }
+
+  private handlePointerDown = (event: PointerEvent): void => {
+    this.isDragging = true;
+    this.lastX = event.clientX;
+    this.lastY = event.clientY;
+    this.canvas.setPointerCapture?.(event.pointerId);
+  };
+
+  private handlePointerMove = (event: PointerEvent): void => {
+    if (!this.isDragging) return;
+    const dx = event.clientX - this.lastX;
+    const dy = event.clientY - this.lastY;
+    this.lastX = event.clientX;
+    this.lastY = event.clientY;
+    this.scene.camera.panBy(dx, dy);
+    this.notify();
+  };
+
+  private handlePointerUp = (): void => {
+    this.isDragging = false;
+  };
+
+  private handleWheel = (event: WheelEvent): void => {
+    event.preventDefault();
+    const factor = event.deltaY < 0 ? 1.1 : 0.9;
+    const rect = this.canvas.getBoundingClientRect();
+    this.scene.camera.zoomAt(
+      factor,
+      {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      },
+      this.canvas.width,
+      this.canvas.height
+    );
+    this.notify();
+  };
+}

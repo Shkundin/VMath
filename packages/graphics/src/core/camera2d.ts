@@ -1,65 +1,90 @@
-export interface Vec2 {
+export interface PointLike {
   x: number;
   y: number;
 }
 
+export interface Camera2DOptions {
+  x?: number;
+  y?: number;
+  zoom?: number;
+  minZoom?: number;
+  maxZoom?: number;
+}
+
 export class Camera2D {
-  private origin: Vec2 = { x: 0, y: 0 };
-  private scale = 60;
-  private center: Vec2 = { x: 0, y: 0 };
+  x: number;
+  y: number;
+  zoom: number;
+  minZoom: number;
+  maxZoom: number;
 
-  setViewport(width: number, height: number) {
-    this.center = { x: width / 2, y: height / 2 };
+  constructor(options: Camera2DOptions = {}) {
+    this.x = options.x ?? 0;
+    this.y = options.y ?? 0;
+    this.zoom = options.zoom ?? 1;
+    this.minZoom = options.minZoom ?? 0.1;
+    this.maxZoom = options.maxZoom ?? 10;
   }
 
-  pan(dxPx: number, dyPx: number) {
-    this.origin.x -= dxPx / this.scale;
-    this.origin.y += dyPx / this.scale;
-  }
-
-  zoom(factor: number, anchorPx?: Vec2) {
-    const oldScale = this.scale;
-    const nextScale = Math.min(Math.max(oldScale * factor, 10), 400);
-
-    if (anchorPx) {
-      const before = this.screenToWorld(anchorPx.x, anchorPx.y);
-      this.scale = nextScale;
-      const after = this.screenToWorld(anchorPx.x, anchorPx.y);
-      this.origin.x += before.x - after.x;
-      this.origin.y += before.y - after.y;
-      return;
-    }
-
-    this.scale = nextScale;
-  }
-
-  worldToScreen(wx: number, wy: number): Vec2 {
+  worldToScreen(point: PointLike, width: number, height: number): PointLike {
     return {
-      x: (wx - this.origin.x) * this.scale + this.center.x,
-      y: (-(wy - this.origin.y)) * this.scale + this.center.y
+      x: (point.x - this.x) * this.zoom + width / 2,
+      y: height / 2 - (point.y - this.y) * this.zoom,
     };
   }
 
-  screenToWorld(px: number, py: number): Vec2 {
+  screenToWorld(point: PointLike, width: number, height: number): PointLike {
     return {
-      x: (px - this.center.x) / this.scale + this.origin.x,
-      y: -((py - this.center.y) / this.scale) + this.origin.y
+      x: (point.x - width / 2) / this.zoom + this.x,
+      y: (height / 2 - point.y) / this.zoom + this.y,
     };
   }
 
-  getScale(): number {
-    return this.scale;
+  panBy(dxScreen: number, dyScreen: number): void {
+    this.x -= dxScreen / this.zoom;
+    this.y += dyScreen / this.zoom;
   }
 
-  snapshot() {
+  zoomAt(factor: number, screenPoint: PointLike, width: number, height: number): void {
+    const before = this.screenToWorld(screenPoint, width, height);
+    const nextZoom = Math.min(this.maxZoom, Math.max(this.minZoom, this.zoom * factor));
+    this.zoom = nextZoom;
+    const after = this.screenToWorld(screenPoint, width, height);
+    this.x += before.x - after.x;
+    this.y += before.y - after.y;
+  }
+
+  fitToBounds(
+    bounds: { minX: number; maxX: number; minY: number; maxY: number },
+    width: number,
+    height: number,
+    padding = 40
+  ): void {
+    const spanX = Math.max(bounds.maxX - bounds.minX, 1e-6);
+    const spanY = Math.max(bounds.maxY - bounds.minY, 1e-6);
+
+    const usableWidth = Math.max(width - padding * 2, 1);
+    const usableHeight = Math.max(height - padding * 2, 1);
+
+    const zoomX = usableWidth / spanX;
+    const zoomY = usableHeight / spanY;
+
+    this.zoom = Math.min(this.maxZoom, Math.max(this.minZoom, Math.min(zoomX, zoomY)));
+    this.x = (bounds.minX + bounds.maxX) / 2;
+    this.y = (bounds.minY + bounds.maxY) / 2;
+  }
+
+  toJSON(): Camera2DOptions {
     return {
-      origin: { ...this.origin },
-      scale: this.scale
+      x: this.x,
+      y: this.y,
+      zoom: this.zoom,
+      minZoom: this.minZoom,
+      maxZoom: this.maxZoom,
     };
   }
 
-  load(snapshot: { origin: Vec2; scale: number }) {
-    this.origin = { ...snapshot.origin };
-    this.scale = snapshot.scale;
+  static fromJSON(data: Camera2DOptions): Camera2D {
+    return new Camera2D(data);
   }
 }

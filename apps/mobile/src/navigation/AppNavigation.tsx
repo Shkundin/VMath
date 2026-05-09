@@ -58,6 +58,7 @@ import { PhotoMaterialsScreen, type PhotoMaterialItem } from "../screens/PhotoMa
 import { MeetingsScreen, type MeetingDraftInput } from "../screens/MeetingsScreen";
 import { HomeworkScreen, type HomeworkDraftInput, type HomeworkSubmissionDraftInput } from "../screens/HomeworkScreen";
 import { GradesScreen } from "../screens/GradesScreen";
+import { GraphicsLabScreen } from "../screens/GraphicsLabScreen";
 import { TestingScreen, type TestingRunResult } from "../screens/TestingScreen";
 import {
   readActiveTestingSession,
@@ -137,6 +138,7 @@ type ScreenKey =
   | "teacherHome"
   | "teacherSession"
   | "solver"
+  | "graphics"
   | "videoLessons"
   | "photoMaterials"
   | "meetings"
@@ -150,6 +152,7 @@ type ScreenKey =
 type MenuScreenKey =
   | "catalog"
   | "solver"
+  | "graphics"
   | "videoLessons"
   | "photoMaterials"
   | "meetings"
@@ -346,6 +349,10 @@ function getNavigationLabel(screen: MenuScreenKey): string {
     return "Решение задач";
   }
 
+  if (screen === "graphics") {
+    return "Графическая студия";
+  }
+
   if (screen === "latex") {
     return "Конспекты";
   }
@@ -386,11 +393,15 @@ function getNavigationOrder(screen: MenuScreenKey): number {
     return 8;
   }
 
-  if (screen === "latex") {
+  if (screen === "graphics") {
     return 9;
   }
 
-  return 10;
+  if (screen === "latex") {
+    return 10;
+  }
+
+  return 11;
 }
 
 function nextMode(currentMode: DemoDataMode): DemoDataMode {
@@ -3844,6 +3855,17 @@ export function AppNavigation() {
     );
   }
 
+  function handleClearLectureTestResults(resultIds: string[]) {
+    if (resultIds.length === 0) {
+      return;
+    }
+
+    const resultIdSet = new Set(resultIds);
+    setLectureTestResults((current) =>
+      current.filter((result) => !resultIdSet.has(result.id))
+    );
+  }
+
   async function handleStartTestingSession(input: {
     title: string;
     durationMin: number;
@@ -3956,7 +3978,7 @@ export function AppNavigation() {
   }
 
   function handleMenuNavigate(
-    screen: "catalog" | "solver" | "videoLessons" | "photoMaterials" | "meetings" | "homework" | "grades" | "testing" | "teacherBranchSelect" | "latex" | "profile"
+    screen: "catalog" | "solver" | "graphics" | "videoLessons" | "photoMaterials" | "meetings" | "homework" | "grades" | "testing" | "teacherBranchSelect" | "latex" | "profile"
   ) {
     setIsMenuOpen(false);
 
@@ -3970,6 +3992,13 @@ export function AppNavigation() {
       resetStudentFlow();
       resetTeacherFlow();
       setActiveScreen("solver");
+      return;
+    }
+
+    if (screen === "graphics") {
+      resetStudentFlow();
+      resetTeacherFlow();
+      setActiveScreen("graphics");
       return;
     }
 
@@ -4286,6 +4315,7 @@ export function AppNavigation() {
             { key: "grades", label: "Итоги" },
             { key: "catalog", label: "Каталог" },
             { key: "latex", label: "LaTeX" },
+            { key: "graphics", label: "Графическая студия" },
             { key: "profile", label: "Профиль" },
             { key: "solver", label: "Решатель" },
             { key: "testing", label: "Тестирование" },
@@ -4314,7 +4344,7 @@ export function AppNavigation() {
                 key={item.key}
                 onPress={() =>
                   handleMenuNavigate(
-                    item.key as "catalog" | "solver" | "videoLessons" | "photoMaterials" | "meetings" | "homework" | "grades" | "testing" | "teacherBranchSelect" | "latex" | "profile"
+                    item.key as "catalog" | "solver" | "graphics" | "videoLessons" | "photoMaterials" | "meetings" | "homework" | "grades" | "testing" | "teacherBranchSelect" | "latex" | "profile"
                   )
                 }
                 style={{
@@ -4474,6 +4504,10 @@ export function AppNavigation() {
           />
         ) : null}
 
+        {activeScreen === "graphics" ? (
+          <GraphicsLabScreen theme={theme} />
+        ) : null}
+
         {activeScreen === "videoLessons" ? (
           <VideoLessonsScreen
             theme={theme}
@@ -4550,6 +4584,7 @@ export function AppNavigation() {
             onGradeSubmission={handleGradeHomeworkSubmission}
             onClearHomeworkResults={handleClearHomeworkResults}
             onClearTestingResults={handleClearTestingResults}
+            onClearLectureTestResults={handleClearLectureTestResults}
           />
         ) : null}
 

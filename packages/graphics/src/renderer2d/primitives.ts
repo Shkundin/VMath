@@ -1,153 +1,672 @@
-import { Camera2D } from "../core/camera2d";
+import type { Renderable } from "../core/renderable";
+import type { Camera2D } from "../core/camera2d";
+import type {
+  Axis2DJSON,
+  Circle2DJSON,
+  Grid2DJSON,
+  Label2DJSON,
+  Line2DJSON,
+  Point2DJSON,
+  Polyline2DJSON,
+  Rectangle2DJSON,
+  SceneObjectJSON,
+} from "../serialize/schema";
 
-export interface Drawable2D {
+export interface BasePrimitiveOptions {
   id: string;
-  draw(ctx: CanvasRenderingContext2D, cam: Camera2D): void;
-  serialize(): unknown;
+  visible?: boolean;
+  strokeStyle?: string;
+  fillStyle?: string;
+  lineWidth?: number;
 }
 
-export class AxisGrid implements Drawable2D {
-  id = "axis_grid";
-
-  constructor(
-    public step = 1,
-    public majorEvery = 5
-  ) {}
-
-  draw(ctx: CanvasRenderingContext2D, cam: Camera2D) {
-    const width = ctx.canvas.width;
-    const height = ctx.canvas.height;
-
-    const topLeft = cam.screenToWorld(0, 0);
-    const bottomRight = cam.screenToWorld(width, height);
-
-    const minX = Math.floor(Math.min(topLeft.x, bottomRight.x));
-    const maxX = Math.ceil(Math.max(topLeft.x, bottomRight.x));
-    const minY = Math.floor(Math.min(topLeft.y, bottomRight.y));
-    const maxY = Math.ceil(Math.max(topLeft.y, bottomRight.y));
-
-    ctx.save();
-    ctx.lineWidth = 1;
-
-    for (let x = minX; x <= maxX; x += this.step) {
-      const p1 = cam.worldToScreen(x, minY);
-      const p2 = cam.worldToScreen(x, maxY);
-
-      ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.lineTo(p2.x, p2.y);
-      ctx.strokeStyle =
-        x % this.majorEvery === 0 ? "rgba(0,0,0,0.18)" : "rgba(0,0,0,0.08)";
-      ctx.stroke();
-    }
-
-    for (let y = minY; y <= maxY; y += this.step) {
-      const p1 = cam.worldToScreen(minX, y);
-      const p2 = cam.worldToScreen(maxX, y);
-
-      ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.lineTo(p2.x, p2.y);
-      ctx.strokeStyle =
-        y % this.majorEvery === 0 ? "rgba(0,0,0,0.18)" : "rgba(0,0,0,0.08)";
-      ctx.stroke();
-    }
-
-    const xAxisStart = cam.worldToScreen(minX, 0);
-    const xAxisEnd = cam.worldToScreen(maxX, 0);
-    ctx.beginPath();
-    ctx.moveTo(xAxisStart.x, xAxisStart.y);
-    ctx.lineTo(xAxisEnd.x, xAxisEnd.y);
-    ctx.strokeStyle = "rgba(0,0,0,0.6)";
-    ctx.stroke();
-
-    const yAxisStart = cam.worldToScreen(0, minY);
-    const yAxisEnd = cam.worldToScreen(0, maxY);
-    ctx.beginPath();
-    ctx.moveTo(yAxisStart.x, yAxisStart.y);
-    ctx.lineTo(yAxisEnd.x, yAxisEnd.y);
-    ctx.strokeStyle = "rgba(0,0,0,0.6)";
-    ctx.stroke();
-
-    ctx.restore();
-  }
-
-  serialize() {
-    return {
-      type: "AxisGrid",
-      step: this.step,
-      majorEvery: this.majorEvery
-    };
-  }
+export interface Point2DOptions extends BasePrimitiveOptions {
+  x: number;
+  y: number;
+  radius?: number;
 }
 
-export class Polyline implements Drawable2D {
-  constructor(
-    public id: string,
-    public points: { x: number; y: number }[]
-  ) {}
+export interface Line2DOptions extends BasePrimitiveOptions {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
 
-  draw(ctx: CanvasRenderingContext2D, cam: Camera2D) {
-    if (this.points.length < 2) {
-      return;
-    }
+export interface Polyline2DOptions extends BasePrimitiveOptions {
+  points: Array<{ x: number; y: number }>;
+}
 
-    ctx.save();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "rgba(20,20,20,0.85)";
-    ctx.beginPath();
+export interface Grid2DOptions extends BasePrimitiveOptions {
+  step?: number;
+  extent?: number;
+}
 
-    const first = cam.worldToScreen(this.points[0].x, this.points[0].y);
-    ctx.moveTo(first.x, first.y);
+export interface Axis2DOptions extends BasePrimitiveOptions {
+  extent?: number;
+  tickStep?: number;
+  tickSize?: number;
+  showLabels?: boolean;
+  labelFont?: string;
+}
 
-    for (let i = 1; i < this.points.length; i += 1) {
-      const point = cam.worldToScreen(this.points[i].x, this.points[i].y);
-      ctx.lineTo(point.x, point.y);
-    }
+export interface FunctionGraph2DOptions extends BasePrimitiveOptions {
+  fn: (x: number) => number;
+  xMin?: number;
+  xMax?: number;
+  samples?: number;
+  breakOnDiscontinuity?: boolean;
+  discontinuityThreshold?: number;
+}
 
-    ctx.stroke();
-    ctx.restore();
+export interface Circle2DOptions extends BasePrimitiveOptions {
+  x: number;
+  y: number;
+  radius: number;
+}
+
+export interface Rectangle2DOptions extends BasePrimitiveOptions {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface Label2DOptions extends BasePrimitiveOptions {
+  x: number;
+  y: number;
+  text: string;
+  font?: string;
+}
+
+export interface FunctionExpressionOptions extends Omit<FunctionGraph2DOptions, "fn"> {
+  expression: string;
+}
+
+function getVisibleWorldBounds(camera: Camera2D, width: number, height: number) {
+  const topLeft = camera.screenToWorld({ x: 0, y: 0 }, width, height);
+  const bottomRight = camera.screenToWorld({ x: width, y: height }, width, height);
+
+  return {
+    minX: Math.min(topLeft.x, bottomRight.x),
+    maxX: Math.max(topLeft.x, bottomRight.x),
+    minY: Math.min(topLeft.y, bottomRight.y),
+    maxY: Math.max(topLeft.y, bottomRight.y),
+  };
+}
+
+function snapStart(value: number, step: number): number {
+  return Math.floor(value / step) * step;
+}
+
+abstract class BasePrimitive implements Renderable {
+  id: string;
+  type: string;
+  visible: boolean;
+  strokeStyle: string;
+  fillStyle: string;
+  lineWidth: number;
+
+  constructor(type: string, options: BasePrimitiveOptions) {
+    this.id = options.id;
+    this.type = type;
+    this.visible = options.visible ?? true;
+    this.strokeStyle = options.strokeStyle ?? "#2563eb";
+    this.fillStyle = options.fillStyle ?? "transparent";
+    this.lineWidth = options.lineWidth ?? 2;
   }
 
-  serialize() {
+  abstract render(context: CanvasRenderingContext2D, camera: Camera2D): void;
+  abstract toJSON(): SceneObjectJSON;
+}
+
+export class Point2D extends BasePrimitive {
+  x: number;
+  y: number;
+  radius: number;
+
+  constructor(options: Point2DOptions) {
+    super("point2d", options);
+    this.x = options.x;
+    this.y = options.y;
+    this.radius = options.radius ?? 4;
+  }
+
+  render(context: CanvasRenderingContext2D, camera: Camera2D): void {
+    if (!this.visible) return;
+    const screen = camera.worldToScreen({ x: this.x, y: this.y }, context.canvas.width, context.canvas.height);
+    context.save();
+    context.beginPath();
+    context.fillStyle = this.strokeStyle;
+    context.arc(screen.x, screen.y, this.radius, 0, Math.PI * 2);
+    context.fill();
+    context.restore();
+  }
+
+  toJSON(): Point2DJSON {
     return {
-      type: "Polyline",
+      type: "point2d",
       id: this.id,
-      points: this.points
+      visible: this.visible,
+      x: this.x,
+      y: this.y,
+      radius: this.radius,
+      strokeStyle: this.strokeStyle,
+      fillStyle: this.fillStyle,
+      lineWidth: this.lineWidth,
     };
   }
 }
 
-export class FunctionPlot implements Drawable2D {
-  constructor(
-    public id: string,
-    public fn: (x: number) => number,
-    public xMin: number,
-    public xMax: number
-  ) {}
+export class Line2D extends BasePrimitive {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
 
-  draw(ctx: CanvasRenderingContext2D, cam: Camera2D) {
-    const steps = 300;
-    const points: { x: number; y: number }[] = [];
+  constructor(options: Line2DOptions) {
+    super("line2d", options);
+    this.x1 = options.x1;
+    this.y1 = options.y1;
+    this.x2 = options.x2;
+    this.y2 = options.y2;
+  }
 
-    for (let i = 0; i <= steps; i += 1) {
-      const x = this.xMin + (this.xMax - this.xMin) * (i / steps);
-      const y = this.fn(x);
-      if (Number.isFinite(y)) {
-        points.push({ x, y });
+  render(context: CanvasRenderingContext2D, camera: Camera2D): void {
+    if (!this.visible) return;
+    const a = camera.worldToScreen({ x: this.x1, y: this.y1 }, context.canvas.width, context.canvas.height);
+    const b = camera.worldToScreen({ x: this.x2, y: this.y2 }, context.canvas.width, context.canvas.height);
+
+    context.save();
+    context.beginPath();
+    context.strokeStyle = this.strokeStyle;
+    context.lineWidth = this.lineWidth;
+    context.moveTo(a.x, a.y);
+    context.lineTo(b.x, b.y);
+    context.stroke();
+    context.restore();
+  }
+
+  toJSON(): Line2DJSON {
+    return {
+      type: "line2d",
+      id: this.id,
+      visible: this.visible,
+      x1: this.x1,
+      y1: this.y1,
+      x2: this.x2,
+      y2: this.y2,
+      strokeStyle: this.strokeStyle,
+      fillStyle: this.fillStyle,
+      lineWidth: this.lineWidth,
+    };
+  }
+}
+
+export class Polyline2D extends BasePrimitive {
+  points: Array<{ x: number; y: number }>;
+
+  constructor(options: Polyline2DOptions) {
+    super("polyline2d", options);
+    this.points = options.points;
+  }
+
+  render(context: CanvasRenderingContext2D, camera: Camera2D): void {
+    if (!this.visible || this.points.length === 0) return;
+
+    context.save();
+    context.beginPath();
+    context.strokeStyle = this.strokeStyle;
+    context.lineWidth = this.lineWidth;
+
+    this.points.forEach((point, index) => {
+      const screen = camera.worldToScreen(point, context.canvas.width, context.canvas.height);
+      if (index === 0) {
+        context.moveTo(screen.x, screen.y);
+      } else {
+        context.lineTo(screen.x, screen.y);
+      }
+    });
+
+    context.stroke();
+    context.restore();
+  }
+
+  toJSON(): Polyline2DJSON {
+    return {
+      type: "polyline2d",
+      id: this.id,
+      visible: this.visible,
+      points: this.points,
+      strokeStyle: this.strokeStyle,
+      fillStyle: this.fillStyle,
+      lineWidth: this.lineWidth,
+    };
+  }
+}
+
+export class Grid2D extends BasePrimitive {
+  step: number;
+  extent: number;
+
+  constructor(options: Grid2DOptions) {
+    super("grid2d", options);
+    this.step = options.step ?? 1;
+    this.extent = options.extent ?? 20;
+    this.strokeStyle = options.strokeStyle ?? "#e8eaee";
+    this.lineWidth = options.lineWidth ?? 0.8;
+  }
+
+  render(context: CanvasRenderingContext2D, camera: Camera2D): void {
+    if (!this.visible) return;
+
+    const width = context.canvas.width;
+    const height = context.canvas.height;
+    const bounds = getVisibleWorldBounds(camera, width, height);
+
+    const startX = snapStart(bounds.minX, this.step);
+    const endX = bounds.maxX;
+    const startY = snapStart(bounds.minY, this.step);
+    const endY = bounds.maxY;
+
+    context.save();
+    context.strokeStyle = this.strokeStyle;
+    context.lineWidth = this.lineWidth;
+
+    for (let x = startX; x <= endX; x += this.step) {
+      const a = camera.worldToScreen({ x, y: bounds.minY }, width, height);
+      const b = camera.worldToScreen({ x, y: bounds.maxY }, width, height);
+      context.beginPath();
+      context.moveTo(a.x, a.y);
+      context.lineTo(b.x, b.y);
+      context.stroke();
+    }
+
+    for (let y = startY; y <= endY; y += this.step) {
+      const a = camera.worldToScreen({ x: bounds.minX, y }, width, height);
+      const b = camera.worldToScreen({ x: bounds.maxX, y }, width, height);
+      context.beginPath();
+      context.moveTo(a.x, a.y);
+      context.lineTo(b.x, b.y);
+      context.stroke();
+    }
+
+    context.restore();
+  }
+
+  toJSON(): Grid2DJSON {
+    return {
+      type: "grid2d",
+      id: this.id,
+      visible: this.visible,
+      step: this.step,
+      extent: this.extent,
+      strokeStyle: this.strokeStyle,
+      fillStyle: this.fillStyle,
+      lineWidth: this.lineWidth,
+    };
+  }
+}
+
+export class Axis2D extends BasePrimitive {
+  extent: number;
+  tickStep: number;
+  tickSize: number;
+  showLabels: boolean;
+  labelFont: string;
+
+  constructor(options: Axis2DOptions) {
+    super("axis2d", options);
+    this.extent = options.extent ?? 20;
+    this.tickStep = options.tickStep ?? 1;
+    this.tickSize = options.tickSize ?? 4;
+    this.showLabels = options.showLabels ?? true;
+    this.labelFont = options.labelFont ?? "11px sans-serif";
+    this.strokeStyle = options.strokeStyle ?? "#111827";
+  }
+
+  render(context: CanvasRenderingContext2D, camera: Camera2D): void {
+    if (!this.visible) return;
+
+    const width = context.canvas.width;
+    const height = context.canvas.height;
+    const bounds = getVisibleWorldBounds(camera, width, height);
+    const majorEvery = 5;
+
+    const xAxisA = camera.worldToScreen({ x: bounds.minX, y: 0 }, width, height);
+    const xAxisB = camera.worldToScreen({ x: bounds.maxX, y: 0 }, width, height);
+    const yAxisA = camera.worldToScreen({ x: 0, y: bounds.minY }, width, height);
+    const yAxisB = camera.worldToScreen({ x: 0, y: bounds.maxY }, width, height);
+
+    context.save();
+    context.strokeStyle = this.strokeStyle;
+    context.fillStyle = "#374151";
+    context.lineWidth = 2;
+    context.font = this.labelFont;
+
+    if (bounds.minY <= 0 && bounds.maxY >= 0) {
+      context.beginPath();
+      context.moveTo(xAxisA.x, xAxisA.y);
+      context.lineTo(xAxisB.x, xAxisB.y);
+      context.stroke();
+    }
+
+    if (bounds.minX <= 0 && bounds.maxX >= 0) {
+      context.beginPath();
+      context.moveTo(yAxisA.x, yAxisA.y);
+      context.lineTo(yAxisB.x, yAxisB.y);
+      context.stroke();
+    }
+
+    const startX = snapStart(bounds.minX, this.tickStep);
+    for (let x = startX; x <= bounds.maxX; x += this.tickStep) {
+      if (Math.abs(x) < 1e-9 || !(bounds.minY <= 0 && bounds.maxY >= 0)) continue;
+      const p = camera.worldToScreen({ x, y: 0 }, width, height);
+      const roundedX = Math.round(x);
+      const isMajor = roundedX % majorEvery === 0;
+      const size = isMajor ? 7 : 4;
+
+      context.beginPath();
+      context.lineWidth = isMajor ? 1.5 : 1;
+      context.moveTo(p.x, p.y - size);
+      context.lineTo(p.x, p.y + size);
+      context.stroke();
+
+      if (this.showLabels && isMajor) {
+        context.fillText(String(roundedX), p.x - 7, p.y + 18);
       }
     }
 
-    new Polyline(`${this.id}_poly`, points).draw(ctx, cam);
+    const startY = snapStart(bounds.minY, this.tickStep);
+    for (let y = startY; y <= bounds.maxY; y += this.tickStep) {
+      if (Math.abs(y) < 1e-9 || !(bounds.minX <= 0 && bounds.maxX >= 0)) continue;
+      const p = camera.worldToScreen({ x: 0, y }, width, height);
+      const roundedY = Math.round(y);
+      const isMajor = roundedY % majorEvery === 0;
+      const size = isMajor ? 7 : 4;
+
+      context.beginPath();
+      context.lineWidth = isMajor ? 1.5 : 1;
+      context.moveTo(p.x - size, p.y);
+      context.lineTo(p.x + size, p.y);
+      context.stroke();
+
+      if (this.showLabels && isMajor) {
+        context.fillText(String(roundedY), p.x + 10, p.y + 4);
+      }
+    }
+
+    context.restore();
   }
 
-  serialize() {
+  toJSON(): Axis2DJSON {
     return {
-      type: "FunctionPlot",
+      type: "axis2d",
       id: this.id,
-      xMin: this.xMin,
-      xMax: this.xMax,
-      fn: "runtime"
+      visible: this.visible,
+      extent: this.extent,
+      strokeStyle: this.strokeStyle,
+      fillStyle: this.fillStyle,
+      lineWidth: this.lineWidth,
     };
   }
+}
+
+export class FunctionGraph2D extends BasePrimitive {
+  fn: (x: number) => number;
+  xMin: number;
+  xMax: number;
+  samples: number;
+  breakOnDiscontinuity: boolean;
+  discontinuityThreshold: number;
+
+  constructor(options: FunctionGraph2DOptions) {
+    super("functionGraph2d", options);
+    this.fn = options.fn;
+    this.xMin = options.xMin ?? -10;
+    this.xMax = options.xMax ?? 10;
+    this.samples = options.samples ?? 400;
+    this.breakOnDiscontinuity = options.breakOnDiscontinuity ?? true;
+    this.discontinuityThreshold = options.discontinuityThreshold ?? 20;
+  }
+
+  private buildSegments(): Array<Array<{ x: number; y: number }>> {
+    const segments: Array<Array<{ x: number; y: number }>> = [];
+    let current: Array<{ x: number; y: number }> = [];
+    const step = (this.xMax - this.xMin) / this.samples;
+    let previousY: number | null = null;
+
+    for (let i = 0; i <= this.samples; i += 1) {
+      const x = this.xMin + i * step;
+      const y = this.fn(x);
+
+      if (!Number.isFinite(y)) {
+        if (current.length > 1) segments.push(current);
+        current = [];
+        previousY = null;
+        continue;
+      }
+
+      if (
+        this.breakOnDiscontinuity &&
+        previousY !== null &&
+        Math.abs(y - previousY) > this.discontinuityThreshold
+      ) {
+        if (current.length > 1) segments.push(current);
+        current = [];
+      }
+
+      current.push({ x, y });
+      previousY = y;
+    }
+
+    if (current.length > 1) {
+      segments.push(current);
+    }
+
+    return segments;
+  }
+
+  render(context: CanvasRenderingContext2D, camera: Camera2D): void {
+    if (!this.visible) return;
+
+    const segments = this.buildSegments();
+
+    for (const segment of segments) {
+      new Polyline2D({
+        id: `${this.id}__segment`,
+        points: segment,
+        strokeStyle: this.strokeStyle,
+        lineWidth: this.lineWidth,
+        visible: this.visible,
+      }).render(context, camera);
+    }
+  }
+
+  toJSON(): Polyline2DJSON {
+    const points = this.buildSegments().flat();
+
+    return {
+      type: "polyline2d",
+      id: this.id,
+      visible: this.visible,
+      points,
+      strokeStyle: this.strokeStyle,
+      fillStyle: this.fillStyle,
+      lineWidth: this.lineWidth,
+    };
+  }
+}
+
+export class Circle2D extends BasePrimitive {
+  x: number;
+  y: number;
+  radius: number;
+
+  constructor(options: Circle2DOptions) {
+    super("circle2d", options);
+    this.x = options.x;
+    this.y = options.y;
+    this.radius = options.radius;
+  }
+
+  render(context: CanvasRenderingContext2D, camera: Camera2D): void {
+    if (!this.visible) return;
+    const center = camera.worldToScreen({ x: this.x, y: this.y }, context.canvas.width, context.canvas.height);
+
+    context.save();
+    context.beginPath();
+    context.strokeStyle = this.strokeStyle;
+    context.lineWidth = this.lineWidth;
+    context.arc(center.x, center.y, this.radius * camera.zoom, 0, Math.PI * 2);
+
+    if (this.fillStyle !== "transparent") {
+      context.fillStyle = this.fillStyle;
+      context.fill();
+    }
+
+    context.stroke();
+    context.restore();
+  }
+
+  toJSON(): Circle2DJSON {
+    return {
+      type: "circle2d",
+      id: this.id,
+      visible: this.visible,
+      x: this.x,
+      y: this.y,
+      radius: this.radius,
+      strokeStyle: this.strokeStyle,
+      fillStyle: this.fillStyle,
+      lineWidth: this.lineWidth,
+    };
+  }
+}
+
+export class Rectangle2D extends BasePrimitive {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+
+  constructor(options: Rectangle2DOptions) {
+    super("rectangle2d", options);
+    this.x = options.x;
+    this.y = options.y;
+    this.width = options.width;
+    this.height = options.height;
+  }
+
+  render(context: CanvasRenderingContext2D, camera: Camera2D): void {
+    if (!this.visible) return;
+
+    const topLeft = camera.worldToScreen(
+      { x: this.x, y: this.y + this.height },
+      context.canvas.width,
+      context.canvas.height
+    );
+
+    const pixelWidth = this.width * camera.zoom;
+    const pixelHeight = this.height * camera.zoom;
+
+    context.save();
+    context.beginPath();
+    context.strokeStyle = this.strokeStyle;
+    context.lineWidth = this.lineWidth;
+    context.rect(topLeft.x, topLeft.y, pixelWidth, pixelHeight);
+
+    if (this.fillStyle !== "transparent") {
+      context.fillStyle = this.fillStyle;
+      context.fill();
+    }
+
+    context.stroke();
+    context.restore();
+  }
+
+  toJSON(): Rectangle2DJSON {
+    return {
+      type: "rectangle2d",
+      id: this.id,
+      visible: this.visible,
+      x: this.x,
+      y: this.y,
+      width: this.width,
+      height: this.height,
+      strokeStyle: this.strokeStyle,
+      fillStyle: this.fillStyle,
+      lineWidth: this.lineWidth,
+    };
+  }
+}
+
+export class Label2D extends BasePrimitive {
+  x: number;
+  y: number;
+  text: string;
+  font: string;
+
+  constructor(options: Label2DOptions) {
+    super("label2d", options);
+    this.x = options.x;
+    this.y = options.y;
+    this.text = options.text;
+    this.font = options.font ?? "14px sans-serif";
+    this.fillStyle = options.fillStyle ?? "#111827";
+  }
+
+  render(context: CanvasRenderingContext2D, camera: Camera2D): void {
+    if (!this.visible) return;
+
+    const screen = camera.worldToScreen({ x: this.x, y: this.y }, context.canvas.width, context.canvas.height);
+
+    context.save();
+    context.font = this.font;
+    context.fillStyle = this.fillStyle;
+    context.fillText(this.text, screen.x, screen.y);
+    context.restore();
+  }
+
+  toJSON(): Label2DJSON {
+    return {
+      type: "label2d",
+      id: this.id,
+      visible: this.visible,
+      x: this.x,
+      y: this.y,
+      text: this.text,
+      font: this.font,
+      strokeStyle: this.strokeStyle,
+      fillStyle: this.fillStyle,
+      lineWidth: this.lineWidth,
+    };
+  }
+}
+
+export function plotFunction(options: FunctionGraph2DOptions): FunctionGraph2D {
+  return new FunctionGraph2D(options);
+}
+
+export function compileFunctionExpression(expression: string): (x: number) => number {
+  const normalized = expression
+    .replace(/\^/g, "**")
+    .replace(/\babs\(/g, "Math.abs(")
+    .replace(/\bsin\(/g, "Math.sin(")
+    .replace(/\bcos\(/g, "Math.cos(")
+    .replace(/\btan\(/g, "Math.tan(")
+    .replace(/\bsqrt\(/g, "Math.sqrt(")
+    .replace(/\blog\(/g, "Math.log(")
+    .replace(/\bexp\(/g, "Math.exp(")
+    .replace(/\bPI\b/g, "Math.PI")
+    .replace(/\bE\b/g, "Math.E");
+
+  return new Function("x", `return ${normalized};`) as (x: number) => number;
+}
+
+export function plotFunctionExpression(options: FunctionExpressionOptions): FunctionGraph2D {
+  return new FunctionGraph2D({
+    ...options,
+    fn: compileFunctionExpression(options.expression),
+  });
 }
