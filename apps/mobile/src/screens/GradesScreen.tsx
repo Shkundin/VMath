@@ -26,6 +26,7 @@ type GradesScreenProps = {
   onGradeSubmission: (submissionId: string, score: number | null, comment: string) => void;
   onClearHomeworkResults: () => void;
   onClearTestingResults: (sessionIds: string[]) => void;
+  onClearLectureTestResults: (resultIds: string[]) => void;
 };
 
 type StudentGradeRow = {
@@ -110,7 +111,8 @@ export function GradesScreen({
   lectureTestResults,
   onGradeSubmission,
   onClearHomeworkResults,
-  onClearTestingResults
+  onClearTestingResults,
+  onClearLectureTestResults
 }: GradesScreenProps) {
   const { width } = useWindowDimensions();
   const isPhone = width < 560;
@@ -184,6 +186,7 @@ export function GradesScreen({
 
   const canClearHomeworkResults = submissions.length > 0;
   const canClearTestingResults = isTeacher ? testingRows.length > 0 : testingSubmissions.length > 0;
+  const canClearLectureTestResults = lectureTestResults.length > 0;
   const lectureTestingAverage = useMemo(() => {
     if (lectureTestResults.length === 0) {
       return null;
@@ -198,6 +201,10 @@ export function GradesScreen({
         .map((item) => item.sessionId)
         .filter((sessionId): sessionId is string => Boolean(sessionId))
     );
+  }
+
+  function handleClearLectureTestResults() {
+    onClearLectureTestResults(lectureTestResults.map((item) => item.id));
   }
 
   function handleSaveGrade(submission: HomeworkSubmissionItem, homework: HomeworkItem) {
@@ -228,6 +235,18 @@ export function GradesScreen({
       title={isTeacher ? "Тесты с лекций" : "Мои тесты с лекций"}
       subtitle="Баллы за практические блоки, которые студент проходит прямо внутри лекции."
     >
+      <View style={styles.sectionActions}>
+        <AppButton
+          label="Очистить итоги"
+          onPress={handleClearLectureTestResults}
+          theme={theme}
+          variant="secondary"
+          fullWidth={isPhone}
+          disabled={!canClearLectureTestResults}
+          style={styles.inlineButton}
+        />
+      </View>
+
       {lectureTestResults.length === 0 ? (
         <Text style={styles.emptyText}>Пока нет результатов практики из лекций.</Text>
       ) : (

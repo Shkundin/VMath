@@ -3855,6 +3855,17 @@ export function AppNavigation() {
     );
   }
 
+  function handleClearLectureTestResults(resultIds: string[]) {
+    if (resultIds.length === 0) {
+      return;
+    }
+
+    const resultIdSet = new Set(resultIds);
+    setLectureTestResults((current) =>
+      current.filter((result) => !resultIdSet.has(result.id))
+    );
+  }
+
   async function handleStartTestingSession(input: {
     title: string;
     durationMin: number;
@@ -4573,6 +4584,7 @@ export function AppNavigation() {
             onGradeSubmission={handleGradeHomeworkSubmission}
             onClearHomeworkResults={handleClearHomeworkResults}
             onClearTestingResults={handleClearTestingResults}
+            onClearLectureTestResults={handleClearLectureTestResults}
           />
         ) : null}
 
